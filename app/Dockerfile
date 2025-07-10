@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
 
 # Install dependencies using uv
-# RUN uv pip install --system --no-cache -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy the application source code for the 'app' service
 # COPY . .
