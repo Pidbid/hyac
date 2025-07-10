@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive } from 'vue';
-import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFlex, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon } from 'naive-ui';
+import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick } from 'vue';
+import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch } from 'naive-ui';
 import { AddOutline, CloseOutline, SearchOutline, BrushOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import { useApplicationStore } from '@/store/modules/application';
@@ -29,9 +29,6 @@ import FunctionEditorPanel from './modules/FunctionEditorPanel.vue';
 import FunctionLogPanel from './modules/FunctionLogPanel.vue';
 import FunctionTestPanel from './modules/FunctionTestPanel.vue';
 import FunctionHistoryModal from './modules/FunctionHistoryModal.vue';
-// Dependency and Env management will be handled via dialogs for now
-// import DependencyManager from './modules/DependencyManager.vue';
-// import EnvironmentManager from './modules/EnvironmentManager.vue';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -52,10 +49,16 @@ const commonDependencies = ref<Api.Settings.DependenceInfo[]>([]);
 const systemDependencies = ref<Api.Settings.DependenceInfo[]>([]);
 const userEnv = ref<Api.Settings.EnvInfo[]>([]);
 const systemEnv = ref<Api.Settings.EnvInfo[]>([]);
-const editorConfig = ref({
+const storedEditorConfig = localStorage.getItem('editorConfig');
+const editorConfig = ref(storedEditorConfig ? JSON.parse(storedEditorConfig) : {
+  language: 'python',
   fontSize: 14,
-  tabSize: 4,
-})
+  minimap: true
+});
+
+watch(editorConfig, (newValue) => {
+  localStorage.setItem('editorConfig', JSON.stringify(newValue));
+}, { deep: true });
 
 // State
 const functions = ref<Api.Function.FunctionInfo[]>([]);
@@ -279,6 +282,7 @@ const handleRollback = async (history: Api.Function.FunctionHistoryInfo) => {
     negativeText: '取消',
     onPositiveClick: async () => {
       selectedFunction.value.code = history.new_code;
+      await nextTick();
       await handleSaveCode();
       showHistoryModel.value = false;
       message.success('代码已成功回退并保存');
@@ -289,7 +293,8 @@ const handleRollback = async (history: Api.Function.FunctionHistoryInfo) => {
 const handleFunctionEditorSetting = () => {
   const tempConfig = reactive({
     fontSize: editorConfig.value.fontSize,
-    tabSize: editorConfig.value.tabSize
+    language: 'python',
+    minimap: editorConfig.value.minimap,
   });
   dialog.info({
     title: '编辑器设置',
@@ -302,11 +307,10 @@ const handleFunctionEditorSetting = () => {
             onUpdateValue: (value) => { if (value) tempConfig.fontSize = value; }
           })
         }),
-        h(NFormItem, { label: '缩进大小' }, {
-          default: () => h(NInputNumber, {
-            placeholder: '4',
-            value: tempConfig.tabSize,
-            onUpdateValue: (value) => { if (value) tempConfig.tabSize = value; }
+        h(NFormItem, { label: '代码预览' }, {
+          default: () => h(NSwitch, {
+            value: tempConfig.minimap,
+            onUpdateValue: (value) => { tempConfig.minimap = value; }
           })
         })
       ]
@@ -315,7 +319,7 @@ const handleFunctionEditorSetting = () => {
     negativeText: '取消',
     onPositiveClick: () => {
       editorConfig.value.fontSize = tempConfig.fontSize;
-      editorConfig.value.tabSize = tempConfig.tabSize;
+      editorConfig.value.minimap = tempConfig.minimap;
       message.success('设置成功');
     },
   });
@@ -626,15 +630,15 @@ onBeforeUnmount(() => {
         <FunctionList :functions="functions" :selected-function-id="selectedFunction.id"
           @create-function="handleCreateFunction" @select-function="functionSelect"
           @delete-function="handleDeleteFunction" @open-env-settings="handleEnvSetting(true)"
-          @open-editor-settings="handleFunctionEditorSetting" @open-dependency-manager="handleDependence(true)" />
+          @open-dependency-manager="handleDependence(true)" />
       </template>
       <template #2>
         <NSplit :size="0.85">
           <template #1>
             <NSplit :size="0.8" direction="vertical">
               <template #1>
-                <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode"
-                  @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" />
+                <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
+                  @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
               </template>
               <template #2>
                 <FunctionLogPanel :logs="logStore.logs" />

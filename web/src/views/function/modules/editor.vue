@@ -13,7 +13,6 @@ interface Props {
   height?: number;
   language?: string;
   fontSize?: number;
-  tabSize: number;
   minimap: boolean;
 }
 
@@ -21,7 +20,6 @@ const props = withDefaults(defineProps<Props>(), {
   language: 'python',
   height: 400,
   fontSize: 16,
-  tabSize: 4,
   minimap: true,
 });
 const emit = defineEmits(['update:modelValue']);
@@ -48,7 +46,6 @@ const {
   },
 
   fontSize: props.fontSize,
-  tabSize: props.tabSize,
   lineNumbers: 'on',
   wordWrap: 'on',
   minimap: { enabled: props.minimap },
@@ -68,7 +65,7 @@ onMounted(async () => {
       'python'
     )
     editor?.onDidChangeModelContent(() => {
-      if (isSettingValue.value) return; // 避免 setValue 时触发 emit
+      if (isSettingValue.value) return;
       const value = editor!.getValue();
       emit('update:modelValue', value);
     });
@@ -91,6 +88,26 @@ watch(
     }
   }
 );
+
+watch (
+  () => props.fontSize,
+  (newVal) => {
+    if (editor) {
+      console.log('Updating font size to:', newVal);
+      editor.updateOptions({ fontSize: newVal });
+    }
+  }
+)
+
+watch (
+  () => props.minimap,
+  (newVal) => {
+    if (editor) {
+      console.log('Updating font size to:', newVal);
+      editor.updateOptions({ minimap: {enabled: newVal} });
+    }
+  }
+)
 </script>
 
 <template>

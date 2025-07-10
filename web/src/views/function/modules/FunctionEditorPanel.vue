@@ -1,15 +1,22 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { NCard, NButton, NIcon } from 'naive-ui';
-import { CheckmarkOutline, SaveOutline, InformationCircleOutline } from '@vicons/ionicons5';
+import { CheckmarkOutline, SaveOutline, InformationCircleOutline, BrushOutline } from '@vicons/ionicons5';
 import Editor from './editor.vue'; // 假设 editor.vue 在同一目录下
+
+interface editorConfigT {
+  language: string;
+  fontSize: number;
+  minimap: boolean;
+}
 
 const props = defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
+  editorConfig:editorConfigT;
 }>();
 
-const emit = defineEmits(['save-code', 'open-history', 'update:code']);
+const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings']);
 
 const editorFullRef = ref<HTMLElement | null>(null);
 const editorHeight = ref(0);
@@ -17,7 +24,6 @@ const editorHeight = ref(0);
 const editorConfig = ref({
   language: 'python',
   fontSize: 14,
-  tabSize: 4,
   minimap: true,
 });
 
@@ -69,11 +75,16 @@ watch(() => props.func, () => {
             <NIcon :component="InformationCircleOutline" />
           </template>
         </NButton>
+        <NButton type="default" size="small" @click="emit('open-editor-settings')">
+          <template #icon>
+            <NIcon :component="BrushOutline" />
+          </template>
+        </NButton>
       </div>
     </template>
     <div ref="editorFullRef" class="flex-1 min-h-0 overflow-hidden p-4">
       <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)" :height="editorHeight"
-        :language="editorConfig.language" :tab-size="editorConfig.tabSize" :font-size="editorConfig.fontSize" :minimap="editorConfig.minimap" />
+        :language="props.editorConfig.language" :font-size="props.editorConfig.fontSize" :minimap="props.editorConfig.minimap" />
     </div>
   </NCard>
 </template>

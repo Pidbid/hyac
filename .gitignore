@@ -18,6 +18,7 @@
 .idea
 .clinerules
 .cursor
+.roo
 
 # Nginx
 nginx/conf.d/*

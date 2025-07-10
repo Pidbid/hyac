@@ -7,7 +7,7 @@ defineProps<{
   selectedFunctionId: string | null;
 }>();
 
-const emit = defineEmits(['create-function', 'select-function', 'delete-function', 'open-env-settings', 'open-editor-settings', 'open-dependency-manager']);
+const emit = defineEmits(['create-function', 'select-function', 'delete-function', 'open-env-settings', 'open-dependency-manager']);
 
 </script>
 
@@ -21,36 +21,28 @@ const emit = defineEmits(['create-function', 'select-function', 'delete-function
       </NButton>
     </template>
     <template #footer>
-      <n-tooltip trigger="hover">
-        <template #trigger>
-          <NButton size="small" @click="emit('open-env-settings')">
-            <template #icon>
-              <NIcon :component="CubeOutline" />
-            </template>
-          </NButton>
-        </template>
-        环境变量
-      </n-tooltip>
-      <n-tooltip trigger="hover">
-        <template #trigger>
-          <NButton class="ml-2" size="small" @click="emit('open-editor-settings')">
-            <template #icon>
-              <NIcon :component="BrushOutline" />
-            </template>
-          </NButton>
-        </template>
-        外观
-      </n-tooltip>
-      <n-tooltip trigger="hover">
-        <template #trigger>
-          <NButton class="ml-2" size="small" @click="emit('open-dependency-manager')">
-            <template #icon>
-              <NIcon :component="HammerOutline" />
-            </template>
-          </NButton>
-        </template>
-        依赖管理
-      </n-tooltip>
+      <div class="flex justify-end w-full">
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <NButton size="small" @click="emit('open-env-settings')">
+              <template #icon>
+                <NIcon :component="CubeOutline" />
+              </template>
+            </NButton>
+          </template>
+          环境变量
+        </n-tooltip>
+        <n-tooltip trigger="hover">
+          <template #trigger>
+            <NButton class="ml-2" size="small" @click="emit('open-dependency-manager')">
+              <template #icon>
+                <NIcon :component="HammerOutline" />
+              </template>
+            </NButton>
+          </template>
+          依赖管理
+        </n-tooltip>
+      </div>
     </template>
     <div class="function-list-container">
       <NList v-if="functions.length > 0" hoverable clickable>
