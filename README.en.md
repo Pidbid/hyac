@@ -1,4 +1,17 @@
-# Hyac - ⚡ Full-Stack FaaS Platform ⚡
+# Hyac - A Lightweight Python FaaS and Application Platform
+
+<div align="center">
+  <img src="images/logo.svg" width="150" alt="Hyac Logo">
+</div>
+
+> [!WARNING]
+> **This project is in the early development stage.**
+>
+> - Features and APIs are subject to significant changes.
+> - Deploying to a production environment may lead to unknown risks and issues.
+> - The project architecture may be adjusted and refactored in the future.
+>
+> Feedback and contributions are welcome, but please use with caution in production.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

@@ -1,4 +1,17 @@
-#  Hyac - ⚡ 全栈 FaaS 平台 ⚡
+# Hyac - 轻量级Python函数计算与应用平台
+
+<div align="center">
+  <img src="images/logo.svg" width="150" alt="Hyac Logo">
+</div>
+
+> [!WARNING]
+> **当前项目处于早期开发阶段**
+>
+> - 功能和 API 可能会发生较大变化。
+> - 直接部署用于生产环境可能会存在未知的风险和问题。
+> - 项目架构在后期可能会进行调整和重构。
+>
+> 欢迎提供反馈和贡献，但请谨慎用于生产环境。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
