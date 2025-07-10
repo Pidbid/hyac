@@ -1,5 +1,9 @@
 # Hyac - A Lightweight Python FaaS and Application Platform
 
+<p align="right">
+  <a href="./README.md">简体中文</a>
+</p>
+
 <div align="center">
   <img src="images/logo.svg" width="150" alt="Hyac Logo">
 </div>
@@ -105,7 +109,7 @@ graph TD
 Execute the following command to build and start all services:
 
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ### 🌐 Access Points
@@ -113,16 +117,18 @@ docker-compose up -d --build
 - **Frontend Application**: `http://localhost:80`
 - **MinIO Console**: `http://localhost:9001` (Default username/password: `minioadmin`/`minioadmin`)
 
-## 📁 Project Structure
+## 📁 Major Project Structure
 
 ```
 .
 ├── app/            # Function Executor Service
 ├── server/         # Core Backend Service
 ├── web/            # Frontend Application (Vue 3)
-├── core/           # Shared Libraries
 ├── nginx/          # Nginx Configuration
 ├── docker-compose.yml # Docker Compose Configuration
+├── ...
+├── ...
+├── ...
 └── .env            # Environment Variables
 ```
 

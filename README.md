@@ -1,5 +1,9 @@
 # Hyac - 轻量级Python函数计算与应用平台
 
+<p align="right">
+  <a href="./README.en.md">English</a>
+</p>
+
 <div align="center">
   <img src="images/logo.svg" width="150" alt="Hyac Logo">
 </div>
@@ -105,7 +109,7 @@ graph TD
 执行以下命令以构建和启动所有服务：
 
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ### 🌐 访问地址
@@ -113,16 +117,18 @@ docker-compose up -d --build
 - **前端应用**: `http://localhost:80`
 - **MinIO 控制台**: `http://localhost:9001` (默认用户名/密码: `minioadmin`/`minioadmin`)
 
-## 📁 项目结构
+## 📁 主要项目结构
 
 ```
 .
 ├── app/            # 函数执行器服务
 ├── server/         # 核心后端服务
 ├── web/            # 前端应用 (Vue 3)
-├── core/           # 共享库
 ├── nginx/          # Nginx 配置
 ├── docker-compose.yml # Docker Compose 配置
+├── ...
+├── ...
+├── ...
 └── .env            # 环境变量
 ```
 
