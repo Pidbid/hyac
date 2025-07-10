@@ -1,0 +1,88 @@
+services:
+  mongodb:
+    image: bitnami/mongodb:latest
+    container_name: hyac_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGODB_ROOT_USER: ${MONGODB_USERNAME}
+      MONGODB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_REPLICA_SET_NAME: rs0
+      MONGODB_REPLICA_SET_KEY: ${MONGODB_PASSWORD}
+    volumes:
+      - mongodb_data:/bitnami/mongodb
+    networks:
+      - hyac_network
+  minio:
+    image: bitnami/minio:latest
+    container_name: hyac_minio
+    restart: unless-stopped
+    ports:
+    - 9000:9000
+    - 9001:9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+    - minio_data:/data
+    networks:
+    - hyac_network
+  nginx:
+    image: jonasal/nginx-certbot:latest
+    container_name: hyac_nginx
+    restart: unless-stopped
+    environment:
+      CERTBOT_EMAIL: ${EMAIL_ADDRESS}
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - ./nginx/conf.d:/etc/nginx/user_conf.d:ro
+    - ./nginx/certs:/etc/letsencrypt
+    depends_on:
+    - server
+    networks:
+    - hyac_network
+  server:
+    image: hyac_server:latest
+    container_name: hyac_server
+    restart: unless-stopped
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS}
+      MONGODB_USERNAME: ${MONGODB_USERNAME}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+      DEV_MODE: ${DEV_MODE}
+    ports:
+      - 8000:8000
+    depends_on:
+    - mongodb
+    - minio
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./nginx/conf.d:/server/nginx/conf.d
+    - ./server:/server
+    networks:
+    - hyac_network
+  lsp:
+    image: hyac_lsp:latest
+    container_name: hyac_lsp
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    networks:
+      - hyac_network
+
+networks:
+  hyac_network:
+    driver: bridge
+volumes:
+  mongodb_data:
+    driver: local
+  minio_data:
+    driver: local

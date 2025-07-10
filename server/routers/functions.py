@@ -1,0 +1,360 @@
+# routers/services/functions.py
+import math
+from datetime import datetime
+from typing import Optional
+from bson import ObjectId
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from core.cache import code_cache
+from core.config import settings
+from core.jwt_auth import get_current_user
+from models.applications_model import Application
+from models.common_model import BaseResponse
+from models.functions_history_model import FunctionsHistory
+from models.functions_model import Function, FunctionStatus
+from models.function_template_model import FunctionTemplate
+from models.statistics_model import FunctionMetric
+from core.code_loader import CodeLoader
+
+router = APIRouter(
+    prefix="/function",
+    tags=["Function Management"],
+    responses={404: {"description": "Not found"}},
+)
+
+code_loader = CodeLoader()
+
+
+from models.functions_model import Function, FunctionStatus, FunctionType
+
+
+class CreateFunctionRequest(BaseModel):
+    """Request model for creating a function."""
+
+    appId: str
+    name: str
+    type: str = "endpoint"
+    description: str = ""
+    tags: list[str] = []
+    language: str = "zh-CN"
+    template_id: Optional[str] = None
+
+
+class UpdateFunctionRequest(BaseModel):
+    """Request model for updating a function's properties."""
+
+    code: Optional[str] = None
+    method: Optional[str] = None
+    status: Optional[FunctionStatus] = None
+    dependencies: Optional[list[str]] = None
+    memory_limit: Optional[int] = None
+    timeout: Optional[int] = None
+    requires_auth: Optional[bool] = None
+
+
+class FunctionDataRequestModel(BaseModel):
+    """Request model for paginating through functions."""
+
+    appId: str
+    page: int = 1
+    length: int = 10
+
+
+class FunctionUpdateCodeModel(BaseModel):
+    """Request model for updating a function's code."""
+
+    appId: str
+    id: str
+    code: str
+
+
+class DeleteFunctionRequest(BaseModel):
+    """Request model for deleting a function."""
+
+    appId: str
+    id: str
+
+
+class GetFunctionUrlRequest(BaseModel):
+    """Request model for getting function url."""
+
+    appId: str
+    id: str
+
+
+class FunctionHistoryRequest(BaseModel):
+    """Request model for function histories."""
+
+    appId: str
+    id: str
+
+
+@router.post("/url", response_model=BaseResponse)
+async def function_url(
+    data: GetFunctionUrlRequest, current_user=Depends(get_current_user)
+):
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    func_result = await Function.find_one(
+        Function.id == ObjectId(data.id), Function.app_id == app.app_id
+    )
+    if not func_result:
+        raise HTTPException(status_code=404, detail="Function not found")
+    function_url = f"{data.appId}.{settings.DOMAIN_NAME}/{data.id}"
+    return BaseResponse(code=0, msg="Get function url success", data=function_url)
+
+
+@router.post("/create", response_model=BaseResponse)
+async def create_function(
+    data: CreateFunctionRequest, current_user=Depends(get_current_user)
+):
+    """
+    Creates a new function within an application.
+    """
+    # Find the application by app_id to get the app_id.
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Check if the function already exists in the application.
+    if await Function.find_one(
+        Function.function_name == data.name, Function.app_id == app.app_id
+    ):
+        raise HTTPException(
+            status_code=409, detail="Function with this name already exists"
+        )
+
+    code = ""
+    if data.template_id:
+        template = await FunctionTemplate.find_one(
+            FunctionTemplate.id == ObjectId(data.template_id)
+        )
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+
+        # Check if the template's function type is compatible.
+        if FunctionType(data.type) != template.function_type:
+            raise HTTPException(
+                status_code=400,
+                detail="The selected template is not applicable for the chosen function type.",
+            )
+        code = template.code
+    else:
+        # If no template is specified, find a default system template from the DB.
+        default_template = await FunctionTemplate.find_one(
+            FunctionTemplate.type == "system",
+            FunctionTemplate.function_type == FunctionType(data.type),
+        )
+        if default_template:
+            code = default_template.code
+        else:
+            # Fallback if no default template is found in the database
+            raise HTTPException(
+                status_code=404,
+                detail=f"No default template found for function type '{data.type}'. Please create a template first.",
+            )
+
+    new_func = Function(
+        function_name=data.name,
+        app_id=app.app_id,
+        function_type=FunctionType(data.type),
+        description=data.description,
+        tags=data.tags,
+        users=[current_user.username],  # Associate the current user
+        status=FunctionStatus.PUBLISHED,  # Default status is published
+        code=code,
+    )
+    await new_func.insert()
+
+    # Load the new function into the cache.
+    await code_loader.load_function_by_name(new_func.app_id, new_func.function_id)
+
+    return BaseResponse(
+        code=0,
+        msg="Function created successfully",
+        data={
+            "function_id": new_func.function_id,
+            "function_name": new_func.function_name,
+            "app_id": new_func.app_id,
+        },
+    )
+
+
+@router.post("/data", response_model=BaseResponse)
+async def list_functions(
+    data: FunctionDataRequestModel,
+    current_user=Depends(get_current_user),
+):
+    """
+    Lists all functions for a given application with pagination.
+    """
+    # Find the application by app_id to ensure it exists.
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Build the query based on user authentication.
+    if not current_user:
+        query = Function.find(
+            Function.app_id == app.app_id, Function.requires_auth == False
+        )
+    else:
+        query = Function.find(Function.app_id == app.app_id)
+
+    total_count = await query.count()
+    items = await query.skip((data.page - 1) * data.length).limit(data.length).to_list()
+    page_num = math.ceil(total_count / data.length) if data.length > 0 else 0
+
+    return BaseResponse(
+        code=0,
+        msg="success",
+        data={
+            "data": items,
+            "total": total_count,
+            "pageNum": page_num,
+            "pageSize": data.length,
+        },
+    )
+
+
+@router.post("/update_code", response_model=BaseResponse)
+async def update_function_code(
+    data: FunctionUpdateCodeModel, current_user=Depends(get_current_user)
+):
+    """
+    Updates the code of a specific function and records the change in history.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    function_id = data.id
+    code = data.code
+
+    if not function_id or not code:
+        raise HTTPException(status_code=400, detail="Function ID and code are required")
+
+    func = await Function.find_one(
+        Function.function_id == function_id,
+        Function.app_id == app.app_id,
+        Function.users == current_user.username,
+    )
+    if not func:
+        raise HTTPException(
+            status_code=404, detail="Function not found or permission denied"
+        )
+
+    # Record the code change in the history.
+    await FunctionsHistory(
+        function_id=func.function_id,
+        old_code=func.code,
+        new_code=code,
+        updated_by=current_user.username,
+        updated_at=datetime.now(),
+    ).insert()
+
+    func.code = code
+    func.update_timestamp()
+    await func.save()
+
+    # The cache in the 'app' service will be invalidated by the cache_watcher.
+    # No need to invalidate here as the 'server' and 'app' caches are separate.
+
+    return BaseResponse(code=0, msg="Function code updated successfully", data={})
+
+
+@router.post("/delete", response_model=BaseResponse)
+async def delete_function(
+    data: DeleteFunctionRequest, current_user=Depends(get_current_user)
+):
+    """
+    Deletes a function from the database and clears its cache.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    function_id = data.id
+
+    if not function_id:
+        raise HTTPException(status_code=400, detail="Function ID is required")
+
+    func = await Function.find_one(
+        Function.function_id == function_id,
+        Function.app_id == app.app_id,
+        Function.users == current_user.username,
+    )
+    if not func:
+        raise HTTPException(
+            status_code=404, detail="Function not found or you don't have permission"
+        )
+
+    # Delete the function from the database.
+    await func.delete()
+
+    # Delete the function history from the database.
+    await FunctionsHistory.find(FunctionsHistory.function_id == function_id).delete()
+    # Delete the function statistics from the database.
+    await FunctionMetric.find(FunctionMetric.function_id == function_id).delete()
+    # Invalidate the function cache.
+    code_cache.invalidate(func.app_id, func.function_id)
+
+    return BaseResponse(code=0, msg="Function deleted successfully", data={})
+
+
+@router.post("/function_history", response_model=BaseResponse)
+async def function_history(
+    data: FunctionHistoryRequest, current_user=Depends(get_current_user)
+):
+    """
+    Get function histories.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    function_id = data.id
+
+    if not function_id:
+        raise HTTPException(status_code=400, detail="Function ID is required")
+
+    func = await Function.find_one(
+        Function.function_id == function_id,
+        Function.app_id == app.app_id,
+        Function.users == current_user.username,
+    )
+    if not func:
+        raise HTTPException(
+            status_code=404, detail="Function not found or permission denied"
+        )
+
+    function_histories = await FunctionsHistory.find(
+        FunctionsHistory.function_id == function_id
+    ).to_list()
+
+    return BaseResponse(
+        code=0,
+        msg="Get function histories successfully",
+        data={"data": function_histories},
+    )

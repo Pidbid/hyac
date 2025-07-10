@@ -1,0 +1,24 @@
+# Environments
+.env
+!/web/.env
+
+# Dependencies
+**/node_modules
+**/dist
+.venv
+
+# Python
+**/__pycache__
+*.pyc
+*.pyo
+
+# IDEs and Editors
+.github
+.vscode
+.idea
+.clinerules
+.cursor
+
+# Nginx
+nginx/conf.d/*
+nginx/certs/*

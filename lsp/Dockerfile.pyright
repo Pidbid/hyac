@@ -1,0 +1,49 @@
+# ---- Builder Stage ----
+# 目的: 安装 npm 依赖
+FROM node:18-slim AS builder
+
+WORKDIR /app
+
+# 只复制 package.json 和 package-lock.json (如果存在)
+# 这样可以利用 Docker 的层缓存
+COPY package.json ./
+# 如果有 package-lock.json，也复制它
+# COPY package-lock.json ./
+
+# 安装生产环境依赖
+RUN npm install --production --no-fund --no-audit --no-update-notifier
+
+
+# ---- Final Stage ----
+# 目的: 构建一个最小化、更安全的生产镜像
+FROM node:18-slim
+
+# 全局安装 pyright，这是运行服务所必需的
+RUN npm install -g pyright --no-fund --no-audit --no-update-notifier
+
+# 创建一个非 root 用户和组
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodeuser --ingroup nodejs
+
+# 设置工作目录
+WORKDIR /home/nodeuser/app
+
+# 从 builder 阶段复制依赖和应用代码
+COPY --from=builder /app/node_modules ./node_modules
+COPY server.js .
+
+# 提前创建 workspace 目录并赋予权限
+RUN mkdir -p /workspace && \
+    chown -R nodeuser:nodejs /workspace
+
+# 更改应用目录文件所有权为新创建的用户
+RUN chown -R nodeuser:nodejs /home/nodeuser/app
+
+# 切换到非 root 用户
+USER nodeuser
+
+# 暴露端口
+EXPOSE 8765
+
+# 启动命令
+CMD ["node", "server.js"]

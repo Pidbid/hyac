@@ -1,0 +1,7 @@
+[project]
+name = "hyac"
+version = "0.1.0"
+description = "A python serverless web framework"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []

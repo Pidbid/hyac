@@ -1,0 +1,143 @@
+<script setup lang="ts">
+import type { MonacoLanguage, MonacoTheme } from 'vue-use-monaco'
+import { onMounted, ref, watch } from 'vue'
+import * as monaco from 'monaco-editor';
+import { useMonaco } from 'vue-use-monaco'
+
+const editorContainer = ref<HTMLElement>()
+let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+const isSettingValue = ref(false);
+
+
+interface Props {
+  modelValue: string;
+  height?: number;
+  language?: string;
+  fontSize?: number;
+  tabSize: number;
+  minimap: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  language: 'python',
+  height: 400,
+  fontSize: 16,
+  tabSize: 4,
+  minimap: true,
+});
+const emit = defineEmits(['update:modelValue']);
+
+const {
+  createEditor,
+  updateCode,
+  setTheme,
+  setLanguage,
+  getCurrentTheme,
+  getEditor,
+  getEditorView,
+  cleanupEditor
+} = useMonaco({
+  // 主题配置 - 至少需要两个主题（暗色/亮色）
+  themes: ['github-dark', 'github-light'],
+
+  // 支持的语言列表
+  languages: ['javascript', 'typescript', 'python', 'vue', 'json'],
+
+  // 编辑器最大高度
+  MAX_HEIGHT: 500,
+
+  // 是否只读
+  readOnly: false,
+
+  // 是否在创建前清理之前的资源
+  isCleanOnBeforeCreate: true,
+
+  // 创建前的钩子函数
+  onBeforeCreate: (monaco) => {
+    // 可以在这里注册自定义语言、主题等
+    console.log('Monaco editor is about to be created', monaco)
+    return [] // 返回需要清理的 disposable 对象数组
+  },
+
+  // Monaco 编辑器原生配置
+  fontSize: props.fontSize,
+  tabSize: props.tabSize,
+  lineNumbers: 'on',
+  wordWrap: 'on',
+  minimap: { enabled: props.minimap },
+  scrollbar: {
+    verticalScrollbarSize: 10,
+    horizontalScrollbarSize: 10,
+    alwaysConsumeMouseWheel: false
+  },
+  fontFamily: 'Courier New, monospace',
+})
+
+onMounted(async () => {
+  if (editorContainer.value) {
+    editor = await createEditor(
+      editorContainer.value,
+      props.modelValue,
+      'python'
+    )
+    // v-model 双向绑定
+    editor?.onDidChangeModelContent(() => {
+      if (isSettingValue.value) return; // 避免 setValue 时触发 emit
+      const value = editor!.getValue();
+      emit('update:modelValue', value);
+    });
+
+    console.log('Editor created:', editor)
+  }
+})
+
+// 主题切换
+function switchTheme(theme: MonacoTheme) {
+  setTheme(theme)
+}
+
+// 语言切换
+function switchLanguage(language: MonacoLanguage) {
+  setLanguage(language)
+}
+
+// 更新代码
+function updateEditorCode(code: string, language: string) {
+  updateCode(code, language)
+}
+
+// 获取当前主题
+const currentTheme = getCurrentTheme()
+console.log('Current theme:', currentTheme)
+
+// 获取 Monaco 静态 API
+const monacoEditor = getEditor()
+console.log('Monaco editor API:', monacoEditor)
+
+// 获取编辑器实例
+const editorInstance = getEditorView()
+console.log('Editor instance:', editorInstance)
+
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (editor && editor.getValue() !== newVal) {
+      // 记录当前光标
+      const selection = editor.getSelection();
+      isSettingValue.value = true;
+      editor.setValue(newVal);
+      // 恢复光标
+      if (selection) {
+        editor.setSelection(selection);
+      }
+      isSettingValue.value = false;
+    }
+  }
+);
+</script>
+
+<template>
+  <div>
+    <div ref="editorContainer" class="editor" />
+  </div>
+</template>

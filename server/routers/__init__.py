@@ -1,0 +1,9 @@
+from .applications import router as applications_router
+from .database import router as database_router
+from .functions import router as functions_router
+from .logs import router as logs_router
+from .storage import router as storage_router
+from .users import router as users_router
+from .statistics import router as statistics_router
+from .function_templates import router as function_templates_router
+from .settings import router as settings_router
