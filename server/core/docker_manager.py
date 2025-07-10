@@ -548,11 +548,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         name=container_name,
         environment=environment,
         network="hyac_hyac_network",
-        volumes=(
-            {"E:\\CODE\\Hyac\\app": {"bind": "/app", "mode": "rw"}}
-            if settings.DEV_MODE
-            else {}
-        ),
+        volumes={},
         restart=False,
         healthcheck=healthcheck,
     )
