@@ -14,6 +14,7 @@ const props = defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
   editorConfig:editorConfigT;
+  theme: 'github-light' | 'github-dark';
 }>();
 
 const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings']);
@@ -25,6 +26,7 @@ const editorConfig = ref({
   language: 'python',
   fontSize: 14,
   minimap: true,
+  theme: 'github-light'
 });
 
 const updateEditorHeight = () => {
@@ -84,7 +86,7 @@ watch(() => props.func, () => {
     </template>
     <div ref="editorFullRef" class="flex-1 min-h-0 overflow-hidden p-4">
       <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)" :height="editorHeight"
-        :language="props.editorConfig.language" :font-size="props.editorConfig.fontSize" :minimap="props.editorConfig.minimap" />
+        :language="props.editorConfig.language" :font-size="props.editorConfig.fontSize" :minimap="props.editorConfig.minimap" :theme="props.editorConfig.theme" />
     </div>
   </NCard>
 </template>

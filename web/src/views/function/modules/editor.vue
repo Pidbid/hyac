@@ -14,6 +14,7 @@ interface Props {
   language?: string;
   fontSize?: number;
   minimap: boolean;
+  theme: 'github-light' | 'github-dark';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
   height: 400,
   fontSize: 16,
   minimap: true,
+  theme: 'github-light'
 });
 const emit = defineEmits(['update:modelValue']);
 
@@ -105,6 +107,15 @@ watch (
     if (editor) {
       console.log('Updating font size to:', newVal);
       editor.updateOptions({ minimap: {enabled: newVal} });
+    }
+  }
+)
+
+watch(
+  () => props.theme,
+  (newVal) => {
+    if (editor) {
+      setTheme(newVal);
     }
   }
 )

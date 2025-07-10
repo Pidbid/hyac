@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
 import { useLogStore } from '@/store/modules/log';
+import { useThemeStore } from '@/store/modules/theme';
 import { useAppStore } from '@/store/modules/app';
 import {
   CreateFunction,
@@ -36,6 +37,7 @@ const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
 const appStore = useAppStore();
 const logStore = useLogStore();
+const themeStore = useThemeStore();
 
 const isDependenceLoading = ref(false)
 const dependenceTabsRef = ref<undefined | HTMLElement>(undefined)
@@ -53,8 +55,13 @@ const storedEditorConfig = localStorage.getItem('editorConfig');
 const editorConfig = ref(storedEditorConfig ? JSON.parse(storedEditorConfig) : {
   language: 'python',
   fontSize: 14,
-  minimap: true
+  minimap: true,
+  theme: 'github-light'
 });
+
+watch(() => themeStore.darkMode, (isDark) => {
+  editorConfig.value.theme = isDark ? 'github-dark' : 'github-light';
+}, { immediate: true });
 
 watch(editorConfig, (newValue) => {
   localStorage.setItem('editorConfig', JSON.stringify(newValue));
