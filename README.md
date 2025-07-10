@@ -17,6 +17,12 @@
 >
 > 欢迎提供反馈和贡献，但请谨慎用于生产环境。
 
+## 🖼️ 预览
+
+<div align="center">
+  <img src="images/demo.png" alt="Demo">
+</div>
+
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 📖 介绍
