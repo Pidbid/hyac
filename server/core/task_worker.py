@@ -100,7 +100,6 @@ async def process_pending_tasks():
                 {"status": TaskStatus.PENDING},
                 {
                     "action": TaskAction.START_APP,
-                    "status": TaskStatus.FAILED,
                 },
             ]
         }
