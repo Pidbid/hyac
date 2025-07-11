@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime
-from beanie.odm.operators.update.general import Set
 from loguru import logger
 
 from models.tasks_model import Task, TaskStatus, TaskAction
@@ -21,7 +20,7 @@ async def process_task(task: Task):
 
     # 更新任务状态为 running
     await task.update(
-        Set({Task.status: TaskStatus.RUNNING, "updated_at": datetime.now()})
+        {"$set": {Task.status: TaskStatus.RUNNING, "updated_at": datetime.now()}}
     )
 
     try:
@@ -61,13 +60,13 @@ async def process_task(task: Task):
 
         # 更新任务状态为 success
         await task.update(
-            Set(
-                {
+            {
+                "$set": {
                     Task.status: TaskStatus.SUCCESS,
                     "result": {"message": "Task completed successfully."},
                     "updated_at": datetime.now(),
                 }
-            )
+            }
         )
         logger.info(f"Task {task.task_id} completed successfully.")
 
@@ -76,13 +75,13 @@ async def process_task(task: Task):
         logger.error(error_message)
         # 更新任务状态为 failed 并记录错误
         await task.update(
-            Set(
-                {
+            {
+                "$set": {
                     Task.status: TaskStatus.FAILED,
                     "result": {"error": error_message},
                     "updated_at": datetime.now(),
                 }
-            )
+            }
         )
 
 
