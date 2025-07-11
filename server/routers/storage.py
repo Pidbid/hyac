@@ -58,7 +58,7 @@ async def create_folder(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     success = minio_manager.create_folder(data.appId.lower(), data.folder_name)
     if not success:
@@ -79,7 +79,7 @@ async def delete_file(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     success = minio_manager.delete_object(data.appId.lower(), data.object_name)
     if not success:
@@ -98,7 +98,7 @@ async def delete_folder(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     success = minio_manager.delete_folder(data.appId.lower(), data.folder_name)
     if not success:
@@ -122,7 +122,7 @@ async def upload_file(
         Application.app_id == appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(await file.read())
@@ -150,7 +150,7 @@ async def download_file(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     if not minio_manager.client:
         raise HTTPException(status_code=500, detail="MinIO client is not initialized")
@@ -183,7 +183,7 @@ async def get_download_url(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     url = minio_manager.get_download_url(data.appId.lower(), data.object_name)
     if not url:
@@ -205,7 +205,7 @@ async def list_objects(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     objects = minio_manager.list_objects(data.appId.lower(), data.prefix)
     if objects is None:

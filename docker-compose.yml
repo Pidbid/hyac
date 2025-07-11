@@ -58,6 +58,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: ${DEV_MODE}
+      APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
     ports:
       - 8000:8000
     depends_on:

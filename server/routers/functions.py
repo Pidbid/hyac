@@ -99,7 +99,7 @@ async def function_url(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
     func_result = await Function.find_one(
         Function.id == ObjectId(data.id), Function.app_id == app.app_id
     )
@@ -121,7 +121,7 @@ async def create_function(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     # Check if the function already exists in the application.
     if await Function.find_one(
@@ -200,7 +200,7 @@ async def list_functions(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     # Build the query based on user authentication.
     if not current_user:

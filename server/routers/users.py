@@ -206,7 +206,7 @@ async def update_user(username: str, data: UpdateUserRequest):
     """
     user = await User.find_one(User.username == username)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        return BaseResponse(code=110, msg="User not found")
 
     update_data = data.dict(exclude_unset=True)
     if "password" in update_data and update_data["password"]:
@@ -227,7 +227,7 @@ async def delete_user(username: str):
     """
     user = await User.find_one(User.username == username)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        return BaseResponse(code=110, msg="User not found")
 
     await user.delete()
     return BaseResponse(code=0, msg=f"User '{username}' deleted successfully")
@@ -240,7 +240,7 @@ async def get_user(username: str):
     """
     user = await User.find_one(User.username == username)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        return BaseResponse(code=110, msg="User not found")
     return user
 
 

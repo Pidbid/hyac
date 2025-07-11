@@ -539,12 +539,26 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "start_period": 15 * 1000000000,  # 15-second grace period
     }
 
+    # Determine volumes based on DEV_MODE
+    volumes = {}
+    if settings.DEV_MODE:
+        if settings.APP_CODE_PATH_ON_HOST:
+            volumes = {settings.APP_CODE_PATH_ON_HOST: {"bind": "/app", "mode": "rw"}}
+            logger.info(
+                f"DEV_MODE: Mounting app code from {settings.APP_CODE_PATH_ON_HOST}"
+            )
+        else:
+            logger.warning(
+                "DEV_MODE is enabled, but APP_CODE_PATH_ON_HOST is not set. "
+                "Code changes will not be reflected in the app container."
+            )
+
     container = docker_manager.create_container(
         image=APP_IMAGE_NAME,
         name=container_name,
         environment=environment,
         network="hyac_hyac_network",
-        volumes={},
+        volumes=volumes,
         restart=False,
         healthcheck=healthcheck,
     )

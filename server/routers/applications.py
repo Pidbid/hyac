@@ -183,12 +183,12 @@ async def start_application(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(
-            status_code=404, detail="Application not found or you don't have permission"
+        return BaseResponse(
+            code=202, msg="Application not found or you don't have permission"
         )
 
     if app.status == ApplicationStatus.RUNNING:
-        raise HTTPException(status_code=400, detail="Application is already running.")
+        return BaseResponse(code=400, msg="Application is already running.")
 
     app.status = ApplicationStatus.STARTING
     await app.save()
@@ -316,7 +316,7 @@ async def get_application(
         Application.app_id == data.appId, Application.users == user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     return BaseResponse(code=0, msg="success", data=app)
 

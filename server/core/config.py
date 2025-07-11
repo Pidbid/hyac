@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     DEV_MODE: Optional[bool] = False
     TZ: Optional[str] = "Asia/Shanghai"
     WEB_BUILD: Optional[bool] = False
+    APP_CODE_PATH_ON_HOST: Optional[str] = None  # only used in dev mode
 
     class Config:
         """

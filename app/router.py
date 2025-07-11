@@ -22,6 +22,7 @@ from models.statistics_model import CallStatus, FunctionMetric
 from code_loader import CodeLoader
 from core.logger import LogType
 from core.db_manager import db_manager
+from core.common_model import BaseResponse
 
 router = APIRouter()
 code_loader = CodeLoader()
@@ -48,7 +49,7 @@ async def get_application(app_id: str = Depends(get_app_id)) -> Application:
     """
     application = await Application.find_one({"app_id": app_id})
     if not application:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
     return application
 
 
