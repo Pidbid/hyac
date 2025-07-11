@@ -11,7 +11,7 @@ from loguru import logger
 import socket
 
 from core.config import settings
-from models import Application, Function
+from models import Application, Function, FunctionTemplate
 from core.minio_manager import minio_manager
 from core.database_dynamic import dynamic_db
 from core.cache import code_cache
@@ -587,6 +587,11 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         await docker_manager.remove_container(container_name)
         return None
 
+    # Initialize function templates for the newly created app
+    from core.initialization import create_function_templates_for_app
+
+    await create_function_templates_for_app(app.app_id)
+
     # Create and reload Nginx config now that the service is confirmed to be up
     if await create_app_nginx_config(app.app_id, container_name):
         reload_success = False
@@ -650,14 +655,31 @@ async def delete_application_background(app: Application):
     """
     logger.info(f"Starting background deletion for app '{app.app_name}' ({app.app_id})")
 
-    # 1. Stop and remove the application container
+    # 1. Cancel any pending startup tasks for this app
+    from models.tasks_model import Task, TaskAction, TaskStatus
+
+    try:
+        pending_start_tasks = await Task.find(
+            {"payload.app_id": app.app_id, "action": TaskAction.START_APP}
+        ).to_list()
+
+        if pending_start_tasks:
+            for task in pending_start_tasks:
+                await task.delete()
+                logger.info(
+                    f"Deleted pending start task '{task.task_id}' for app '{app.app_id}'."
+                )
+    except Exception as e:
+        logger.error(f"Error deleting pending start tasks for app '{app.app_id}': {e}")
+
+    # 2. Stop and remove the application container
     try:
         await stop_app_container(app.app_id)
         logger.info(f"Container for app '{app.app_id}' stopped and removed.")
     except Exception as e:
         logger.error(f"Error stopping container for app '{app.app_id}': {e}")
 
-    # 2. Delete all functions associated with the application
+    # 3. Delete all functions associated with the application
     try:
         functions_to_delete = await Function.find(
             Function.app_id == app.app_id
@@ -671,7 +693,20 @@ async def delete_application_background(app: Application):
     except Exception as e:
         logger.error(f"Error deleting functions for app '{app.app_id}': {e}")
 
-    # 3. Delete MinIO buckets
+    # 4. Delete all function templates associated with the application
+    try:
+        templates_to_delete = await FunctionTemplate.find(
+            FunctionTemplate.app_id == app.app_id
+        ).to_list()
+        for template in templates_to_delete:
+            await template.delete()
+        logger.info(
+            f"Deleted {len(templates_to_delete)} function templates for app '{app.app_id}'."
+        )
+    except Exception as e:
+        logger.error(f"Error deleting function templates for app '{app.app_id}': {e}")
+
+    # 5. Delete MinIO buckets
     try:
         # Delete the main app bucket
         bucket_name = app.app_id
@@ -695,14 +730,14 @@ async def delete_application_background(app: Application):
     except Exception as e:
         logger.error(f"Error deleting MinIO buckets for app '{app.app_id}': {e}")
 
-    # 4. Drop the application's dedicated database
+    # 6. Drop the application's dedicated database
     try:
         await dynamic_db.db_client.drop_database(app.app_id)
         logger.info(f"Dropped database '{app.app_id}'.")
     except Exception as e:
         logger.error(f"Error dropping database for app '{app.app_id}': {e}")
 
-    # 5. Delete the application document itself
+    # 7. Delete the application document itself
     try:
         await app.delete()
         logger.info(f"Deleted application document for '{app.app_name}'.")

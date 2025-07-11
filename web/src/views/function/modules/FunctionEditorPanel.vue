@@ -8,13 +8,13 @@ interface editorConfigT {
   language: string;
   fontSize: number;
   minimap: boolean;
+  theme: "github-light" | "github-dark";
 }
 
 const props = defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
   editorConfig:editorConfigT;
-  theme: 'github-light' | 'github-dark';
 }>();
 
 const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings']);
