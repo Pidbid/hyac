@@ -43,7 +43,7 @@ async def get_statistics_summary(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     # --- Function Statistics ---
     function_count = await Function.find(Function.app_id == app.app_id).count()
@@ -180,7 +180,7 @@ async def get_function_requests_over_time(
         Application.app_id == appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     time_ago = datetime.now() - timedelta(days=days)
     pipeline = [
@@ -223,7 +223,7 @@ async def get_top_functions(
         Application.app_id == appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        return BaseResponse(code=404, msg="Application not found")
 
     pipeline = [
         {"$match": {"app_id": app.app_id}},
