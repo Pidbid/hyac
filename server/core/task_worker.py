@@ -87,20 +87,39 @@ async def process_task(task: Task):
 
 
 async def process_pending_tasks():
-    """Processes any tasks that are in the PENDING state on startup."""
-    logger.info("Checking for pending tasks from previous sessions...")
-    pending_tasks = await Task.find(Task.status == TaskStatus.PENDING).to_list()
-    if not pending_tasks:
-        logger.info("No pending tasks found.")
+    """
+    Processes pending tasks on startup.
+    This includes all tasks in the PENDING state, and any START_APP tasks that have FAILED,
+    to ensure that applications that should be running are started.
+    """
+    logger.info(
+        "Checking for pending or failed startup tasks from previous sessions..."
+    )
+    tasks_to_process = await Task.find(
+        {
+            "$or": [
+                {"status": TaskStatus.PENDING},
+                {
+                    "action": TaskAction.START_APP,
+                    "status": TaskStatus.FAILED,
+                },
+            ]
+        }
+    ).to_list()
+
+    if not tasks_to_process:
+        logger.info("No pending or failed startup tasks found to process.")
         return
 
-    logger.info(f"Found {len(pending_tasks)} pending tasks. Processing them now...")
-    for task in pending_tasks:
+    logger.info(
+        f"Found {len(tasks_to_process)} tasks to process. Processing them now..."
+    )
+    for task in tasks_to_process:
         asyncio.create_task(process_task(task))
 
 
 async def watch_for_tasks():
-    """使用 watch 监听新的任务, and process pending tasks on startup."""
+    """Watches for new tasks and processes pending tasks on startup."""
     # First, process any tasks that were pending from a previous run.
     await process_pending_tasks()
 

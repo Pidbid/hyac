@@ -316,7 +316,9 @@ def find_free_port() -> int:
 
 async def reload_nginx(target_appid: str = "") -> bool:
     """
-    Reloads the Nginx configuration gracefully, with a fallback to restarting the container.
+    Reloads the Nginx configuration gracefully by sending a SIGHUP signal,
+    with a fallback to restarting the container. This is the recommended way
+    for the jonasal/nginx-certbot image.
     """
     if not docker_manager.client:
         return False
@@ -325,7 +327,7 @@ async def reload_nginx(target_appid: str = "") -> bool:
         nginx_container = docker_manager.client.containers.get("hyac_nginx")
         domain_to_check = f"{target_appid.lower()}.{settings.DOMAIN_NAME}"
 
-        # 1. Test the new configuration syntax
+        # 1. Test the new configuration syntax first.
         test_exit_code, test_output = nginx_container.exec_run("nginx -t")
         if test_exit_code != 0:
             logger.error(
@@ -334,42 +336,49 @@ async def reload_nginx(target_appid: str = "") -> bool:
             return False
         logger.info("Nginx configuration test successful.")
 
-        # 2. Attempt to gracefully reload Nginx
-        reload_exit_code, reload_output = nginx_container.exec_run("nginx -s reload")
-        if reload_exit_code != 0:
-            logger.warning(
-                f"Nginx reload command failed: {reload_output.decode('utf-8')}. "
-                "Will try restarting the container."
-            )
-        else:
-            logger.info("Nginx reload command sent successfully.")
-            await asyncio.sleep(2)  # Give Nginx a moment to reload
+        # 2. Send SIGHUP signal to trigger a live reload.
+        logger.info("Sending SIGHUP signal to Nginx for a live reload...")
+        nginx_container.kill(signal="SIGHUP")
 
-        # 3. Verify that the new configuration is active
+        # 3. Poll for verification instead of a fixed sleep.
+        # This is more robust against timing issues with volume mounts.
         if target_appid:
-            verify_exit_code, verify_output = nginx_container.exec_run("nginx -T")
-            if verify_exit_code == 0 and domain_to_check in verify_output.decode(
-                "utf-8"
-            ):
-                logger.info(
-                    f"Nginx configuration for '{domain_to_check}' verified successfully after reload."
-                )
-                return True
-            else:
-                logger.warning(
-                    f"Configuration for '{domain_to_check}' not found after reload. "
-                    "Proceeding to restart Nginx container."
-                )
+            reload_verified = False
+            for i in range(5):  # Poll for up to 10 seconds (5 attempts * 2s sleep)
+                await asyncio.sleep(2)
+                verify_exit_code, verify_output = nginx_container.exec_run("nginx -T")
+                if verify_exit_code == 0 and domain_to_check in verify_output.decode(
+                    "utf-8"
+                ):
+                    logger.info(
+                        f"Nginx config for '{domain_to_check}' verified after SIGHUP (Attempt {i+1}/5)."
+                    )
+                    reload_verified = True
+                    break
+                else:
+                    logger.info(
+                        f"Config for '{domain_to_check}' not yet found. Retrying... (Attempt {i+1}/5)"
+                    )
 
-        # 4. If reload failed or verification didn't pass, restart the container
-        logger.info("Restarting Nginx container to apply new configuration...")
-        if not docker_manager.restart_container("hyac_nginx"):
+            if reload_verified:
+                return True
+
+            logger.warning(
+                f"Configuration for '{domain_to_check}' not found after polling. "
+                "Proceeding to restart Nginx container as a fallback."
+            )
+
+        # 4. If SIGHUP reload failed or verification didn't pass, restart the container.
+        logger.info(
+            "Fallback: Restarting Nginx container to apply new configuration..."
+        )
+        if not await docker_manager.restart_container("hyac_nginx"):
             logger.error("Failed to restart Nginx container.")
             return False
 
-        await asyncio.sleep(2)  # Wait for Nginx to initialize after restart
+        await asyncio.sleep(3)  # Wait for Nginx to initialize after restart
 
-        # 5. Final verification after restart
+        # 5. Final verification after restart.
         if target_appid:
             final_verify_exit, final_verify_output = nginx_container.exec_run(
                 "nginx -T"
@@ -384,11 +393,11 @@ async def reload_nginx(target_appid: str = "") -> bool:
                 return True
             else:
                 logger.error(
-                    f"Failed to verify Nginx configuration for '{domain_to_check}' even after restart."
+                    f"CRITICAL: Failed to verify Nginx config for '{domain_to_check}' even after restart."
                 )
                 return False
 
-        logger.info("Nginx container restarted and configuration reloaded.")
+        logger.info("Nginx container restarted and configuration applied.")
         return True
 
     except errors.NotFound:
