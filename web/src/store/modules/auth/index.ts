@@ -100,7 +100,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
    * @param captcha Captcha
    * @param [redirect=true] Whether to redirect after login. Default is `true`
    */
-  async function login(userName: string, password: string, captcha:string, redirect = true) {
+  async function login(userName: string, password: string, captcha: string, redirect = true) {
     startLoading();
 
     const { data: loginToken, error } = await fetchLogin(userName, password, captcha);
@@ -124,12 +124,13 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
           content: $t('page.login.common.welcomeBack', { userName: userInfo.username }),
           duration: 4500
         });
+        endLoading();
+        return true;
       }
-    } else {
-      resetStore();
     }
 
     endLoading();
+    return false;
   }
 
   async function loginByToken(loginToken: Api.Auth.LoginToken) {

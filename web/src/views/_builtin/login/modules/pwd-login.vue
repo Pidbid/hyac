@@ -39,14 +39,18 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
   const { formRules } = useFormRules();
 
   return {
-    username: formRules.username,
-    password: formRules.pwd
+    username: formRules.userName,
+    password: formRules.pwd,
+    captcha: [{ required: true, message: '请输入验证码' }]
   };
 });
 
 async function handleSubmit() {
   await validate();
-  await authStore.login(model.username, model.password, model.captcha);
+  const success = await authStore.login(model.username, model.password, model.captcha);
+  if (!success) {
+    await fetchCaptchaImage();
+  }
 }
 
 type AccountKey = 'super' | 'admin' | 'user';
