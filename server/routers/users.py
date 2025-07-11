@@ -64,29 +64,26 @@ class GetCaptchaResponse(BaseModel):
     data: str
 
 
-async def verify_captcha(captcha: str) -> bool:
+async def verify_captcha(captcha: str) -> dict:
     """
     Verifies a given CAPTCHA string against the stored records.
     """
+    if not captcha:
+        return {"code": 108, "msg": "Captcha cannot be empty"}
+
     captcha_record = await Captcha.find_one(Captcha.text == captcha.lower())
     if not captcha_record:
-        raise HTTPException(
-            status_code=400,
-            detail="Captcha not found or incorrect",
-        )
+        return {"code": 108, "msg": "Captcha not found or incorrect"}
 
     if captcha_record.is_used:
-        raise HTTPException(
-            status_code=400,
-            detail="Captcha has already been used",
-        )
+        return {"code": 108, "msg": "Captcha has already been used"}
 
     if datetime.now() > captcha_record.expires_at:
-        raise HTTPException(status_code=400, detail="Captcha has expired")
+        return {"code": 108, "msg": "Captcha has expired"}
 
     captcha_record.is_used = True
     await captcha_record.save()
-    return True
+    return {}
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -94,11 +91,16 @@ async def login_for_access_token(data: LoginRequest):
     """
     Handles user login, verifies credentials and CAPTCHA, and returns a JWT access token.
     """
-    await verify_captcha(data.captcha)
+    captcha_error = await verify_captcha(data.captcha)
+    if captcha_error:
+        return BaseResponse(
+            code=captcha_error["code"],
+            msg=captcha_error["msg"],
+        )
 
     user = await User.find_one(User.username == data.username)
     if not user or not verify_password(data.password, user.password):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
+        return BaseResponse(code=107, msg="Incorrect username or password")
 
     access_token = create_access_token(data={"sub": user.username})
     return {

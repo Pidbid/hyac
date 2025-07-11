@@ -24,6 +24,14 @@ async def sync_runtime_status():
 
         # 3. Iterate through applications and update their status
         for app in all_apps:
+            # If the application is in a transitional state, skip synchronization
+            # to allow the task worker to complete its operation.
+            if app.status in [ApplicationStatus.STARTING, ApplicationStatus.STOPPING]:
+                logger.debug(
+                    f"Skipping sync for app '{app.app_name}' (ID: {app.app_id}) because its status is '{app.status}'."
+                )
+                continue
+
             container_name = f"hyac-app-runtime-{app.app_id.lower()}"
             container_info = container_info_map.get(container_name)
 
