@@ -31,7 +31,7 @@ import {
 import { Console } from 'console';
 import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument } from "@/service/api"
 import { useApplicationStore } from '@/store/modules/application';
-import JsonEditor from '@/components/custom/JsonEditor.vue';
+import JsonEditor from '@/components/custom/jsonEditor.vue';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -42,14 +42,13 @@ const applicationStore = useApplicationStore()
 const collections = ref<string[]>([])
 const selectedCollection = ref(collections.value[0] || '');
 
-// 模拟文档数据
 const documents = ref<object[]>([
 ]);
 
 // 分页相关
 const pageSize = ref(15);
 const page = ref(1);
-const totalDocuments = computed(() => documents.value.length);
+const totalDocuments = ref(0);
 const paginatedDocuments = computed(() => {
   const start = (page.value - 1) * pageSize.value;
   const end = start + pageSize.value;
@@ -305,6 +304,7 @@ const getCollectionDocuments = async (docName: string, page: number, length: num
   const { data, error } = await GetDocumentData(applicationStore.appId, docName, page, length)
   if (!error) {
     documents.value = data.data
+    totalDocuments.value = data.total; // 更新总文档数
   }
 }
 
@@ -314,6 +314,17 @@ const getApplicationCollections = async () => {
     collections.value = data.data
   }
 }
+
+const paginationUpPage = (newPage: number) => {
+  page.value = newPage;
+  getCollectionDocuments(selectedCollection.value, newPage, pageSize.value);
+};
+
+const paginationUpSize = (newSize: number) => {
+  page.value = 1;
+  pageSize.value = newSize;
+  getCollectionDocuments(selectedCollection.value, page.value, newSize);
+};
 
 onMounted(async () => {
   await getApplicationCollections();
@@ -391,7 +402,7 @@ onMounted(async () => {
               </div>
               <div class="flex justify-center p-4 border-t border-gray-200">
                 <NPagination v-model:page="page" v-model:page-size="pageSize" :item-count="totalDocuments"
-                  :page-sizes="[10, 15, 20, 50]" show-size-picker />
+                  :page-sizes="[10, 15, 20, 50]" show-size-picker :on-update:page="paginationUpPage" :on-update:page-size="paginationUpSize" />
               </div>
             </NCard>
           </template>

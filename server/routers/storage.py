@@ -60,7 +60,7 @@ async def create_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = minio_manager.create_folder(data.appId.lower(), data.folder_name)
+    success = await minio_manager.create_folder(data.appId.lower(), data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to create folder")
     return BaseResponse(
@@ -81,7 +81,7 @@ async def delete_file(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = minio_manager.delete_object(data.appId.lower(), data.object_name)
+    success = await minio_manager.delete_object(data.appId.lower(), data.object_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete file")
     return BaseResponse(code=0, msg=f"File '{data.object_name}' deleted successfully.")
@@ -100,7 +100,7 @@ async def delete_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = minio_manager.delete_folder(data.appId.lower(), data.folder_name)
+    success = await minio_manager.delete_folder(data.appId.lower(), data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete folder")
     return BaseResponse(
@@ -128,7 +128,9 @@ async def upload_file(
         tmp.write(await file.read())
         temp_file_path = tmp.name
 
-    success = minio_manager.upload_file(appId.lower(), object_name, temp_file_path)
+    success = await minio_manager.upload_file(
+        appId.lower(), object_name, temp_file_path
+    )
     Path(temp_file_path).unlink()
 
     if not success:
@@ -185,7 +187,7 @@ async def get_download_url(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    url = minio_manager.get_download_url(data.appId.lower(), data.object_name)
+    url = await minio_manager.get_download_url(data.appId.lower(), data.object_name)
     if not url:
         return BaseResponse(code=500, msg="Failed to generate download URL")
 
@@ -207,7 +209,7 @@ async def list_objects(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    objects = minio_manager.list_objects(data.appId.lower(), data.prefix)
+    objects = await minio_manager.list_objects(data.appId.lower(), data.prefix)
     if objects is None:
         return BaseResponse(code=500, msg="Failed to list objects")
 
