@@ -120,9 +120,9 @@ class DockerManager:
             logger.error(f"Failed to start container '{name}': {e}")
         return False
 
-    def stop_container(self, name: str) -> bool:
+    async def stop_container(self, name: str) -> bool:
         """
-        Stops a Docker container.
+        Stops a Docker container asynchronously.
 
         Args:
             name: The name of the container.
@@ -133,16 +133,24 @@ class DockerManager:
         if not self._check_client():
             return False
         assert self.client is not None
-        try:
-            container = self.client.containers.get(name)
-            container.stop()
-            logger.info(f"Container '{name}' stopped.")
-            return True
-        except errors.NotFound:
-            logger.warning(f"Container '{name}' not found.")
-        except errors.APIError as e:
-            logger.error(f"Failed to stop container '{name}': {e}")
-        return False
+
+        def _stop():
+            try:
+                container = self.client.containers.get(name)
+                if container.status == "exited":
+                    logger.info(f"Container '{name}' is already stopped.")
+                    return True
+                container.stop()
+                logger.info(f"Container '{name}' stopped.")
+                return True
+            except errors.NotFound:
+                logger.info(f"Container '{name}' not found, consider it as stopped.")
+                return True  # Success if not found
+            except errors.APIError as e:
+                logger.error(f"Failed to stop container '{name}': {e}")
+                return False
+
+        return await asyncio.to_thread(_stop)
 
     async def restart_container(self, name: str) -> bool:
         """
@@ -173,9 +181,9 @@ class DockerManager:
             logger.error(f"Failed to restart container '{name}': {e}")
         return False
 
-    def remove_container(self, name: str, force: bool = False) -> bool:
+    async def remove_container(self, name: str, force: bool = False) -> bool:
         """
-        Removes a Docker container.
+        Removes a Docker container asynchronously.
 
         Args:
             name: The name of the container.
@@ -187,16 +195,21 @@ class DockerManager:
         if not self._check_client():
             return False
         assert self.client is not None
-        try:
-            container = self.client.containers.get(name)
-            container.remove(force=force)
-            logger.info(f"Container '{name}' removed.")
-            return True
-        except errors.NotFound:
-            logger.warning(f"Container '{name}' not found.")
-        except errors.APIError as e:
-            logger.error(f"Failed to remove container '{name}': {e}")
-        return False
+
+        def _remove():
+            try:
+                container = self.client.containers.get(name)
+                container.remove(force=force)
+                logger.info(f"Container '{name}' removed.")
+                return True
+            except errors.NotFound:
+                logger.info(f"Container '{name}' not found, consider it as removed.")
+                return True  # Success if not found
+            except errors.APIError as e:
+                logger.error(f"Failed to remove container '{name}': {e}")
+                return False
+
+        return await asyncio.to_thread(_remove)
 
     def list_containers(self, all: bool = False) -> List[Dict]:
         """
@@ -316,18 +329,41 @@ def find_free_port() -> int:
 
 async def reload_nginx(target_appid: str = "") -> bool:
     """
-    Reloads the Nginx configuration gracefully by sending a SIGHUP signal,
-    with a fallback to restarting the container. This is the recommended way
-    for the jonasal/nginx-certbot image.
+    Reloads the Nginx configuration gracefully, ensuring the config file exists first.
     """
     if not docker_manager.client:
         return False
 
     try:
         nginx_container = docker_manager.client.containers.get("hyac_nginx")
-        domain_to_check = f"{target_appid.lower()}.{settings.DOMAIN_NAME}"
+        config_filename = f"app-{target_appid.lower()}.conf"
+        config_path_in_container = f"/etc/nginx/user_conf.d/{config_filename}"
 
-        # 1. Test the new configuration syntax first.
+        # 1. Poll to ensure the config file exists inside the Nginx container.
+        # This prevents race conditions with volume mounts.
+        file_exists = False
+        for i in range(5):  # Poll for up to 5 seconds
+            exit_code, _ = nginx_container.exec_run(
+                f"test -f {config_path_in_container}"
+            )
+            if exit_code == 0:
+                logger.info(
+                    f"Nginx config '{config_filename}' found in container (Attempt {i+1}/5)."
+                )
+                file_exists = True
+                break
+            logger.info(
+                f"Waiting for Nginx config '{config_filename}' to appear in container... (Attempt {i+1}/5)"
+            )
+            await asyncio.sleep(1)
+
+        if not file_exists:
+            logger.error(
+                f"Nginx config '{config_filename}' did not appear in container after waiting."
+            )
+            return False
+
+        # 2. Test the new configuration syntax.
         test_exit_code, test_output = nginx_container.exec_run("nginx -t")
         if test_exit_code != 0:
             logger.error(
@@ -336,68 +372,12 @@ async def reload_nginx(target_appid: str = "") -> bool:
             return False
         logger.info("Nginx configuration test successful.")
 
-        # 2. Send SIGHUP signal to trigger a live reload.
+        # 3. Send SIGHUP to trigger a live reload.
         logger.info("Sending SIGHUP signal to Nginx for a live reload...")
         nginx_container.kill(signal="SIGHUP")
+        await asyncio.sleep(2)  # Give Nginx a moment to reload
 
-        # 3. Poll for verification instead of a fixed sleep.
-        # This is more robust against timing issues with volume mounts.
-        if target_appid:
-            reload_verified = False
-            for i in range(5):  # Poll for up to 10 seconds (5 attempts * 2s sleep)
-                await asyncio.sleep(2)
-                verify_exit_code, verify_output = nginx_container.exec_run("nginx -T")
-                if verify_exit_code == 0 and domain_to_check in verify_output.decode(
-                    "utf-8"
-                ):
-                    logger.info(
-                        f"Nginx config for '{domain_to_check}' verified after SIGHUP (Attempt {i+1}/5)."
-                    )
-                    reload_verified = True
-                    break
-                else:
-                    logger.info(
-                        f"Config for '{domain_to_check}' not yet found. Retrying... (Attempt {i+1}/5)"
-                    )
-
-            if reload_verified:
-                return True
-
-            logger.warning(
-                f"Configuration for '{domain_to_check}' not found after polling. "
-                "Proceeding to restart Nginx container as a fallback."
-            )
-
-        # 4. If SIGHUP reload failed or verification didn't pass, restart the container.
-        logger.info(
-            "Fallback: Restarting Nginx container to apply new configuration..."
-        )
-        if not await docker_manager.restart_container("hyac_nginx"):
-            logger.error("Failed to restart Nginx container.")
-            return False
-
-        await asyncio.sleep(3)  # Wait for Nginx to initialize after restart
-
-        # 5. Final verification after restart.
-        if target_appid:
-            final_verify_exit, final_verify_output = nginx_container.exec_run(
-                "nginx -T"
-            )
-            if (
-                final_verify_exit == 0
-                and domain_to_check in final_verify_output.decode("utf-8")
-            ):
-                logger.info(
-                    f"Nginx configuration for '{domain_to_check}' verified successfully after restart."
-                )
-                return True
-            else:
-                logger.error(
-                    f"CRITICAL: Failed to verify Nginx config for '{domain_to_check}' even after restart."
-                )
-                return False
-
-        logger.info("Nginx container restarted and configuration applied.")
+        logger.info("Nginx reloaded successfully.")
         return True
 
     except errors.NotFound:
@@ -408,48 +388,21 @@ async def reload_nginx(target_appid: str = "") -> bool:
         return False
 
 
-def create_app_nginx_config(app_id: str, container_name: str):
+async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
     """
-    Creates a specific Nginx server block for an application with SSL.
-    """
-    """
-    server {{
-        # Listen to port 443 on both IPv4 and IPv6.
-        listen 443 ssl;
-        listen [::]:443 ssl;
-
-        # Domain names this server should respond to.
-        server_name {server_name};
-
-        # Load the certificate files.
-        ssl_certificate         /etc/letsencrypt/live/{server_name}/fullchain.pem;
-        ssl_certificate_key     /etc/letsencrypt/live/{server_name}/privkey.pem;
-        ssl_trusted_certificate /etc/letsencrypt/live/{server_name}/chain.pem;
-
-        # Load the Diffie-Hellman parameter.
-        ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
-
-        location / {{
-            proxy_pass http://{container_name}:8001;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # WebSocket support
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-        }}
-    }}
+    Creates an Nginx server block and its symbolic link for a dynamic application.
     """
     domain_name = settings.DOMAIN_NAME or "localhost"
-    server_name = f"{app_id}.{domain_name}"
+    server_name = f"{app_id.lower()}.{domain_name}"
+    config_filename = f"app-{app_id.lower()}.conf"
+    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
+    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
     config_content = f"""server {{
     listen 80;
     listen [::]:80;
-
-    server_name {server_name.lower()};
+    server_name {server_name};
 
     location / {{
         proxy_pass http://{container_name}:8001;
@@ -457,38 +410,72 @@ def create_app_nginx_config(app_id: str, container_name: str):
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # WebSocket support
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }}
 }}"""
 
+    # 1. Write the actual config file to the volume shared with the server container.
     try:
-        config_path = f"/server/nginx/conf.d/app-{app_id.lower()}.conf"
-        with open(config_path, "w", encoding="utf-8") as f:
+        with open(real_config_path, "w", encoding="utf-8") as f:
             f.write(config_content)
-        logger.info(f"Nginx config for app '{app_id}' created at {config_path}.")
-        return True
+        logger.info(f"Nginx config for app '{app_id}' created at {real_config_path}.")
     except IOError as e:
         logger.error(f"Failed to write Nginx config for app '{app_id}': {e}")
         return False
 
+    # 2. Manually create the symbolic link inside the Nginx container.
+    # This is necessary because the `jonasal/nginx-certbot` image only creates symlinks on startup.
+    symlink_command = f"ln -s {user_conf_path} {symlink_path}"
+    exit_code, output = await asyncio.to_thread(
+        docker_manager.exec_in_container, "hyac_nginx", symlink_command
+    )
 
-def remove_app_nginx_config(app_id: str):
-    """
-    Removes the Nginx configuration file for an application.
-    """
-    import os
+    if exit_code == 0:
+        logger.info(
+            f"Successfully created symlink for '{config_filename}' in Nginx container."
+        )
+        return True
+    else:
+        # If the link already exists, it's not a critical error.
+        if "File exists" in output:
+            logger.warning(f"Symlink for '{config_filename}' already exists.")
+            return True
+        logger.error(
+            f"Failed to create symlink for '{config_filename}'. Exit code: {exit_code}, Output: {output}"
+        )
+        return False
 
+
+async def remove_app_nginx_config(app_id: str) -> bool:
+    """
+    Removes the Nginx config file and its symbolic link for an application.
+    """
+    config_filename = f"app-{app_id.lower()}.conf"
+    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
+
+    # 1. Remove the symbolic link from inside the Nginx container.
+    unlink_command = f"rm {symlink_path}"
+    exit_code, output = await asyncio.to_thread(
+        docker_manager.exec_in_container, "hyac_nginx", unlink_command
+    )
+    if exit_code != 0 and "No such file or directory" not in output:
+        logger.error(
+            f"Failed to remove symlink '{symlink_path}'. Exit code: {exit_code}, Output: {output}"
+        )
+        # Continue to attempt to delete the real file anyway.
+    else:
+        logger.info(f"Successfully removed symlink for '{config_filename}'.")
+
+    # 2. Remove the actual config file.
     try:
-        config_path = f"/server/nginx/conf.d/app-{app_id}.conf"
-        if os.path.exists(config_path):
-            os.remove(config_path)
-            logger.info(f"Nginx config for app '{app_id}' removed.")
+        if os.path.exists(real_config_path):
+            os.remove(real_config_path)
+            logger.info(f"Nginx config file '{real_config_path}' removed.")
         return True
     except IOError as e:
-        logger.error(f"Failed to remove Nginx config for app '{app_id}': {e}")
+        logger.error(f"Failed to remove Nginx config file '{real_config_path}': {e}")
         return False
 
 
@@ -523,8 +510,8 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         return running_apps[app.app_id]
 
     # Stop and remove any stale container with the same name
-    if docker_manager.stop_container(container_name):
-        docker_manager.remove_container(container_name)
+    if await docker_manager.stop_container(container_name):
+        await docker_manager.remove_container(container_name)
 
     # When running inside Docker, the app container needs to connect to other services
     # using their service names as hostnames.
@@ -600,12 +587,12 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     if not is_ready:
         logger.error(f"Container '{container_name}' did not become healthy in time.")
-        docker_manager.stop_container(container_name)
-        docker_manager.remove_container(container_name)
+        await docker_manager.stop_container(container_name)
+        await docker_manager.remove_container(container_name)
         return None
 
     # Create and reload Nginx config now that the service is confirmed to be up
-    if create_app_nginx_config(app.app_id, container_name):
+    if await create_app_nginx_config(app.app_id, container_name):
         reload_success = False
         for i in range(3):  # Retry up to 3 times
             logger.info(f"Attempting to reload Nginx (Attempt {i+1}/3)...")
@@ -631,10 +618,11 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             logger.error(
                 f"Failed to reload Nginx for app '{app.app_id}' after multiple attempts. Rolling back..."
             )
-            # Rollback: remove config and container
-            remove_app_nginx_config(app.app_id)
-            docker_manager.stop_container(container_name)
-            docker_manager.remove_container(container_name)
+            # Rollback: stop and remove the container, but keep the Nginx config for debugging
+            await docker_manager.stop_container(container_name)
+            await docker_manager.remove_container(container_name)
+            # We don't remove the nginx config here, to allow for debugging.
+            # It will be cleaned up when the app is properly deleted.
             return None
 
     return None
@@ -647,11 +635,11 @@ async def stop_app_container(app_id: str):
     if app_id in running_apps:
         container_name = running_apps[app_id]["name"]
         logger.info(f"Stopping container for app '{app_id}'...")
-        if docker_manager.stop_container(container_name):
-            docker_manager.remove_container(container_name)
+        if await docker_manager.stop_container(container_name):
+            await docker_manager.remove_container(container_name)
 
         # Remove Nginx config and reload
-        if remove_app_nginx_config(app_id):
+        if await remove_app_nginx_config(app_id):
             await reload_nginx()
 
         del running_apps[app_id]
