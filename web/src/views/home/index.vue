@@ -123,6 +123,7 @@ const tableColumns = (): TableColumn<any>[] => [
     render: (row: any) => {
       const isRunning = row.status === 'running' || row.status === 'starting';
       const isStarting = row.status === 'starting';
+      const isStopping = row.status === 'stopping';
       const isDeleting = row.status === 'deleting';
 
       const editButton = h(
@@ -141,7 +142,7 @@ const tableColumns = (): TableColumn<any>[] => [
         {
           size: 'small',
           type: isRunning ? 'warning' : 'success',
-          disabled: isDeleting || isStarting,
+          disabled: isDeleting || isStarting || isStopping,
           onClick: () => (isRunning ? handleStopApp(row.app_id) : handleStartApp(row.app_id))
         },
         { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), '暂停'] : [h(NIcon, { component: RocketOutline }), '启动']) }
