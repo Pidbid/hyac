@@ -640,22 +640,33 @@ onBeforeUnmount(() => {
           @open-dependency-manager="handleDependence(true)" />
       </template>
       <template #2>
-        <NSplit :size="0.85">
-          <template #1>
-            <NSplit :size="0.8" direction="vertical">
-              <template #1>
-                <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
-                  @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
-              </template>
-              <template #2>
-                <FunctionLogPanel :logs="logStore.logs" />
-              </template>
-            </NSplit>
-          </template>
-          <template #2>
-            <FunctionTestPanel :function-address="functionAddress" />
-          </template>
-        </NSplit>
+        <div v-if="functions.length > 0" class="w-full h-full">
+          <NSplit :size="0.85">
+            <template #1>
+              <NSplit :size="0.8" direction="vertical">
+                <template #1>
+                  <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
+                    @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
+                </template>
+                <template #2>
+                  <FunctionLogPanel :logs="logStore.logs" />
+                </template>
+              </NSplit>
+            </template>
+            <template #2>
+              <FunctionTestPanel :function-address="functionAddress" />
+            </template>
+          </NSplit>
+        </div>
+        <div v-else class="h-full w-full flex items-center justify-center">
+          <NEmpty description="请先创建或选择一个函数">
+            <template #extra>
+              <NButton type="primary" @click="handleCreateFunction">
+                创建函数
+              </NButton>
+            </template>
+          </NEmpty>
+        </div>
       </template>
     </NSplit>
 

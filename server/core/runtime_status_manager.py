@@ -26,7 +26,11 @@ async def sync_runtime_status():
         for app in all_apps:
             # If the application is in a transitional state, skip synchronization
             # to allow the task worker to complete its operation.
-            if app.status in [ApplicationStatus.STOPPING, ApplicationStatus.STOPPED]:
+            if app.status in [
+                ApplicationStatus.STOPPING,
+                ApplicationStatus.STOPPED,
+                ApplicationStatus.DELETING,
+            ]:
                 logger.debug(
                     f"Skipping sync for app '{app.app_name}' (ID: {app.app_id}) because its status is '{app.status}'."
                 )

@@ -22,6 +22,49 @@ from core.dependence_manager import dependence_manager
 logger = logging.getLogger(__name__)
 
 
+async def create_function_templates_for_app(app_id: str):
+    """
+    Creates a full set of function templates for a specific application.
+    It checks for existence before creating to prevent duplicates for the given app.
+    """
+    try:
+        for func_type, templates in faas_templates.items():
+            for template_data in templates:
+                name = template_data["name"]
+                code = template_data["code"]
+                description = template_data["description"]
+
+                # Check if a template with the same name already exists for this app
+                existing_template = await FunctionTemplate.find_one(
+                    FunctionTemplate.name == name, FunctionTemplate.app_id == app_id
+                )
+                if existing_template:
+                    logger.info(
+                        f"Template '{name}' already exists for app '{app_id}', skipping creation."
+                    )
+                    continue
+
+                # Create and insert the new template
+                new_template = FunctionTemplate(
+                    app_id=app_id,
+                    name=name,
+                    code=code,
+                    type=TemplateType.SYSTEM,
+                    shared=False,
+                    description=description,
+                    function_type=FunctionType(func_type),
+                )
+                await new_template.insert()
+                logger.info(
+                    f"Created system function template: '{name}' for app '{app_id}'"
+                )
+    except Exception as e:
+        logger.error(
+            f"Failed to create function templates for app '{app_id}': {e}",
+            exc_info=True,
+        )
+
+
 class InitializationService:
     """
     Handles the initial setup of the application, including creating default
@@ -179,44 +222,13 @@ class InitializationService:
     @classmethod
     async def initialize_functions_templates(cls):
         """
-        Initializes function templates from the faas_templates dictionary.
-        It checks for existence before creating to prevent duplicates.
+        Initializes function templates for the 'demo' application.
         """
         demo_app = await Application.find_one({"app_name": "demo"})
         if not demo_app:
-            logger.error("Application initialized failed")
+            logger.error("Demo application not found, cannot initialize templates.")
             return
-        try:
-            for func_type, templates in faas_templates.items():
-                for template_data in templates:
-                    name = template_data["name"]
-                    code = template_data["code"]
-                    description = template_data["description"]
-
-                    # Check if a template with the same name already exists
-                    existing_template = await FunctionTemplate.find_one(
-                        FunctionTemplate.name == name
-                    )
-                    if existing_template:
-                        logger.info(
-                            f"Template '{name}' already exists, skipping creation."
-                        )
-                        continue
-
-                    # Create and insert the new template
-                    new_template = FunctionTemplate(
-                        app_id=demo_app.app_id,
-                        name=name,
-                        code=code,
-                        type=TemplateType.SYSTEM,
-                        shared=False,
-                        description=description,
-                        function_type=FunctionType(func_type),
-                    )
-                    await new_template.insert()
-                    logger.info(f"Created system function template: '{name}'")
-        except Exception as e:
-            logger.error(f"Failed to create function templates: {e}", exc_info=True)
+        await create_function_templates_for_app(demo_app.app_id)
 
     @staticmethod
     async def _is_database_empty() -> bool:

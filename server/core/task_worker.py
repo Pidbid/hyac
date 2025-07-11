@@ -3,7 +3,7 @@ from datetime import datetime
 from loguru import logger
 
 from models.tasks_model import Task, TaskStatus, TaskAction
-from models.applications_model import Application
+from models.applications_model import Application, ApplicationStatus
 
 # 导入需要执行的函数
 from core.docker_manager import (
@@ -12,6 +12,7 @@ from core.docker_manager import (
     docker_manager,
     delete_application_background,
 )
+from core.utils import create_mongodb_user
 
 
 async def process_task(task: Task):
@@ -35,17 +36,37 @@ async def process_task(task: Task):
 
         # --- 核心任务分发逻辑 ---
         if task.action == TaskAction.START_APP:
+            # 1. 为应用创建数据库用户
+            if not app.db_password:
+                raise ValueError(f"DB password for app {app_id} is not set.")
+
+            user_created = await create_mongodb_user(
+                username=app.app_id, password=app.db_password, target_db=app.app_id
+            )
+            if not user_created:
+                raise Exception(f"Failed to create MongoDB user for app {app_id}.")
+            logger.info(f"MongoDB user for app {app_id} created successfully.")
+
+            # 2. 启动应用容器
             result = await start_app_container(app)
             if not result:
                 raise Exception("Failed to start application container.")
 
+            # 3. 更新应用状态为 RUNNING
+            app.status = ApplicationStatus.RUNNING
+            await app.save()
+
         elif task.action == TaskAction.STOP_APP:
             await stop_app_container(app_id)
+            app.status = ApplicationStatus.STOPPED
+            await app.save()
 
         elif task.action == TaskAction.RESTART_APP:
             container_name = f"hyac-app-runtime-{app_id.lower()}"
-            if not docker_manager.restart_container(container_name):
+            if not await docker_manager.restart_container(container_name):
                 raise Exception("Failed to restart application container.")
+            app.status = ApplicationStatus.RUNNING
+            await app.save()
 
         elif task.action == TaskAction.DELETE_APP:
             # The app object might have been deleted by the time the task runs.
@@ -72,7 +93,7 @@ async def process_task(task: Task):
 
     except Exception as e:
         error_message = f"Task {task.task_id} failed: {str(e)}"
-        logger.error(error_message)
+        logger.error(error_message, exc_info=True)
         # 更新任务状态为 failed 并记录错误
         await task.update(
             {
@@ -83,6 +104,10 @@ async def process_task(task: Task):
                 }
             }
         )
+        # 如果是启动失败，将应用状态设置为 ERROR
+        if task.action == TaskAction.START_APP and app:
+            app.status = ApplicationStatus.ERROR
+            await app.save()
 
 
 async def process_pending_tasks():
@@ -142,5 +167,5 @@ async def watch_for_tasks():
                 # 使用 asyncio.create_task 来并发处理任务，避免阻塞监听循环
                 asyncio.create_task(process_task(task))
     except Exception as e:
-        logger.error(f"Task watcher failed: {e}")
+        logger.error(f"Task watcher failed: {e}", exc_info=True)
         # Consider a retry mechanism or alerting here

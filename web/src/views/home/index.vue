@@ -122,16 +122,18 @@ const tableColumns = (): TableColumn<any>[] => [
     width: 220,
     render: (row: any) => {
       const isRunning = row.status === 'running' || row.status === 'starting';
+      const isStarting = row.status === 'starting';
+      const isDeleting = row.status === 'deleting';
 
       const editButton = h(
         NButton,
         {
           size: 'small',
           type: 'primary',
-          disabled: !isRunning,
+          disabled: row.status !== 'running',
           onClick: () => routerToApps(row)
         },
-        { default: () => [h(NIcon, {component: CreateOutline}), "编辑"] }
+        { default: () => [h(NIcon, { component: CreateOutline }), '编辑'] }
       );
 
       const toggleStatusButton = h(
@@ -139,9 +141,10 @@ const tableColumns = (): TableColumn<any>[] => [
         {
           size: 'small',
           type: isRunning ? 'warning' : 'success',
+          disabled: isDeleting || isStarting,
           onClick: () => (isRunning ? handleStopApp(row.app_id) : handleStartApp(row.app_id))
         },
-        { default: () => (isRunning ? [h(NIcon, {component: StopCircleOutline}), '暂停'] : [h(NIcon, {component: RocketOutline}), '启动']) }
+        { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), '暂停'] : [h(NIcon, { component: RocketOutline }), '启动']) }
       );
 
       const deleteButton = h(
@@ -157,9 +160,10 @@ const tableColumns = (): TableColumn<any>[] => [
               NButton,
               {
                 size: 'small',
-                type: 'error'
+                type: 'error',
+                disabled: isDeleting
               },
-              { default: () => h(NIcon, {component: TrashBinOutline}) }
+              { default: () => h(NIcon, { component: TrashBinOutline }) }
             ),
           default: () => '你确定要删除这个应用吗？'
         }
