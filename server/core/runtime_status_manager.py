@@ -11,9 +11,9 @@ async def sync_runtime_status():
     Synchronizes the status of applications with the status of their corresponding
     Docker containers using Docker's native health check status.
     """
-    logger.info(
-        "Starting runtime status synchronization based on Docker health checks..."
-    )
+    # logger.info(
+    #     "Starting runtime status synchronization based on Docker health checks..."
+    # )
     try:
         # 1. Get all containers from Docker, including their health status
         all_containers = docker_manager.list_containers(all=True)
@@ -26,7 +26,7 @@ async def sync_runtime_status():
         for app in all_apps:
             # If the application is in a transitional state, skip synchronization
             # to allow the task worker to complete its operation.
-            if app.status in [ApplicationStatus.STARTING, ApplicationStatus.STOPPING]:
+            if app.status in [ApplicationStatus.STOPPING, ApplicationStatus.STOPPED]:
                 logger.debug(
                     f"Skipping sync for app '{app.app_name}' (ID: {app.app_id}) because its status is '{app.status}'."
                 )
@@ -67,7 +67,7 @@ async def sync_runtime_status():
                     f"Application '{app.app_name}' (ID: {app.app_id}) status changed from '{app.status}' to '{new_status}'."
                 )
 
-        logger.info("Runtime status synchronization finished successfully.")
+        # logger.info("Runtime status synchronization finished successfully.")
 
     except Exception as e:
         logger.error(f"An error occurred during runtime status synchronization: {e}")
