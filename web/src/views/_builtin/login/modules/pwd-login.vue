@@ -22,9 +22,9 @@ interface FormModel {
 }
 
 const model: FormModel = reactive({
-  username: 'admin',
-  password: 'admin123',
-  captcha: ""
+  username: '',
+  password: '',
+  captcha: ''
 });
 
 interface CaptchaModel {
