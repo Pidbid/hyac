@@ -40,6 +40,36 @@ def motor_result_serializer(cursor):
     return results
 
 
+async def check_mongodb_user_exists(username: str) -> bool:
+    """
+    Checks if a MongoDB user already exists.
+    """
+    client = AsyncIOMotorClient(
+        host="mongodb",
+        port=27017,
+        username=settings.MONGODB_USERNAME,
+        password=settings.MONGODB_PASSWORD,
+        authSource="admin",
+    )
+    try:
+        admin_db = client.admin
+        user_info = await admin_db.command(
+            "usersInfo", {"user": username, "db": "admin"}
+        )
+        return bool(user_info["users"])
+    except OperationFailure as e:
+        # If the user does not exist, a "User not found" error is raised.
+        if e.code == 11:  # UserNotFound
+            return False
+        print(f"An operation failure occurred while checking user '{username}': {e}")
+        return False
+    except Exception as e:
+        print(f"An unknown error occurred while checking user '{username}': {e}")
+        return False
+    finally:
+        client.close()
+
+
 async def create_mongodb_user(username: str, password: str, target_db: str) -> bool:
     """
     Creates a new MongoDB user with root credentials and grants full admin rights

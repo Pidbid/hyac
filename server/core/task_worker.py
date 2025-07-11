@@ -12,7 +12,7 @@ from core.docker_manager import (
     docker_manager,
     delete_application_background,
 )
-from core.utils import create_mongodb_user
+from core.utils import create_mongodb_user, check_mongodb_user_exists
 
 
 async def process_task(task: Task):
@@ -40,12 +40,19 @@ async def process_task(task: Task):
             if not app.db_password:
                 raise ValueError(f"DB password for app {app_id} is not set.")
 
-            user_created = await create_mongodb_user(
-                username=app.app_id, password=app.db_password, target_db=app.app_id
-            )
-            if not user_created:
-                raise Exception(f"Failed to create MongoDB user for app {app_id}.")
-            logger.info(f"MongoDB user for app {app_id} created successfully.")
+            user_exists = await check_mongodb_user_exists(username=app.app_id)
+            if not user_exists:
+                logger.info(f"MongoDB user for app {app_id} not found, creating now...")
+                user_created = await create_mongodb_user(
+                    username=app.app_id, password=app.db_password, target_db=app.app_id
+                )
+                if not user_created:
+                    raise Exception(f"Failed to create MongoDB user for app {app_id}.")
+                logger.info(f"MongoDB user for app {app_id} created successfully.")
+            else:
+                logger.info(
+                    f"MongoDB user for app {app_id} already exists, skipping creation."
+                )
 
             # 2. 启动应用容器
             result = await start_app_container(app)
