@@ -4,6 +4,7 @@ from loguru import logger
 
 from models.tasks_model import Task, TaskStatus, TaskAction
 from models.applications_model import Application, ApplicationStatus
+from core.minio_manager import minio_manager
 
 # 导入需要执行的函数
 from core.docker_manager import (
@@ -54,12 +55,43 @@ async def process_task(task: Task):
                     f"MongoDB user for app {app_id} already exists, skipping creation."
                 )
 
-            # 2. 启动应用容器
+            # 2. 为应用创建 MinIO Buckets 并配置
+            # 创建主应用 Bucket
+            app_bucket_name = app.app_id.lower()
+            if not await minio_manager.bucket_exists(app_bucket_name):
+                logger.info(
+                    f"MinIO bucket '{app_bucket_name}' not found, creating now..."
+                )
+                await minio_manager.make_bucket(app_bucket_name)
+                logger.info(f"MinIO bucket '{app_bucket_name}' created successfully.")
+            else:
+                logger.info(
+                    f"MinIO bucket '{app_bucket_name}' already exists, skipping creation."
+                )
+
+            # 创建并配置 Web 托管 Bucket
+            web_bucket_name = f"web-{app.app_id.lower()}"
+            if not await minio_manager.bucket_exists(web_bucket_name):
+                logger.info(
+                    f"MinIO web bucket '{web_bucket_name}' not found, creating now..."
+                )
+                await minio_manager.make_bucket(web_bucket_name)
+                # 设置为公共读
+                await minio_manager.set_bucket_to_public_read(web_bucket_name)
+                logger.info(
+                    f"MinIO web bucket '{web_bucket_name}' created and set to public read."
+                )
+            else:
+                logger.info(
+                    f"MinIO web bucket '{web_bucket_name}' already exists, skipping creation."
+                )
+
+            # 3. 启动应用容器
             result = await start_app_container(app)
             if not result:
                 raise Exception("Failed to start application container.")
 
-            # 3. 更新应用状态为 RUNNING
+            # 4. 更新应用状态为 RUNNING
             app.status = ApplicationStatus.RUNNING
             await app.save()
 

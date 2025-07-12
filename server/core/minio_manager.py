@@ -97,6 +97,35 @@ class MinioManager:
         assert self.client is not None
         await asyncio.to_thread(self.client.set_bucket_policy, bucket_name, policy)
 
+    async def set_bucket_to_public_read(self, bucket_name: str):
+        """
+        Sets a bucket's policy to allow public read access for all objects.
+        """
+        if not self._check_client():
+            return
+
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{bucket_name}/*"],
+                },
+            ],
+        }
+        try:
+            await self.set_bucket_policy(bucket_name, json.dumps(policy))
+            logger.info(
+                f"Successfully set public read policy for bucket '{bucket_name}'."
+            )
+        except S3Error as e:
+            logger.error(
+                f"Failed to set public read policy for bucket '{bucket_name}': {e}"
+            )
+            raise
+
     async def create_folder(self, bucket_name: str, folder_name: str) -> bool:
         """
         Creates a folder in a bucket by creating an empty object with a trailing slash.

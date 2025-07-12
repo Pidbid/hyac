@@ -178,8 +178,19 @@ class InitializationService:
                     )
 
                 # Create a dedicated MinIO bucket for the demo application.
-                if minio_manager.client and demo_app.minio_bucket:
-                    await minio_manager.make_bucket(demo_app.minio_bucket)
+                if minio_manager.client:
+                    # Create main app bucket
+                    app_bucket_name = demo_app.app_id.lower()
+                    await minio_manager.make_bucket(app_bucket_name)
+                    logger.info(f"Created MinIO bucket for demo app: {app_bucket_name}")
+
+                    # Create and configure web hosting bucket
+                    web_bucket_name = f"web-{demo_app.app_id.lower()}"
+                    await minio_manager.make_bucket(web_bucket_name)
+                    await minio_manager.set_bucket_to_public_read(web_bucket_name)
+                    logger.info(
+                        f"Created and configured web hosting bucket: {web_bucket_name}"
+                    )
 
         except Exception as e:
             logger.error(f"Failed to create initial application: {e}")
