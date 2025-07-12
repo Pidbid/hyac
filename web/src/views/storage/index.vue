@@ -389,7 +389,7 @@ const createColumns = () => [
     width: 200,
   },
   {
-    title: t('page.storage.actions'),
+    title: t('common.action._self'),
     key: 'actions',
     width: 120,
     render(row: any) {

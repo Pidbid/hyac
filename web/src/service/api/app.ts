@@ -92,3 +92,18 @@ export function stopApp(appId: string) {
     }
   });
 }
+
+/**
+ * RestartApp
+ *
+ * @param appId id of app
+ */
+export function restartApp(appId: string) {
+  return request<Api.BaseResponse>({
+    url: '/applications/restart',
+    method: 'post',
+    data: {
+      appId
+    }
+  });
+}

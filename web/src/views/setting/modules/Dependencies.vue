@@ -1,0 +1,292 @@
+<script setup lang="ts">
+import { ref, onMounted, h } from 'vue';
+import {
+  NCard,
+  NDataTable,
+  NButton,
+  NSpace,
+  NModal,
+  NInput,
+  useMessage,
+  NSelect,
+  NTabs,
+  NTabPane,
+  NAlert,
+  NIcon,
+  useDialog,
+  NInputGroup
+} from 'naive-ui';
+import { AddOutline, CubeOutline, TrashOutline, SearchOutline } from '@vicons/ionicons5';
+import { $t } from '@/locales';
+import { useApplicationStore } from '@/store/modules/application';
+import { dependenciesData, packageAdd, packageRemove, dependenceSearch, packageInfo } from '@/service/api/settings';
+import { restartApp } from '@/service/api/app';
+
+defineOptions({
+  name: 'DependenciesSettings'
+});
+
+const applicationStore = useApplicationStore();
+const message = useMessage();
+const dialog = useDialog();
+
+const userDependencies = ref<Api.Settings.Dependency[]>([]);
+const systemDependencies = ref<Api.Settings.Dependency[]>([]);
+const isLoading = ref(true);
+const showAddModal = ref(false);
+const newPackageName = ref('');
+const newPackageVersion = ref('');
+const searchResults = ref<any[]>([]);
+const searchLoading = ref(false);
+const versionOptions = ref<any[]>([]);
+const versionLoading = ref(false);
+
+const searchColumns = [
+  {
+    title: $t('page.setting.dependencyName'),
+    key: 'label'
+  },
+  {
+    title: $t('common.action._self'),
+    key: 'actions',
+    width: 100,
+    render(row: any) {
+      return h(
+        NButton,
+        {
+          type: 'primary',
+          size: 'small',
+          onClick: () => handleSelectPackage(row.value)
+        },
+        { default: () => $t('common.action.select') }
+      );
+    }
+  }
+];
+
+const userColumns = [
+  {
+    title: $t('page.setting.dependencyName'),
+    key: 'name',
+    render(row: any) {
+      return h('div', { class: 'flex items-center' }, [
+        h(NIcon, { component: CubeOutline, class: 'mr-2 text-gray-500' }),
+        h('span', row.name)
+      ]);
+    }
+  },
+  {
+    title: $t('page.function.version'),
+    key: 'version'
+  },
+  {
+    title: $t('common.action._self'),
+    key: 'actions',
+    width: 100,
+    render(row: any) {
+      return h(
+        NButton,
+        {
+          strong: true,
+          tertiary: true,
+          circle: true,
+          type: 'error',
+          onClick: () => handleDelete(row)
+        },
+        { default: () => h(NIcon, { component: TrashOutline }) }
+      );
+    }
+  }
+];
+
+const systemColumns = [
+  {
+    title: $t('page.setting.dependencyName'),
+    key: 'name',
+    render(row: any) {
+      return h('div', { class: 'flex items-center' }, [
+        h(NIcon, { component: CubeOutline, class: 'mr-2 text-gray-500' }),
+        h('span', row.name)
+      ]);
+    }
+  },
+  {
+    title: $t('page.function.version'),
+    key: 'version'
+  }
+];
+
+async function fetchData() {
+  isLoading.value = true;
+  const appId = applicationStore.appInfo.appId;
+  if (appId) {
+    const { data, error } = await dependenciesData(appId);
+    if (!error) {
+      userDependencies.value = data.common;
+      systemDependencies.value = data.system;
+    } else {
+      message.error($t('common.fetchFailed'));
+    }
+  }
+  isLoading.value = false;
+}
+
+async function handleSearch() {
+  const query = newPackageName.value;
+  if (!query) {
+    searchResults.value = [];
+    return;
+  }
+  searchLoading.value = true;
+  const appId = applicationStore.appInfo.appId;
+  const { data } = await dependenceSearch(appId, query);
+  if (data) {
+    searchResults.value = data.map((item: string) => ({ label: item, value: item }));
+  }
+  searchLoading.value = false;
+}
+
+async function handleSelectPackage(packageName: string) {
+  newPackageName.value = packageName;
+  versionLoading.value = true;
+  const appId = applicationStore.appInfo.appId;
+  const { data, error } = await packageInfo(appId, packageName);
+  if (!error && data?.versions) {
+    versionOptions.value = data.versions.map((v: string) => ({ label: v, value: v }));
+    newPackageVersion.value = data.versions[0] || '';
+  } else {
+    message.error($t('page.function.getPackageInfoFailed'));
+  }
+  versionLoading.value = false;
+  searchResults.value = [];
+}
+
+async function handleAddPackage() {
+  const appId = applicationStore.appInfo.appId;
+  if (appId && newPackageName.value) {
+    const { error } = await packageAdd(appId, newPackageName.value, newPackageVersion.value || 'latest');
+    if (!error) {
+      message.success($t('common.addSuccess'));
+      showAddModal.value = false;
+      newPackageName.value = '';
+      newPackageVersion.value = '';
+      fetchData();
+      promptRestart();
+    } else {
+      message.error($t('common.addFailed'));
+    }
+  }
+}
+
+function handleDelete(row: Api.Settings.Dependency) {
+  dialog.warning({
+    title: $t('page.setting.confirmDelete'),
+    content: $t('page.setting.deleteDependencyConfirm', { name: row.name }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const appId = applicationStore.appInfo.appId;
+      if (appId) {
+        const { error } = await packageRemove(appId, row.name);
+        if (!error) {
+          message.success($t('common.deleteSuccess'));
+          fetchData();
+          promptRestart();
+        } else {
+          message.error($t('common.deleteFailed'));
+        }
+      }
+    }
+  });
+}
+
+function promptRestart() {
+  dialog.warning({
+    title: $t('page.setting.restartRequired'),
+    content: $t('page.setting.dependencyChangeRestartPrompt'),
+    positiveText: $t('page.setting.restartNow'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const d = dialog.info({
+        title: $t('page.setting.restarting'),
+        content: $t('page.setting.restartingTip'),
+        closable: false
+      });
+      const appId = applicationStore.appInfo.appId;
+      const { error } = await restartApp(appId);
+      d.destroy();
+      if (!error) {
+        message.success($t('page.setting.restartInitiated'));
+      } else {
+        message.error($t('page.setting.restartFailed'));
+      }
+    }
+  });
+}
+
+onMounted(fetchData);
+</script>
+
+<template>
+  <NCard :title="$t('page.setting.dependencies')" :bordered="false">
+    <NSpace vertical :size="24">
+      <NAlert type="info" :title="$t('page.setting.dependenciesTipTitle')">
+        {{ $t('page.setting.dependenciesTipContent') }}
+      </NAlert>
+
+      <NTabs type="line" animated>
+        <NTabPane name="user" :tab="$t('page.setting.userDependencies')">
+          <NDataTable :columns="userColumns" :data="userDependencies" :loading="isLoading" :bordered="false" />
+          <NButton type="primary" dashed block class="mt-4" @click="showAddModal = true">
+            <template #icon>
+              <NIcon :component="AddOutline" />
+            </template>
+            {{ $t('page.setting.addDependency') }}
+          </NButton>
+        </NTabPane>
+        <NTabPane name="system" :tab="$t('page.setting.systemDependencies')">
+          <NDataTable :columns="systemColumns" :data="systemDependencies" :loading="isLoading" :bordered="false" />
+        </NTabPane>
+      </NTabs>
+    </NSpace>
+
+    <NModal
+      v-model:show="showAddModal"
+      preset="card"
+      :title="$t('page.setting.addDependency')"
+      style="width: 600px"
+      @after-leave="() => { newPackageName = ''; newPackageVersion = ''; searchResults = []; versionOptions = []; }"
+    >
+      <NSpace vertical>
+        <NInputGroup>
+          <NInput
+            v-model:value="newPackageName"
+            :placeholder="$t('page.setting.dependencyNamePlaceholder')"
+            clearable
+            @keydown.enter="handleSearch"
+          />
+          <NButton type="primary" ghost :loading="searchLoading" @click="handleSearch">
+            <template #icon>
+              <NIcon :component="SearchOutline" />
+            </template>
+          </NButton>
+        </NInputGroup>
+        <NDataTable
+          v-if="searchResults.length > 0"
+          :columns="searchColumns"
+          :data="searchResults"
+          :max-height="200"
+          :bordered="false"
+        />
+        <NSelect
+          v-model:value="newPackageVersion"
+          :options="versionOptions"
+          :placeholder="$t('page.setting.dependencyVersionPlaceholder')"
+          :loading="versionLoading"
+          clearable
+        />
+        <NButton type="primary" block @click="handleAddPackage">{{ $t('common.confirm') }}</NButton>
+      </NSpace>
+    </NModal>
+  </NCard>
+</template>

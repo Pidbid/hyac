@@ -49,8 +49,8 @@ const packageSelectInput = ref({
 })
 const packageResult = ref<string[]>([])
 let addDependenceDialogRef: any = null;
-const commonDependencies = ref<Api.Settings.DependenceInfo[]>([]);
-const systemDependencies = ref<Api.Settings.DependenceInfo[]>([]);
+const commonDependencies = ref<Api.Settings.Dependency[]>([]);
+const systemDependencies = ref<Api.Settings.Dependency[]>([]);
 const userEnv = ref<Api.Settings.EnvInfo[]>([]);
 const systemEnv = ref<Api.Settings.EnvInfo[]>([]);
 const storedEditorConfig = localStorage.getItem('editorConfig');
@@ -361,7 +361,7 @@ const handleFunctionEditorSetting = () => {
 };
 
 
-const handleDeleteDependence = (dep: Api.Settings.DependenceInfo) => {
+const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
   dialog.warning({
     title: $t('page.function.confirmDeleteDependence'),
     content: $t('page.function.deleteDependenceConfirm', { name: dep.name }),
@@ -519,7 +519,7 @@ const handleDependence = async (showDialog: boolean = true) => {
                   default: () => h(NIcon, { component: SearchOutline })
                 })
               }),
-              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('page.function.actions'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
+              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('common.action._self'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
             ]
           })
         ]
