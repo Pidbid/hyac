@@ -16,6 +16,7 @@ from models import (
 from core.dependence_manager import dependence_manager
 from core.docker_manager import docker_manager
 from core.jwt_auth import get_current_user
+from core.config import settings
 
 
 class DependenceSearchRequest(BaseModel):
@@ -462,3 +463,11 @@ async def application_status(
             status_code=404, detail="Application not found or permission denied"
         )
     return BaseResponse(code=0, msg="Get application status success", data=app.status)
+
+
+@router.get("/domain", response_model=BaseResponse)
+async def get_domain(current_user: User = Depends(get_current_user)):
+    domain = settings.DOMAIN_NAME
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not configured")
+    return BaseResponse(code=0, msg="Get domain success", data=domain)

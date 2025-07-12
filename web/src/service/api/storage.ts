@@ -72,7 +72,8 @@ export function uploadFile(appId: string, objectName: string, file: File) {
     data: formData,
     headers: {
       'Content-Type': 'multipart/form-data'
-    }
+    },
+    timeout: 1800000 // 30 minutes
   });
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, h, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import JsonEditor from '@/components/custom/JsonEditor.vue';
+import { useI18n } from 'vue-i18n';
+import JsonEditor from '@/components/custom/jsonEditor.vue';
 import {
   NCard,
   NButton,
@@ -32,6 +33,7 @@ import {
 import { listObjects, getDownloadUrl, uploadFile, deleteFile, deleteFolder, createFolder } from "@/service/api";
 import { useApplicationStore } from '@/store/modules/application';
 
+const { t } = useI18n();
 const message = useMessage();
 const dialog = useDialog();
 const applicationStore = useApplicationStore();
@@ -79,7 +81,7 @@ const handleDataInit = async () => {
   try {
     const { data, error } = await listObjects(applicationStore.appId, currentPath);
     if (error) {
-      message.error(`加载文件列表失败: ${error.message}`);
+      message.error(t('page.storage.loadFailed', { message: error.message }));
       files.value = [];
       return;
     }
@@ -99,7 +101,7 @@ const handleDataInit = async () => {
       files.value = [];
     }
   } catch (e: any) {
-    message.error(`请求异常: ${e.message}`);
+    message.error(t('page.storage.requestError', { message: e.message }));
     files.value = []; // 出错时清空列表
   }
 };
@@ -134,7 +136,7 @@ const updatePreview = async (file: any) => {
     const objectName = `${currentPath}${file.name}`;
     const { data, error } = await getDownloadUrl(applicationStore.appId, objectName);
     if (error) {
-      message.error(`生成预览链接失败: ${error.message}`);
+      message.error(t('page.storage.previewLinkFailed', { message: error.message }));
       previewType.value = 'other';
       return;
     }
@@ -145,13 +147,13 @@ const updatePreview = async (file: any) => {
         if (response.ok) {
           previewContent.value = await response.json();
         } else {
-          message.error('加载JSON内容失败');
+          message.error(t('page.storage.loadJsonFailed'));
           previewType.value = 'other';
         }
       }
     }
   } catch (e: any) {
-    message.error(`预览失败: ${e.message}`);
+    message.error(t('page.storage.previewFailed', { message: e.message }));
     previewType.value = 'other';
   }
 };
@@ -170,60 +172,62 @@ const handleUploadFile = () => {
     const objectName = `${currentPath}${file.name}`;
 
     try {
-      message.loading('正在上传文件...', { duration: 0 });
+      message.loading(t('page.storage.uploading'), { duration: 0 });
       const { error } = await uploadFile(applicationStore.appId, objectName, file);
       message.destroyAll();
       if (error) {
-        message.error(`上传失败: ${error.message}`);
+        message.error(t('page.storage.uploadFailed', { message: error.message }));
         return;
       }
-      message.success(`文件 "${file.name}" 上传成功`);
+      message.success(t('page.storage.uploadSuccess', { name: file.name }));
       await handleDataInit(); // 刷新列表
     } catch (err: any) {
       message.destroyAll();
-      message.error(`上传异常: ${err.message}`);
+      message.error(t('page.storage.uploadError', { message: err.message }));
     }
   };
   input.click();
 };
 
 const handleCreateFolder = () => {
-  let folderName = '';
+  const folderName = ref('');
   dialog.info({
-    title: '新建文件夹',
+    title: t('page.storage.newFolder'),
     content: () =>
       h(NInput, {
-        placeholder: '请输入文件夹名称',
+        placeholder: t('page.storage.folderNamePlaceholder'),
+        value: folderName.value,
         onUpdateValue: (v: string) => {
-          folderName = v;
+          folderName.value = v;
         }
       }),
-    positiveText: '确定',
-    negativeText: '取消',
+    positiveText: t('page.storage.confirm'),
+    negativeText: t('page.storage.cancel'),
     onPositiveClick: async () => {
-      if (!folderName || folderName.includes('/')) {
-        message.error('文件夹名称不能为空且不能包含斜杠');
+      if (!folderName.value || folderName.value.includes('/')) {
+        message.error(t('page.storage.folderNameEmpty'));
         return;
       }
 
       const currentPath = pathArrayToString();
-      const fullFolderName = `${currentPath}${folderName}`;
+      const fullFolderName = `${currentPath}${folderName.value}`;
 
       try {
-        message.loading('正在创建文件夹...', { duration: 0 });
+        message.loading(t('page.storage.creatingFolder'), { duration: 0 });
         const { error } = await createFolder(applicationStore.appId, fullFolderName);
         message.destroyAll();
 
         if (error) {
-          message.error(`创建失败: ${error.message}`);
+          message.error(t('page.storage.createFailed', { message: error.message }));
           return;
         }
 
-        message.success(`文件夹 "${folderName}" 创建成功`);
+        message.success(t('page.storage.createSuccess', { name: folderName.value }));
         await handleDataInit(); // 刷新列表
+        folderName.value = '';
       } catch (err: any) {
         message.destroyAll();
-        message.error(`创建异常: ${err.message}`);
+        message.error(t('page.storage.createError', { message: err.message }));
       }
     }
   });
@@ -237,7 +241,7 @@ const handleRowClick = async (row: any, rowIndex: number) => {
     previewUrl.value = null;
     previewContent.value = null;
     previewType.value = null;
-    message.info(`进入文件夹: ${row.name}`);
+    message.info(t('page.storage.enterFolder', { name: row.name }));
   } else {
     selectedFile.value = row;
     await updatePreview(row);
@@ -251,19 +255,19 @@ const handleBreadcrumbClick = (path: any, index: number) => {
   previewUrl.value = null;
   previewContent.value = null;
   previewType.value = null;
-  message.info(`返回到: ${path.name}`);
+  message.info(t('page.storage.backTo', { name: path.name }));
 };
 
 const handleDeleteFile = (row: any) => {
-  const typeText = row.type === 'folder' ? '文件夹' : '文件';
+  const typeText = row.type === 'folder' ? t('page.storage.folder') : t('page.storage.file');
   dialog.warning({
-    title: '确认删除',
-    content: `删除后不可恢复，确定要删除${typeText} "${row.name}" 吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: t('page.storage.confirmDelete'),
+    content: t('page.storage.deleteConfirm', { type: typeText, name: row.name }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        message.loading('正在删除...', { duration: 0 });
+        message.loading(t('page.storage.deleting'), { duration: 0 });
         const currentPath = pathArrayToString();
         const objectName = `${currentPath}${row.name}`;
         const apiCall =
@@ -275,11 +279,11 @@ const handleDeleteFile = (row: any) => {
         message.destroyAll();
 
         if (error) {
-          message.error(`删除失败: ${error.message}`);
+          message.error(t('page.storage.deleteFailed', { message: error.message }));
           return;
         }
 
-        message.success(`${typeText} "${row.name}" 已删除`);
+        message.success(t('page.storage.deleteSuccess', { type: typeText, name: row.name }));
         await handleDataInit(); // 重新加载数据
 
         if (selectedFile.value?.name === row.name) {
@@ -290,7 +294,7 @@ const handleDeleteFile = (row: any) => {
         }
       } catch (err: any) {
         message.destroyAll();
-        message.error(`删除异常: ${err.message}`);
+        message.error(t('page.storage.deleteError', { message: err.message }));
       }
     }
   });
@@ -298,20 +302,20 @@ const handleDeleteFile = (row: any) => {
 
 const handleDownloadFile = async (row: any) => {
   try {
-    message.info(`正在生成下载链接: ${row.name}`);
+    message.info(t('page.storage.generatingLink', { name: row.name }));
     const currentPath = pathArrayToString();
     const objectName = `${currentPath}${row.name}`;
     const { data, error } = await getDownloadUrl(applicationStore.appId, objectName);
     if (error) {
-      message.error(`生成下载链接失败: ${error.message}`);
+      message.error(t('page.storage.generateLinkFailed', { message: error.message }));
       return;
     }
     if (data?.url) {
       window.open(data.url, '_blank');
-      message.success(`开始下载: ${row.name}`);
+      message.success(t('page.storage.downloadStarted', { name: row.name }));
     }
   } catch (e: any) {
-    message.error(`下载失败: ${e.message}`);
+    message.error(t('page.storage.downloadFailed', { message: e.message }));
   }
 };
 
@@ -360,7 +364,7 @@ const createColumns = () => [
     }
   },
   {
-    title: '名称',
+    title: t('page.storage.name'),
     key: 'name',
     render(row: any) {
       return h(
@@ -375,17 +379,17 @@ const createColumns = () => [
     }
   },
   {
-    title: '大小',
+    title: t('page.storage.size'),
     key: 'size',
     width: 120,
   },
   {
-    title: '修改日期',
+    title: t('page.storage.modifiedDate'),
     key: 'modified',
     width: 200,
   },
   {
-    title: '操作',
+    title: t('page.storage.actions'),
     key: 'actions',
     width: 120,
     render(row: any) {
@@ -395,7 +399,7 @@ const createColumns = () => [
           quaternary: true,
           circle: true,
           size: 'small',
-          title: '下载',
+          title: t('page.storage.download'),
           onClick: (e) => { e.stopPropagation(); handleDownloadFile(row); }
         },
         { default: () => h(NIcon, null, { default: () => h(CloudDownloadOutline) }) }
@@ -408,7 +412,7 @@ const createColumns = () => [
           circle: true,
           size: 'small',
           type: 'error',
-          title: '删除',
+          title: t('common.delete'),
           onClick: (e) => { e.stopPropagation(); handleDeleteFile(row); }
         },
         { default: () => h(NIcon, null, { default: () => h(TrashOutline) }) }
@@ -423,7 +427,7 @@ const createColumns = () => [
   }
 ];
 
-const columns = createColumns();
+const columns = computed(() => createColumns());
 const pagination = { pageSize: 20 };
 
 const rowProps = (row: any) => {
@@ -455,7 +459,7 @@ onBeforeUnmount(() => {
       <NBreadcrumb class="path-breadcrumb">
         <NBreadcrumbItem @click="handleBakToRootPath">
           <NIcon :component="FolderOutline" class="mr-1" />
-          <span>根目录</span>
+          <span>{{ t('page.storage.root') }}</span>
         </NBreadcrumbItem>
         <NBreadcrumbItem v-for="(path, index) in breadcrumbPath" :key="path.key"
           @click="handleBreadcrumbClick(path, index)">
@@ -468,13 +472,13 @@ onBeforeUnmount(() => {
           <template #icon>
             <NIcon :component="FolderOpenOutline" />
           </template>
-          新建文件夹
+          {{ t('page.storage.newFolder') }}
         </NButton>
         <NButton size="small" type="primary" @click="handleUploadFile">
           <template #icon>
             <NIcon :component="CloudUploadOutline" />
           </template>
-          上传文件
+          {{ t('page.storage.uploadFile') }}
         </NButton>
       </NSpace>
     </header>
@@ -488,7 +492,7 @@ onBeforeUnmount(() => {
           :row-props="rowProps" :row-key="(row: any) => row.name" />
       </NCard>
       <!-- 右侧: 详情区域 -->
-      <NCard title="详情" class="w-80 rounded-lg shadow-md" :bordered="false"
+      <NCard :title="t('page.storage.detail')" class="w-80 rounded-lg shadow-md" :bordered="false"
         :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
         <div v-if="selectedFile" class="h-full flex flex-col gap-4">
           <!-- Preview Area -->
@@ -503,7 +507,7 @@ onBeforeUnmount(() => {
             </div>
             <!-- JSON Preview -->
             <div v-else-if="previewType === 'json' && previewContent !== null">
-              <JsonEditor v-model="previewContent" :height="200" />
+              <jsonEditor v-model="previewContent" :height="200" />
             </div>
           </div>
 
@@ -516,25 +520,25 @@ onBeforeUnmount(() => {
                 <div class="font-bold mt-2 break-all">{{ selectedFile.name }}</div>
               </div>
               <NDescriptions label-placement="left" :column="1" bordered size="small">
-                <NDescriptionsItem label="类型">
+                <NDescriptionsItem :label="t('page.storage.type')">
                   <NTag size="small" :type="selectedFile.type === 'folder' ? 'info' : 'success'">
-                    {{ selectedFile.type === 'folder' ? '文件夹' : '文件' }}
+                    {{ selectedFile.type === 'folder' ? t('page.storage.folder') : t('page.storage.file') }}
                   </NTag>
                 </NDescriptionsItem>
-                <NDescriptionsItem label="大小">{{ selectedFile.size }}</NDescriptionsItem>
-                <NDescriptionsItem label="修改日期">{{ selectedFile.modified }}</NDescriptionsItem>
+                <NDescriptionsItem :label="t('page.storage.size')">{{ selectedFile.size }}</NDescriptionsItem>
+                <NDescriptionsItem :label="t('page.storage.modifiedDate')">{{ selectedFile.modified }}</NDescriptionsItem>
               </NDescriptions>
               <NButton type="primary" block @click="handleDownloadFile(selectedFile)"
                 v-if="selectedFile.type === 'file'">
                 <template #icon>
                   <NIcon :component="CloudDownloadOutline" />
                 </template>
-                下载
+                {{ t('page.storage.download') }}
               </NButton>
             </NSpace>
           </div>
         </div>
-        <NEmpty v-else description="选择一个文件或文件夹查看详情" class="h-full flex-center">
+        <NEmpty v-else :description="t('page.storage.selectFileOrFolder')" class="h-full flex-center">
           <template #icon>
             <NIcon :component="ChevronForwardOutline" />
           </template>

@@ -39,32 +39,76 @@ from loguru import logger
 from bson import ObjectId
 
 async def handler(context, request, name: str = "World", value: int = 0):
+    # -----------------------------------------------------------------------------
+    # Example 1: Asynchronous Database Operations (Motor) - Recommended
+    # - Use `async def` to define the function.
+    # - Get the asynchronous database instance via `context.motor_db`.
+    # - Use the `await` keyword before all database operations to ensure non-blocking execution.
+    # -----------------------------------------------------------------------------
     \"\"\"
-    A comprehensive example demonstrating database operations.
+    A complete example of database operations using Motor (asynchronous).
     \"\"\"
-    logger.info(f"Received parameters: name='{name}', value={value}")
-    db = context.db
-    demo_collection = db["hyac_demo"]
+    
+    logger.info(f"[Async] Received parameters: name='{name}', value={value}")
+    db = context.motor_db  # Get the asynchronous Motor database client
+    demo_collection = db["hyac_demo_async"]
     
     # CREATE
     doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
     res = await demo_collection.insert_one(doc)
     inserted_id = res.inserted_id
-    logger.info(f"CREATE: Document inserted with ID: {inserted_id}")
+    logger.info(f"[Async] CREATE: Document inserted, ID: {inserted_id}")
 
     # READ
     read_doc = await demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"READ: Found document: {read_doc}")
+    logger.info(f"[Async] READ: Found document: {read_doc}")
 
     # UPDATE
     await demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
-    logger.info("UPDATE: Document status updated.")
+    updated_doc = await demo_collection.find_one({"_id": inserted_id})
+    logger.info(f"[Async] UPDATE: Document status updated: {updated_doc}")
 
     # DELETE
     await demo_collection.delete_one({"_id": inserted_id})
-    logger.info("DELETE: Document cleaned up.")
+    logger.info(f"[Async] DELETE: Document cleaned up")
     
-    return {"status": "ok", "inserted_id": str(inserted_id)}
+    async_result = {"status": "ok", "driver": "motor (async)", "inserted_id": str(inserted_id)}
+    
+    # -----------------------------------------------------------------------------
+    # Example 2: Synchronous Database Operations (Pymongo)
+    # - Use `async def` to define the function.
+    # - Get the synchronous database instance via `context.pymongo_db`.
+    # - This is a synchronous operation, but in FastAPI's async environment, it runs 
+    #   in a separate thread pool to avoid blocking the event loop.
+    # -----------------------------------------------------------------------------
+    \"\"\"
+    A complete example of database operations using PyMongo (synchronous).
+    \"\"\"
+    logger.info(f"[Sync] Received parameters: name='{name}', value={value}")
+    db = context.pymongo_db  # Get the synchronous PyMongo database client
+    demo_collection = db["hyac_demo_sync"]
+    
+    # CREATE
+    doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
+    res = demo_collection.insert_one(doc)
+    inserted_id = res.inserted_id
+    logger.info(f"[Sync] CREATE: Document inserted, ID: {inserted_id}")
+
+    # READ
+    read_doc = demo_collection.find_one({"_id": inserted_id})
+    logger.info(f"[Sync] READ: Found document: {read_doc}")
+
+    # UPDATE
+    demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
+    updated_doc = demo_collection.find_one({"_id": inserted_id})
+    logger.info(f"[Sync] UPDATE: Document status updated: {updated_doc}")
+
+    # DELETE
+    demo_collection.delete_one({"_id": inserted_id})
+    logger.info(f"[Sync] DELETE: Document cleaned up")
+    
+    sync_result = {"status": "ok", "driver": "pymongo (sync)", "inserted_id": str(inserted_id)}
+    return {"async_result": async_result, "sync_result": sync_result}
 """
 
 # --- Template for an Endpoint that calls a Common Function ---

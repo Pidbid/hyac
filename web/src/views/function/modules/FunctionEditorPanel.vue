@@ -2,6 +2,7 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { NCard, NButton, NIcon } from 'naive-ui';
 import { CheckmarkOutline, SaveOutline, InformationCircleOutline, BrushOutline } from '@vicons/ionicons5';
+import { $t } from '@/locales';
 import Editor from './editor.vue'; // 假设 editor.vue 在同一目录下
 
 interface editorConfigT {
@@ -56,7 +57,7 @@ watch(() => props.func, () => {
 </script>
 
 <template>
-  <NCard :title="func.name || '函数编辑区域'" :bordered="false" size="small" class="h-full flex-1"
+  <NCard :title="func.name || $t('page.function.functionEditor')" :bordered="false" size="small" class="h-full flex-1"
     :content-style="{ padding: '0px', display: 'flex', flexDirection: 'column' }">
     <template #header-extra>
       <div class="flex flex-row gap-2">
@@ -64,13 +65,13 @@ watch(() => props.func, () => {
           <template #icon>
             <NIcon :component="CheckmarkOutline" />
           </template>
-          发布
+          {{ $t('page.function.publish') }}
         </NButton>
         <NButton v-else type="default" size="small" disabled>
           <template #icon>
             <NIcon :component="SaveOutline" />
           </template>
-          已发布
+          {{ $t('page.function.published') }}
         </NButton>
         <NButton type="default" size="small" @click="emit('open-history')">
           <template #icon>

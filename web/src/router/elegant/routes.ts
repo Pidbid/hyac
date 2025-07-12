@@ -62,7 +62,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.database',
       icon: 'router-database',
       localIcon: 'router-database',
-      order: 2
+      order: 2,
+      keepAlive: true
     }
   },
   {
@@ -74,7 +75,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.function',
       icon: 'router-function',
       localIcon: 'router-function',
-      order: 1
+      order: 1,
+      keepAlive: true
     }
   },
   {
@@ -147,7 +149,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.storage',
       icon: 'router-goods',
       localIcon: 'router-goods',
-      order: 3
+      order: 3,
+      keepAlive: true
     }
   }
 ];

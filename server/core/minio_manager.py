@@ -97,6 +97,35 @@ class MinioManager:
         assert self.client is not None
         await asyncio.to_thread(self.client.set_bucket_policy, bucket_name, policy)
 
+    async def set_bucket_to_public_read(self, bucket_name: str):
+        """
+        Sets a bucket's policy to allow public read access for all objects.
+        """
+        if not self._check_client():
+            return
+
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{bucket_name}/*"],
+                },
+            ],
+        }
+        try:
+            await self.set_bucket_policy(bucket_name, json.dumps(policy))
+            logger.info(
+                f"Successfully set public read policy for bucket '{bucket_name}'."
+            )
+        except S3Error as e:
+            logger.error(
+                f"Failed to set public read policy for bucket '{bucket_name}': {e}"
+            )
+            raise
+
     async def create_folder(self, bucket_name: str, folder_name: str) -> bool:
         """
         Creates a folder in a bucket by creating an empty object with a trailing slash.
@@ -168,6 +197,37 @@ class MinioManager:
             return True
         except S3Error as e:
             logger.error(f"Failed to upload file '{file_path}': {e}")
+            return False
+
+    async def upload_file_stream(
+        self, bucket_name: str, object_name: str, file_stream
+    ) -> bool:
+        """
+        Uploads a file-like object to a bucket using a stream.
+        """
+        if not self._check_client():
+            return False
+        assert self.client is not None
+        try:
+            # Get the size of the file by seeking to the end
+            file_stream.file.seek(0, io.SEEK_END)
+            file_size = file_stream.file.tell()
+            file_stream.file.seek(0, io.SEEK_SET)
+
+            await asyncio.to_thread(
+                self.client.put_object,
+                bucket_name,
+                object_name,
+                file_stream.file,
+                length=file_size,
+                content_type=file_stream.content_type,
+            )
+            logger.info(
+                f"File stream '{object_name}' uploaded to bucket '{bucket_name}'."
+            )
+            return True
+        except S3Error as e:
+            logger.error(f"Failed to upload file stream '{object_name}': {e}")
             return False
 
     async def download_file(

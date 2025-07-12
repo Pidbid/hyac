@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick
 import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch } from 'naive-ui';
 import { AddOutline, CloseOutline, SearchOutline, BrushOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
+import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
 import { useLogStore } from '@/store/modules/log';
@@ -22,7 +23,8 @@ import {
   packageRemove,
   getEnvsData,
   addEnv,
-  removeEnv
+  removeEnv,
+  getDomain
 } from '@/service/api';
 
 import FunctionList from './modules/FunctionList.vue';
@@ -79,8 +81,9 @@ const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 
 // Computed
 const functionAddress = computed(() => {
-  if (selectedFunction.value.id !== '') {
-    return `http://${applicationStore.appId}.hyacos.top/${selectedFunction.value.id}`;
+  const domain = localStorage.getItem('hyac_domain');
+  if (selectedFunction.value.id !== '' && domain) {
+    return `http://${applicationStore.appId}.${domain}/${selectedFunction.value.id}`;
   }
   return '';
 });
@@ -128,7 +131,8 @@ const functionSelect = (func: Api.Function.FunctionInfo) => {
 };
 
 const handleCreateFunction = () => {
-    const localCreateData = reactive({
+  const formRef = ref<any>(null);
+  const localCreateData = reactive({
     name: '',
     description: '',
     type: "endpoint",
@@ -136,6 +140,11 @@ const handleCreateFunction = () => {
     tags: [] as string[],
     templateOptions: [] as SelectOption[]
   });
+
+  const rules = {
+    name: { required: true, message: $t('page.function.functionNamePlaceholder'), trigger: 'blur' },
+    template_id: { required: true, message: $t('page.function.functionTemplatePlaceholder'), trigger: 'change' }
+  };
 
   const fetchLocalTemplates = async (functionType: string) => {
     const { data, error } = await getFunctionTemplates(applicationStore.appId, 1, 100, functionType);
@@ -149,92 +158,111 @@ const handleCreateFunction = () => {
 
   fetchLocalTemplates(localCreateData.type);
 
-  dialog.info({
-    title: '创建函数',
-    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80 }, {
+  const d = dialog.info({
+    title: $t('page.function.createFunction'),
+    content: () => h(NForm, { ref: formRef, model: localCreateData, rules: rules, labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
-        h(NFormItem, { label: '函数名称' }, {
+        h(NFormItem, { label: $t('page.function.functionName'), path: 'name' }, {
           default: () => h(NInput, {
-            placeholder: '请输入函数名称',
+            placeholder: $t('page.function.functionNamePlaceholder'),
             value: localCreateData.name,
             onUpdateValue: (value) => localCreateData.name = value
           })
         }),
-        h(NFormItem, { label: '函数类型' }, {
+        h(NFormItem, { label: $t('page.function.functionType') }, {
           default: () => h(NRadioGroup, {
             value: localCreateData.type,
             onUpdateValue: (value) => {
               localCreateData.type = value;
+              localCreateData.template_id = '';
               fetchLocalTemplates(value);
             }
           }, {
             default: () => [
-              h(NRadio, { label: "API 函数", value: 'endpoint' }),
-              h(NRadio, { label: "公共函数", value: 'common' })
+              h(NRadio, { label: $t('page.function.apiFunction'), value: 'endpoint' }),
+              h(NRadio, { label: $t('page.function.commonFunction'), value: 'common' })
             ]
           })
         }),
-        h(NFormItem, { label: '函数模板' }, {
+        h(NFormItem, { label: $t('page.function.functionTemplate'), path: 'template_id' }, {
           default: () => h(NSelect, {
-            placeholder: '请选择函数模板',
+            placeholder: $t('page.function.functionTemplatePlaceholder'),
             options: localCreateData.templateOptions,
             value: localCreateData.template_id,
             onUpdateValue: (value) => localCreateData.template_id = value
           })
         }),
-        h(NFormItem, { label: '函数描述' }, {
+        h(NFormItem, { label: $t('page.function.functionDescription') }, {
           default: () => h(NInput, {
             type: 'textarea',
-            placeholder: '请输入函数描述',
+            placeholder: $t('page.function.functionDescriptionPlaceholder'),
             value: localCreateData.description,
             onUpdateValue: (value) => localCreateData.description = value
           })
         }),
-        h(NFormItem, { label: '标签' }, {
+        h(NFormItem, { label: $t('page.function.tags') }, {
           default: () => h(NInput, {
-            placeholder: '请输入标签（逗号分隔）',
+            placeholder: $t('page.function.tagsPlaceholder'),
             value: localCreateData.tags.join(','),
             onUpdateValue: (value) => localCreateData.tags = value.split(',').map(tag => tag.trim())
           })
         }),
       ]
     }),
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      const { data, error } = await CreateFunction(
-        applicationStore.appId,
-        localCreateData.name,
-        localCreateData.type,
-        localCreateData.description,
-        localCreateData.tags,
-        appStore.locale,
-        localCreateData.template_id
-      );
-      if (!error) {
-        message.success('创建成功');
-        await getFunctionData();
-        const newFunc = functions.value.find(func => func.name === localCreateData.name);
-        if (newFunc) {
-          functionSelect(newFunc);
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onNegativeClick: () => {
+      // Reset form data on cancellation
+      localCreateData.name = '';
+      localCreateData.description = '';
+      localCreateData.type = 'endpoint';
+      localCreateData.template_id = '';
+      localCreateData.tags = [];
+    },
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await CreateFunction(
+            applicationStore.appId,
+            localCreateData.name,
+            localCreateData.type,
+            localCreateData.description,
+            localCreateData.tags,
+            appStore.locale,
+            localCreateData.template_id
+          );
+          if (!error) {
+            message.success($t('page.function.createSuccess'));
+            await getFunctionData();
+            const newFunc = functions.value.find(func => func.name === localCreateData.name);
+            // Reset form data after successful creation
+            localCreateData.name = '';
+            localCreateData.description = '';
+            localCreateData.type = 'endpoint';
+            localCreateData.template_id = '';
+            localCreateData.tags = [];
+            if (newFunc) {
+              functionSelect(newFunc);
+            }
+          } else {
+            message.error($t('page.function.createFailed'));
+          }
         }
-      } else {
-        message.error('创建失败，请稍后重试');
-      }
+      });
     }
   });
 };
 
 const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
   dialog.warning({
-    title: '确认删除吗',
-    content: `确定要删除函数 "${func.name}" 吗？删除后不可恢复！`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: $t('page.function.confirmDelete'),
+    content: $t('page.function.deleteConfirm', { name: func.name }),
+    positiveText: $t('common.delete'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { error } = await DeleteFunction(applicationStore.appId, func.id);
       if (!error) {
-        message.success('函数已删除');
+        message.success($t('page.function.deleteSuccess'));
         await getFunctionData();
         if (selectedFunction.value.id === func.id) {
           if (functions.value.length > 0) {
@@ -256,7 +284,7 @@ const handleSaveCode = async () => {
   const { error } = await UpdateFunctionCode(applicationStore.appId, selectedFunction.value.id, selectedFunction.value.code);
   if (!error) {
     const currentEditFunctionId = selectedFunction.value.id;
-    message.success('代码已保存');
+    message.success($t('page.function.saveSuccess'));
     originalCode.value = selectedFunction.value.code;
     codeChanged.value = false;
     await getFunctionData();
@@ -265,7 +293,7 @@ const handleSaveCode = async () => {
         selectedFunction.value = updatedFunc;
     }
   } else {
-    message.error('保存代码失败，请稍后重试');
+    message.error($t('page.function.saveFailed'));
   }
 };
 
@@ -276,23 +304,23 @@ const handleOpenHistory = async () => {
     if (data.data.length > 0) {
       showHistoryModel.value = true;
     } else {
-      message.warning("该函数没有历史记录");
+      message.warning($t('page.function.noHistory'));
     }
   }
 };
 
 const handleRollback = async (history: Api.Function.FunctionHistoryInfo) => {
   dialog.warning({
-    title: '确认回退代码',
-    content: `确定要将当前代码回退到 ${dayjs(history.updated_at).format('YYYY-MM-DD HH:mm:ss')} 的版本吗？`,
-    positiveText: '确定回退',
-    negativeText: '取消',
+    title: $t('page.function.confirmRollback'),
+    content: $t('page.function.rollbackConfirm', { date: dayjs(history.updated_at).format('YYYY-MM-DD HH:mm:ss') }),
+    positiveText: $t('page.function.rollback'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       selectedFunction.value.code = history.new_code;
       await nextTick();
       await handleSaveCode();
       showHistoryModel.value = false;
-      message.success('代码已成功回退并保存');
+      message.success($t('page.function.rollbackSuccess'));
     }
   });
 };
@@ -303,18 +331,18 @@ const handleFunctionEditorSetting = () => {
     language: 'python',
     minimap: editorConfig.value.minimap,
   });
-  dialog.info({
-    title: '编辑器设置',
-    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80 }, {
+  const d = dialog.info({
+    title: $t('page.function.editorSettings'),
+    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
-        h(NFormItem, { label: '字体大小' }, {
+        h(NFormItem, { label: $t('page.function.fontSize') }, {
           default: () => h(NInputNumber, {
             placeholder: '16',
             value: tempConfig.fontSize,
             onUpdateValue: (value) => { if (value) tempConfig.fontSize = value; }
           })
         }),
-        h(NFormItem, { label: '代码预览' }, {
+        h(NFormItem, { label: $t('page.function.codePreview') }, {
           default: () => h(NSwitch, {
             value: tempConfig.minimap,
             onUpdateValue: (value) => { tempConfig.minimap = value; }
@@ -322,12 +350,12 @@ const handleFunctionEditorSetting = () => {
         })
       ]
     }),
-    positiveText: '确定',
-    negativeText: '取消',
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: () => {
       editorConfig.value.fontSize = tempConfig.fontSize;
       editorConfig.value.minimap = tempConfig.minimap;
-      message.success('设置成功');
+      message.success($t('page.function.settingsSuccess'));
     },
   });
 };
@@ -335,35 +363,35 @@ const handleFunctionEditorSetting = () => {
 
 const handleDeleteDependence = (dep: Api.Settings.DependenceInfo) => {
   dialog.warning({
-    title: '确认删除依赖',
-    content: `确定要删除依赖 "${dep.name}" 吗？`,
+    title: $t('page.function.confirmDeleteDependence'),
+    content: $t('page.function.deleteDependenceConfirm', { name: dep.name }),
     action: () => h(NButtonGroup, { class: "flex justify-end gap-2 w-full" }, {
       default: () => [
-        h(NButton, { type: "default", size: "small", onClick: () => dialog.destroyAll() }, { default: () => "取消" }),
+        h(NButton, { type: "default", size: "small", onClick: () => dialog.destroyAll() }, { default: () => $t('common.cancel') }),
         h(NButton, {
           type: "error", size: "small", onClick: async () => {
             const { error } = await packageRemove(applicationStore.appId, dep.name, false);
             if (!error) {
-              message.success('依赖已删除');
+              message.success($t('page.function.dependenceDeleted'));
               await handleDependence(false); // Refresh list without closing dialog
             } else {
-              message.error('删除失败');
+              message.error($t('page.function.deleteFailed'));
             }
             dialog.destroyAll();
           }
-        }, { default: () => "仅删除" }),
+        }, { default: () => $t('page.function.deleteOnly') }),
         h(NButton, {
           type: "warning", size: "small", onClick: async () => {
             const { error } = await packageRemove(applicationStore.appId, dep.name, true);
             if (!error) {
-              message.success('依赖已删除，容器正在重启...');
+              message.success($t('page.function.dependenceDeletedAndRestarting'));
               await handleDependence(false); // Refresh list without closing dialog
             } else {
-              message.error('删除失败');
+              message.error($t('page.function.deleteFailed'));
             }
             dialog.destroyAll();
           }
-        }, { default: () => "删除并重启" })
+        }, { default: () => $t('page.function.deleteAndRestart') })
       ]
     })
   });
@@ -373,10 +401,10 @@ const handleDeleteDependence = (dep: Api.Settings.DependenceInfo) => {
 const handlePackageAdd = async (restart: boolean = false) => {
   const { data, error } = await packageAdd(applicationStore.appId, packageSelectInput.value.name, packageSelectInput.value.version, restart);
   if (!error) {
-    message.success(restart ? '依赖添加成功，容器正在重启...' : '依赖添加成功');
+    message.success(restart ? $t('page.function.addDependenceSuccessAndRestarting') : $t('page.function.addDependenceSuccess'));
     await handleDependence(false); // Refresh list without closing dialog
   }else{
-    message.error('依赖添加失败');
+    message.error($t('page.function.addDependenceFailed'));
   }
   packageSelectInput.value = {name:'',version: ''}
   packageResult.value = []
@@ -397,31 +425,38 @@ const handleAddDependence = async (row: { name: string }) => {
   isDependenceLoading.value = true;
   const { data, error } = await packageInfo(applicationStore.appId, packageSelectInput.value.name);
   if (error) {
-    message.error("获取包信息失败");
+    message.error($t('page.function.getPackageInfoFailed'));
     isDependenceLoading.value = false;
     return;
   }
   packageSelectInput.value.version = data?.versions?.[0] ?? '';
   isDependenceLoading.value = false;
+  const formRef = ref<any>(null);
+  const rules = {
+    name: { required: true, message: $t('page.function.dependenceNamePlaceholder'), trigger: 'blur' }
+  };
   addDependenceDialogRef = dialog.info({
-    title: '添加',
-    content: () => h(NForm, {}, {
+    title: $t('page.function.add'),
+    content: () => h(NForm, { ref: formRef, model: packageSelectInput.value, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); handlePackageAdd(false); } } }, {
       default: () => [
-        h(NFormItem, { label: "依赖名称" }, {
+        h(NFormItem, { label: $t('page.function.dependenceName'), path: "name" }, {
           default:
-            () => h(NInput, { value: packageSelectInput.value.name, disabled: true })
+            () => h(NInput, { value: packageSelectInput.value.name, onUpdateValue: (v) => packageSelectInput.value.name = v })
         }),
-        h(NFormItem, { label: "版本" }, {
+        h(NFormItem, { label: $t('page.function.version') }, {
           default:
-            () => h(NSelect, { defaultValue: packageSelectInput.value.version, options: data?.versions?.map((v: string) => ({ label: v, value: v })) ?? [] })
+            () => h(NSelect, { value: packageSelectInput.value.version, onUpdateValue: (v) => packageSelectInput.value.version = v, options: data?.versions?.map((v: string) => ({ label: v, value: v })) ?? [] })
         }),
       ]
     }),
     action: () => h(NButtonGroup, { class: "flex justify-end gap-2 w-full" }, {
       default: () => [
-        h(NButton, { type: "default", size: "small", onClick: () => { addDependenceDialogRef.destroy() } }, { default: () => "取消" }),
-        h(NButton, { type: "success", size: "small", onClick: () => handlePackageAdd(false) }, { default: () => "安装" }),
-        h(NButton, { type: "info", size: "small", onClick: () => handlePackageAdd(true) }, { default: () => "安装并重启" })
+        h(NButton, { type: "default", size: "small", onClick: () => {
+          addDependenceDialogRef.destroy();
+          packageSelectInput.value = { name: '', version: '' };
+         } }, { default: () => $t('common.cancel') }),
+        h(NButton, { type: "success", size: "small", onClick: () => handlePackageAdd(false) }, { default: () => $t('page.function.install') }),
+        h(NButton, { type: "info", size: "small", onClick: () => handlePackageAdd(true) }, { default: () => $t('page.function.installAndRestart') })
       ]
     }),
     onPositiveClick: async () => {
@@ -435,12 +470,14 @@ const handleAddDependence = async (row: { name: string }) => {
 }
 
 const handleDependence = async (showDialog: boolean = true) => {
+  packageSelectInput.value = { name: "", version: "" };
+  packageResult.value = [];
   isDependenceLoading.value = true;
   const { data, error } = await dependenciesData(applicationStore.appId);
   isDependenceLoading.value = false;
 
   if (error) {
-    message.error("获取依赖列表失败");
+    message.error($t('page.function.getDependenceListFailed'));
     return;
   }
   commonDependencies.value = data.common;
@@ -449,11 +486,11 @@ const handleDependence = async (showDialog: boolean = true) => {
   if (!showDialog) return;
 
   dialog.info({
-    title: '依赖管理',
+    title: $t('page.function.dependenceManagement'),
     content: () => h(NSpin, { show: isDependenceLoading.value }, {
       default: () => h(NTabs, { type: 'segment', animated: true, style: 'height:500px;', ref: dependenceTabsRef }, {
         default: () => [
-          h(NTabPane, { name: '已安装', tab: '已安装' }, {
+          h(NTabPane, { name: $t('page.function.installed'), tab: $t('page.function.installed') }, {
             default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
               default: () => commonDependencies.value.length > 0 ? h(NList, { hoverable: true, clickable: true, bordered: true }, {
                 default: () => commonDependencies.value.map((dep) => h(NListItem, {}, {
@@ -463,26 +500,26 @@ const handleDependence = async (showDialog: boolean = true) => {
                     })
                   })
                 }))
-              }) : h(NEmpty, { description: "暂无依赖", class: "h-full flex items-center justify-center" })
+              }) : h(NEmpty, { description: $t('page.function.noDependence'), class: "h-full flex items-center justify-center" })
             })
           }),
-          h(NTabPane, { name: '系统依赖', tab: '系统依赖' }, {
+          h(NTabPane, { name: $t('page.function.systemDependence'), tab: $t('page.function.systemDependence') }, {
             default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
               default: () => systemDependencies.value.length > 0 ? h(NList, { hoverable: true, bordered: true }, {
                 default: () => systemDependencies.value.map((dep) => h(NListItem, {}, {
                   default: () => h(NThing, { title: dep.name, description: dep.version })
                 }))
-              }) : h(NEmpty, { description: "暂无系统依赖", class: "h-full flex items-center justify-center" })
+              }) : h(NEmpty, { description: $t('page.function.noSystemDependence'), class: "h-full flex items-center justify-center" })
             })
           }),
-          h(NTabPane, { name: '添加', tab: '添加' }, {
+          h(NTabPane, { name: $t('page.function.add'), tab: $t('page.function.add') }, {
             default: () => [
-              h(NInput, { value: packageSelectInput.value.name, placeholder: '请输入依赖名称', onUpdateValue: (value) => { packageSelectInput.value.name = value; } }, {
+              h(NInput, { value: packageSelectInput.value.name, placeholder: $t('page.function.dependenceNamePlaceholder'), onUpdateValue: (value) => { packageSelectInput.value.name = value; } }, {
                 suffix: () => h(NButton, { size: 'small', loading: isDependenceLoading.value, onClick: handlePackageSearch }, {
                   default: () => h(NIcon, { component: SearchOutline })
                 })
               }),
-              h(NDataTable, { columns: [{ title: "依赖名称", key: "name" }, { title: '操作', key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
+              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('page.function.actions'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
             ]
           })
         ]
@@ -494,7 +531,7 @@ const handleDependence = async (showDialog: boolean = true) => {
 const handleEnvSetting = async (showDialog: boolean = true) => {
   const { data, error } = await getEnvsData(applicationStore.appId);
   if (error) {
-    message.error("获取环境变量失败");
+    message.error($t('page.function.getEnvFailed'));
     return;
   }
   userEnv.value = data.user;
@@ -503,10 +540,10 @@ const handleEnvSetting = async (showDialog: boolean = true) => {
   if (!showDialog) return;
 
   dialog.info({
-    title: '环境变量管理',
+    title: $t('page.function.envManagement'),
     content: () => h(NTabs, { type: 'segment', animated: true, style: 'height:500px;' }, {
       default: () => [
-        h(NTabPane, { name: '自定义', tab: '自定义' }, {
+        h(NTabPane, { name: $t('page.function.custom'), tab: $t('page.function.custom') }, {
           default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
             default: () => userEnv.value.length > 0 ? h(NList, { hoverable: true, clickable: true, bordered: true }, {
               default: () => userEnv.value.map((dep) => h(NListItem, {}, {
@@ -523,93 +560,116 @@ const handleEnvSetting = async (showDialog: boolean = true) => {
                   })
                 })
               }))
-            }) : h(NEmpty, { description: "暂无自定义环境变量", class: "h-full flex items-center justify-center" })
+            }) : h(NEmpty, { description: $t('page.function.noCustomEnv'), class: "h-full flex items-center justify-center" })
           })
         }),
-        h(NTabPane, { name: '系统内置', tab: '系统内置' }, {
+        h(NTabPane, { name: $t('page.function.systemBuiltin'), tab: $t('page.function.systemBuiltin') }, {
           default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
             default: () => systemEnv.value.length > 0 ? h(NList, { hoverable: true, bordered: true }, {
               default: () => systemEnv.value.map((dep) => h(NListItem, {}, {
                 default: () => h(NThing, { title: dep.key, description: dep.value })
               }))
-            }) : h(NEmpty, { description: "暂无系统内置环境变量", class: "h-full flex items-center justify-center" })
+            }) : h(NEmpty, { description: $t('page.function.noSystemBuiltinEnv'), class: "h-full flex items-center justify-center" })
           })
         }),
       ]
     }),
-    action: () => h(NButton, { type: 'primary', onClick: () => handleAddEnv() }, { default: () => "添加环境变量" })
+    action: () => h(NButton, { type: 'primary', onClick: () => handleAddEnv() }, { default: () => $t('page.function.addEnv') })
   })
 }
 
 const handleAddEnv = () => {
+  const formRef = ref<any>(null);
   const newEnv = reactive({ key: '', value: '' });
-  dialog.info({
-    title: '添加环境变量',
-    content: () => h(NForm, { model: newEnv }, {
+  const rules = {
+    key: { required: true, message: $t('page.function.keyPlaceholder'), trigger: 'blur' },
+    value: { required: true, message: $t('page.function.valuePlaceholder'), trigger: 'blur' }
+  };
+  const d = dialog.info({
+    title: $t('page.function.addEnv'),
+    content: () => h(NForm, { ref: formRef, model: newEnv, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
-        h(NFormItem, { label: 'Key' }, {
+        h(NFormItem, { label: $t('page.function.key'), path: 'key' }, {
           default: () => h(NInput, { value: newEnv.key, onUpdateValue: (v) => newEnv.key = v })
         }),
-        h(NFormItem, { label: 'Value' }, {
+        h(NFormItem, { label: $t('page.function.value'), path: 'value' }, {
           default: () => h(NInput, { value: newEnv.value, onUpdateValue: (v) => newEnv.value = v })
         })
       ]
     }),
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      const { error } = await addEnv(applicationStore.appId, newEnv.key, newEnv.value);
-      if (!error) {
-        message.success('添加成功');
-        await handleEnvSetting(false);
-      } else {
-        message.error('添加失败');
-      }
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onNegativeClick: () => {
+      newEnv.key = '';
+      newEnv.value = '';
+    },
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await addEnv(applicationStore.appId, newEnv.key, newEnv.value);
+          if (!error) {
+            message.success($t('page.function.addSuccess'));
+            await handleEnvSetting(false);
+            newEnv.key = '';
+            newEnv.value = '';
+          } else {
+            message.error($t('page.function.addFailed'));
+          }
+        }
+      });
     }
   });
 }
 
 const handleEditEnv = (env: Api.Settings.EnvInfo) => {
+  const formRef = ref<any>(null);
   const editEnv = reactive({ ...env });
-  dialog.info({
-    title: '编辑环境变量',
-    content: () => h(NForm, { model: editEnv }, {
+  const rules = {
+    value: { required: true, message: $t('page.function.valuePlaceholder'), trigger: 'blur' }
+  };
+  const d = dialog.info({
+    title: $t('page.function.editEnv'),
+    content: () => h(NForm, { ref: formRef, model: editEnv, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
-        h(NFormItem, { label: 'Key' }, {
+        h(NFormItem, { label: $t('page.function.key') }, {
           default: () => h(NInput, { value: editEnv.key, disabled: true })
         }),
-        h(NFormItem, { label: 'Value' }, {
+        h(NFormItem, { label: $t('page.function.value'), path: 'value' }, {
           default: () => h(NInput, { value: editEnv.value, onUpdateValue: (v) => editEnv.value = v })
         })
       ]
     }),
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      const { error } = await addEnv(applicationStore.appId, editEnv.key, editEnv.value);
-      if (!error) {
-        message.success('修改成功');
-        await handleEnvSetting(false);
-      } else {
-        message.error('修改失败');
-      }
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await addEnv(applicationStore.appId, editEnv.key, editEnv.value);
+          if (!error) {
+            message.success($t('page.function.updateSuccess'));
+            await handleEnvSetting(false);
+          } else {
+            message.error($t('page.function.updateFailed'));
+          }
+        }
+      });
     }
   });
 }
 
 const handleDeleteEnv = (env: Api.Settings.EnvInfo) => {
   dialog.warning({
-    title: '确认删除环境变量',
-    content: `确定要删除环境变量 "${env.key}" 吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: $t('page.function.confirmDeleteEnv'),
+    content: $t('page.function.deleteEnvConfirm', { key: env.key }),
+    positiveText: $t('common.delete'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { error } = await removeEnv(applicationStore.appId, env.key);
       if (!error) {
-        message.success('删除成功');
+        message.success($t('page.function.deleteSuccess'));
         await handleEnvSetting(false);
       } else {
-        message.error('删除失败');
+        message.error($t('page.function.deleteFailed'));
       }
     }
   });
@@ -617,6 +677,10 @@ const handleDeleteEnv = (env: Api.Settings.EnvInfo) => {
 
 // Lifecycle
 onMounted(async () => {
+  const { data: domain, error } = await getDomain();
+  if (!error) {
+    localStorage.setItem('hyac_domain', domain);
+  }
   await getFunctionData();
   logStore.connect();
   if (selectedFunction.value.id) {
@@ -659,10 +723,10 @@ onBeforeUnmount(() => {
           </NSplit>
         </div>
         <div v-else class="h-full w-full flex items-center justify-center">
-          <NEmpty description="请先创建或选择一个函数">
+          <NEmpty :description="$t('page.function.emptyDescription')">
             <template #extra>
               <NButton type="primary" @click="handleCreateFunction">
-                创建函数
+                {{ $t('page.function.createFunction') }}
               </NButton>
             </template>
           </NEmpty>

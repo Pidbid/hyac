@@ -327,41 +327,40 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
-async def reload_nginx(target_appid: str = "") -> bool:
+async def reload_nginx(config_to_poll: Optional[str] = None) -> bool:
     """
-    Reloads the Nginx configuration gracefully, ensuring the config file exists first.
+    Reloads Nginx. If config_to_poll is provided, it waits for that file to exist first.
     """
     if not docker_manager.client:
         return False
 
     try:
         nginx_container = docker_manager.client.containers.get("hyac_nginx")
-        config_filename = f"app-{target_appid.lower()}.conf"
-        config_path_in_container = f"/etc/nginx/user_conf.d/{config_filename}"
 
-        # 1. Poll to ensure the config file exists inside the Nginx container.
-        # This prevents race conditions with volume mounts.
-        file_exists = False
-        for i in range(5):  # Poll for up to 5 seconds
-            exit_code, _ = nginx_container.exec_run(
-                f"test -f {config_path_in_container}"
-            )
-            if exit_code == 0:
-                logger.info(
-                    f"Nginx config '{config_filename}' found in container (Attempt {i+1}/5)."
+        # 1. If a specific config file is given, poll for its existence.
+        if config_to_poll:
+            config_path_in_container = f"/etc/nginx/user_conf.d/{config_to_poll}"
+            file_exists = False
+            for i in range(5):  # Poll for up to 5 seconds
+                exit_code, _ = nginx_container.exec_run(
+                    f"test -f {config_path_in_container}"
                 )
-                file_exists = True
-                break
-            logger.info(
-                f"Waiting for Nginx config '{config_filename}' to appear in container... (Attempt {i+1}/5)"
-            )
-            await asyncio.sleep(1)
+                if exit_code == 0:
+                    logger.info(
+                        f"Nginx config '{config_to_poll}' found in container (Attempt {i+1}/5)."
+                    )
+                    file_exists = True
+                    break
+                logger.info(
+                    f"Waiting for Nginx config '{config_to_poll}' to appear in container... (Attempt {i+1}/5)"
+                )
+                await asyncio.sleep(1)
 
-        if not file_exists:
-            logger.error(
-                f"Nginx config '{config_filename}' did not appear in container after waiting."
-            )
-            return False
+            if not file_exists:
+                logger.error(
+                    f"Nginx config '{config_to_poll}' did not appear in container after waiting."
+                )
+                return False
 
         # 2. Test the new configuration syntax.
         test_exit_code, test_output = nginx_container.exec_run("nginx -t")
@@ -447,6 +446,80 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
         return False
 
 
+async def create_web_hosting_nginx_config(app_id: str) -> bool:
+    """
+    Creates an Nginx server block for web hosting, pointing to a MinIO bucket,
+    with proper MIME type handling.
+    """
+    domain_name = settings.DOMAIN_NAME or "localhost"
+    server_name = f"web-{app_id.lower()}.{domain_name}"
+    bucket_name = f"web-{app_id.lower()}"
+    config_filename = f"web-{app_id.lower()}.conf"
+    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
+    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
+
+    # Nginx config to proxy to MinIO bucket with MIME type fix
+    config_content = f"""server {{
+    listen 80;
+    server_name {server_name};
+
+    location / {{
+        # Rewrite root requests to index.html
+        rewrite ^/$ /index.html break;
+
+        proxy_set_header Host "{bucket_name}.minio:9000";
+        proxy_pass http://minio:9000/{bucket_name};
+        proxy_set_header Authorization '';
+
+        # Hide unnecessary headers from MinIO
+        proxy_hide_header "x-amz-id-2";
+        proxy_hide_header "x-amz-request-id";
+        proxy_hide_header "Set-Cookie";
+        proxy_ignore_headers "Set-Cookie";
+        proxy_intercept_errors on;
+        add_header Cache-Control "public, max-age=604800";
+
+        # --- MIME Type Fix ---
+        # Hide the Content-Type from MinIO. Nginx will then use its own
+        # mime.types mapping to set the correct Content-Type based on the
+        # file extension of the request URI.
+        proxy_hide_header Content-Type;
+    }}
+}}"""
+
+    try:
+        with open(real_config_path, "w", encoding="utf-8") as f:
+            f.write(config_content)
+        logger.info(
+            f"Nginx web config for app '{app_id}' created at {real_config_path}."
+        )
+    except IOError as e:
+        logger.error(f"Failed to write Nginx web config for app '{app_id}': {e}")
+        return False
+
+    symlink_command = f"ln -s {user_conf_path} {symlink_path}"
+    exit_code, output = await asyncio.to_thread(
+        docker_manager.exec_in_container, "hyac_nginx", symlink_command
+    )
+
+    if exit_code == 0:
+        logger.info(
+            f"Successfully created symlink for '{config_filename}' in Nginx container."
+        )
+        return True
+    else:
+        if "File exists" in output:
+            logger.warning(
+                f"Symlink for web config '{config_filename}' already exists."
+            )
+            return True
+        logger.error(
+            f"Failed to create symlink for web config '{config_filename}'. Exit code: {exit_code}, Output: {output}"
+        )
+        return False
+
+
 async def remove_app_nginx_config(app_id: str) -> bool:
     """
     Removes the Nginx config file and its symbolic link for an application.
@@ -476,6 +549,37 @@ async def remove_app_nginx_config(app_id: str) -> bool:
         return True
     except IOError as e:
         logger.error(f"Failed to remove Nginx config file '{real_config_path}': {e}")
+        return False
+
+
+async def remove_web_hosting_nginx_config(app_id: str) -> bool:
+    """
+    Removes the Nginx web hosting config file and its symbolic link.
+    """
+    config_filename = f"web-{app_id.lower()}.conf"
+    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
+
+    unlink_command = f"rm {symlink_path}"
+    exit_code, output = await asyncio.to_thread(
+        docker_manager.exec_in_container, "hyac_nginx", unlink_command
+    )
+    if exit_code != 0 and "No such file or directory" not in output:
+        logger.error(
+            f"Failed to remove web symlink '{symlink_path}'. Exit code: {exit_code}, Output: {output}"
+        )
+    else:
+        logger.info(f"Successfully removed web symlink for '{config_filename}'.")
+
+    try:
+        if os.path.exists(real_config_path):
+            os.remove(real_config_path)
+            logger.info(f"Nginx web config file '{real_config_path}' removed.")
+        return True
+    except IOError as e:
+        logger.error(
+            f"Failed to remove Nginx web config file '{real_config_path}': {e}"
+        )
         return False
 
 
@@ -606,41 +710,41 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     await create_function_templates_for_app(app.app_id)
 
-    # Create and reload Nginx config now that the service is confirmed to be up
-    if await create_app_nginx_config(app.app_id, container_name):
-        reload_success = False
-        for i in range(3):  # Retry up to 3 times
-            logger.info(f"Attempting to reload Nginx (Attempt {i+1}/3)...")
-            if await reload_nginx(app.app_id):
-                reload_success = True
-                break
-            logger.warning(
-                f"Nginx reload attempt {i+1}/3 failed. Retrying in 3 seconds..."
-            )
-            await asyncio.sleep(3)
+    # Create Nginx configs now that the service is confirmed to be up
+    await create_web_hosting_nginx_config(app.app_id)
+    await create_app_nginx_config(app.app_id, container_name)
 
-        if reload_success:
-            container_info = {
-                "name": container_name,
-                "id": container.id,
-            }
-            running_apps[app.app_id] = container_info
-            logger.info(
-                f"Started container for app '{app.app_id}'. Nginx proxy configured."
-            )
-            return container_info
-        else:
-            logger.error(
-                f"Failed to reload Nginx for app '{app.app_id}' after multiple attempts. Rolling back..."
-            )
-            # Rollback: stop and remove the container, but keep the Nginx config for debugging
-            await docker_manager.stop_container(container_name)
-            await docker_manager.remove_container(container_name)
-            # We don't remove the nginx config here, to allow for debugging.
-            # It will be cleaned up when the app is properly deleted.
-            return None
+    # Reload Nginx to apply both configurations
+    app_config_filename = f"app-{app.app_id.lower()}.conf"
+    reload_success = False
+    for i in range(3):  # Retry up to 3 times
+        logger.info(f"Attempting to reload Nginx (Attempt {i+1}/3)...")
+        if await reload_nginx(config_to_poll=app_config_filename):
+            reload_success = True
+            break
+        logger.warning(f"Nginx reload attempt {i+1}/3 failed. Retrying in 3 seconds...")
+        await asyncio.sleep(3)
 
-    return None
+    if reload_success:
+        container_info = {
+            "name": container_name,
+            "id": container.id,
+        }
+        running_apps[app.app_id] = container_info
+        logger.info(
+            f"Started container for app '{app.app_id}'. Nginx proxy configured."
+        )
+        return container_info
+    else:
+        logger.error(
+            f"Failed to reload Nginx for app '{app.app_id}' after multiple attempts. Rolling back..."
+        )
+        # Rollback: stop and remove the container, but keep the Nginx config for debugging
+        await docker_manager.stop_container(container_name)
+        await docker_manager.remove_container(container_name)
+        # We don't remove the nginx config here, to allow for debugging.
+        # It will be cleaned up when the app is properly deleted.
+        return None
 
 
 async def stop_app_container(app_id: str):
@@ -655,7 +759,7 @@ async def stop_app_container(app_id: str):
 
         # Remove Nginx config and reload
         if await remove_app_nginx_config(app_id):
-            await reload_nginx()
+            await reload_nginx()  # Reload without polling
 
         del running_apps[app_id]
         logger.info(
@@ -723,7 +827,7 @@ async def delete_application_background(app: Application):
     # 5. Delete MinIO buckets
     try:
         # Delete the main app bucket
-        bucket_name = app.app_id
+        bucket_name = app.app_id.lower()
         if await minio_manager.bucket_exists(bucket_name):
             objects = await minio_manager.list_objects(bucket_name, recursive=True)
             if objects:
@@ -733,7 +837,7 @@ async def delete_application_background(app: Application):
             logger.info(f"Deleted MinIO bucket '{bucket_name}'.")
 
         # Delete the web hosting bucket
-        web_bucket_name = f"web_{app.app_id}"
+        web_bucket_name = f"web-{app.app_id.lower()}"
         if await minio_manager.bucket_exists(web_bucket_name):
             objects = await minio_manager.list_objects(web_bucket_name, recursive=True)
             if objects:
@@ -741,6 +845,11 @@ async def delete_application_background(app: Application):
                     await minio_manager.delete_object(web_bucket_name, obj["name"])
             await minio_manager.remove_bucket(web_bucket_name)
             logger.info(f"Deleted MinIO bucket '{web_bucket_name}'.")
+
+        # Also remove the web hosting Nginx config
+        if await remove_web_hosting_nginx_config(app.app_id):
+            await reload_nginx()  # Reload without polling
+
     except Exception as e:
         logger.error(f"Error deleting MinIO buckets for app '{app.app_id}': {e}")
 

@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import { NModal, NCard, NGrid, NGridItem, NScrollbar, NList, NListItem, NThing, NEmpty, NButton } from 'naive-ui';
 import { CodeDiff } from 'v-code-diff';
+import { $t } from '@/locales';
 
 const props = defineProps<{
   show: boolean;
@@ -28,7 +29,7 @@ const handleRollback = () => {
 </script>
 
 <template>
-  <NModal :show="show" @update:show="(value) => emit('update:show', value)" preset="card" title="函数历史记录"
+  <NModal :show="show" @update:show="(value) => emit('update:show', value)" preset="card" :title="$t('page.function.functionHistory')"
     style="width: 60%; height: 80vh" :bordered="false" :segmented="{ content: 'soft' }">
     <div class="h-full flex flex-col">
       <div class="flex-1 min-h-0">
@@ -51,7 +52,7 @@ const handleRollback = () => {
               <CodeDiff v-if="selectedHistory" :old-string="selectedHistory.old_code"
                 :new-string="selectedHistory.new_code" output-format="side-by-side" language="python" :context="50"
                 maxHeight="calc(80vh - 180px)" />
-              <NEmpty v-else description="请在左侧选择一个历史版本" class="h-full flex items-center justify-center" />
+              <NEmpty v-else :description="$t('page.function.selectHistory')" class="h-full flex items-center justify-center" />
             </NCard>
           </NGridItem>
         </NGrid>
@@ -59,8 +60,8 @@ const handleRollback = () => {
     </div>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <NButton @click="emit('update:show', false)">取消</NButton>
-        <NButton type="primary" :disabled="!selectedHistory" @click="handleRollback">回退到此版本</NButton>
+        <NButton @click="emit('update:show', false)">{{ $t('common.cancel') }}</NButton>
+        <NButton type="primary" :disabled="!selectedHistory" @click="handleRollback">{{ $t('page.function.rollbackToThisVersion') }}</NButton>
       </div>
     </template>
   </NModal>

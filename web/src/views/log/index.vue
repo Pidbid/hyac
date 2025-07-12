@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, h, onMounted, reactive, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   NCard,
   NButton,
@@ -27,6 +28,7 @@ import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 hljs.registerLanguage('javascript', javascript)
 
+const { t } = useI18n();
 const message = useMessage();
 const applicationStore = useApplicationStore();
 const appStore = useAppStore();
@@ -59,17 +61,17 @@ const pagination = reactive({
   }
 });
 
-const levelOptions = [
-  { label: 'Info', value: 'info' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Error', value: 'error' },
-  { label: 'Debug', value: 'debug' },
-];
+const levelOptions = computed(() => [
+  { label: t('page.log.info'), value: 'info' },
+  { label: t('page.log.warning'), value: 'warning' },
+  { label: t('page.log.error'), value: 'error' },
+  { label: t('page.log.debug'), value: 'debug' },
+]);
 
-const logTypeOptions = [
-  { label: '系统', value: 'system' },
-  { label: '函数', value: 'function' },
-];
+const logTypeOptions = computed(() => [
+  { label: t('page.log.system'), value: 'system' },
+  { label: t('page.log.function'), value: 'function' },
+]);
 
 // --- 数据获取 ---
 const fetchFunctions = async () => {
@@ -77,7 +79,7 @@ const fetchFunctions = async () => {
   try {
     const { data, error } = await GetFunctionData(applicationStore.appId, 1, 1000); // 获取所有函数
     if (error) {
-      message.error('加载函数列表失败');
+      message.error(t('page.log.loadFunctionListFailed'));
       return;
     }
     if (data?.data) {
@@ -87,13 +89,13 @@ const fetchFunctions = async () => {
       }));
     }
   } catch (e: any) {
-    message.error(`请求函数列表异常: ${e.message}`);
+    message.error(`${t('page.log.requestFunctionListError', { message: e.message })}`);
   }
 };
 
 const handleSearch = async () => {
   if (!applicationStore.appId) {
-    message.warning('请先选择一个应用');
+    message.warning(t('page.log.selectAppFirst'));
     return;
   }
   loading.value = true;
@@ -112,7 +114,7 @@ const handleSearch = async () => {
 
     const { data, error } = await apiCall;
     if (error) {
-      message.error(`加载日志失败: ${error.message}`);
+      message.error(`${t('page.log.loadLogFailed', { message: error.message })}`);
       logs.value = [];
       pagination.itemCount = 0;
       return;
@@ -125,7 +127,7 @@ const handleSearch = async () => {
       pagination.itemCount = 0;
     }
   } catch (e: any) {
-    message.error(`请求日志异常: ${e.message}`);
+    message.error(`${t('page.log.requestLogError', { message: e.message })}`);
   } finally {
     loading.value = false;
   }
@@ -140,7 +142,7 @@ const levelConfig: Record<string, { type: 'info' | 'warning' | 'error' | 'defaul
 
 const createColumns = () => [
   {
-    title: '时间',
+    title: t('page.log.time'),
     key: 'timestamp',
     width: 200,
     render(row: Api.Log.LogEntry) {
@@ -149,7 +151,7 @@ const createColumns = () => [
   },
   {
     key: 'level',
-    title: '级别',
+    title: t('page.log.level'),
     width: 100,
     render(row: Api.Log.LogEntry) {
       const config = levelConfig[row.level.toLowerCase()] || { type: 'default', icon: BugOutline };
@@ -164,21 +166,21 @@ const createColumns = () => [
     }
   },
   {
-    title: '日志',
+    title: t('page.log.logContent'),
     key: 'message',
     ellipsis: { tooltip: true }
   },
   {
-    title: '来源',
+    title: t('page.log.source'),
     key: 'logtype',
     width: 150,
     render(row: Api.Log.LogEntry) {
-      return row.logtype === 'function' ? `函数:${row.extra.function_name}` : '系统';
+      return row.logtype === 'function' ? `${t('page.log.function')}:${row.extra.function_name}` : t('page.log.system');
     }
   }
 ];
 
-const columns = createColumns();
+const columns = computed(() => createColumns());
 
 const rowProps = (row: Api.Log.LogEntry) => {
   return {
@@ -201,11 +203,11 @@ onMounted(async () => {
       <!-- 头部筛选与操作栏 -->
       <header class="flex items-center justify-between mb-4">
         <NSpace align="center">
-          <NSelect v-model:value="filters.funcId" :options="functions" placeholder="所有函数" clearable class="w-48"
+          <NSelect v-model:value="filters.funcId" :options="functions" :placeholder="t('page.log.allFunctions')" clearable class="w-48"
             size="small" />
-          <NSelect v-model:value="filters.level" :options="levelOptions" placeholder="所有级别" clearable class="w-36"
+          <NSelect v-model:value="filters.level" :options="levelOptions" :placeholder="t('page.log.allLevels')" clearable class="w-36"
             size="small" />
-          <NSelect v-model:value="filters.logtype" :options="logTypeOptions" placeholder="所有类型" clearable class="w-36"
+          <NSelect v-model:value="filters.logtype" :options="logTypeOptions" :placeholder="t('page.log.allTypes')" clearable class="w-36"
             size="small" />
           <NDatePicker v-model:value="filters.dateRange" type="datetimerange" clearable size="small" class="w-96" />
           <NButton type="default" size="small" @click="appStore.reloadPage(500)">
@@ -217,7 +219,7 @@ onMounted(async () => {
             <template #icon>
               <NIcon :component="SearchOutline" />
             </template>
-            查询
+            {{ t('page.log.query') }}
           </NButton>
         </NSpace>
       </header>
@@ -231,18 +233,18 @@ onMounted(async () => {
             :single-line="false" :row-props="rowProps" :row-key="(row: Api.Log.LogEntry) => row._id" remote />
         </NCard>
         <!-- 右侧: 详情区域 -->
-        <NCard title="日志详情" class="w-96 rounded-lg shadow-md" :bordered="false"
+        <NCard :title="t('page.log.logDetail')" class="w-96 rounded-lg shadow-md" :bordered="false"
           :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
           <div v-if="selectedLog" class="h-full flex flex-col gap-4">
             <NDescriptions label-placement="left" :column="1" bordered size="small">
-              <NDescriptionsItem label="时间">{{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
+              <NDescriptionsItem :label="t('page.log.time')">{{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
               </NDescriptionsItem>
-              <NDescriptionsItem label="级别">
+              <NDescriptionsItem :label="t('page.log.level')">
                 <NTag :type="levelConfig[selectedLog.level.toLowerCase()]?.type || 'default'" size="small">{{
                   selectedLog.level }}</NTag>
               </NDescriptionsItem>
-              <NDescriptionsItem label="类型">{{ selectedLog.logtype === 'function' ? '函数' : '系统' }}</NDescriptionsItem>
-              <NDescriptionsItem v-if="selectedLog.extra.function_name" label="函数名">{{ selectedLog.extra.function_name
+              <NDescriptionsItem :label="t('page.log.type')">{{ selectedLog.logtype === 'function' ? t('page.log.function') : t('page.log.system') }}</NDescriptionsItem>
+              <NDescriptionsItem v-if="selectedLog.extra.function_name" :label="t('page.log.functionName')">{{ selectedLog.extra.function_name
                 }}
               </NDescriptionsItem>
             </NDescriptions>
@@ -252,7 +254,7 @@ onMounted(async () => {
               </NScrollbar>
             </div>
           </div>
-          <NEmpty v-else description="选择一条日志查看详情" class="h-full flex-center" />
+          <NEmpty v-else :description="t('page.log.selectLogToView')" class="h-full flex-center" />
         </NCard>
       </div>
     </div>

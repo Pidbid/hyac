@@ -199,3 +199,13 @@ export function applicationStatus(appId: string) {
     }
   });
 }
+
+/**
+ * 获取域名
+ */
+export function getDomain() {
+  return request<string>({
+    url: '/settings/domain',
+    method: 'get'
+  });
+}
