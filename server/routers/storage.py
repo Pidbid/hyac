@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from core.jwt_auth import get_current_user
 from core.minio_manager import minio_manager
+from core.config import settings
 from models.applications_model import Application
 from models.common_model import BaseResponse
 from models.users_model import User
@@ -189,7 +190,13 @@ async def get_download_url(
         return BaseResponse(code=500, msg="Failed to generate download URL")
 
     return BaseResponse(
-        code=0, msg="Download URL generated successfully", data={"url": url}
+        code=0,
+        msg="Download URL generated successfully",
+        data={
+            "url": url.replace(
+                "http://minio:9000", f"https://oss.{settings.DOMAIN_NAME}"
+            )
+        },
     )
 
 

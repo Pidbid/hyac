@@ -4,6 +4,12 @@
  * All backend api type
  */
 declare namespace Api {
+  interface BaseResponse<T = any> {
+    code: number;
+    msg: string;
+    data: T;
+  }
+
   namespace Common {
     /** common params of paginating */
     interface PaginatingCommonParams {
@@ -465,14 +471,14 @@ declare namespace Api {
   namespace Settings {
     type ApplicationStatus = "starting" | "running" | "stopping" | "stopped" | "error";
 
-    interface DependenceInfo {
+    interface Dependency {
       name: string;
       version: string;
     }
 
     interface DependenciesData {
-      common: DependenceInfo[];
-      system: DependenceInfo[];
+      common: Dependency[];
+      system: Dependency[];
     }
 
     interface EnvInfo {

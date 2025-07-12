@@ -271,7 +271,7 @@ const documentColumns = [
     )
   },
   {
-    title: $t('page.database.actionsColumn'),
+    title: $t('common.action._self'),
     key: 'actions',
     width: 120,
     render: (row: any) => h(

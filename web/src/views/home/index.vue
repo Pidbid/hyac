@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, h, ref } from 'vue';
+import { reactive, h, ref, watch, onUnmounted, computed } from 'vue';
 import {
   NButton,
   NPopconfirm,
@@ -18,11 +18,12 @@ import {
   useMessage,
   NSpace,
   NTag,
-  NDropdown
+  NDropdown,
+  useDialog
 } from 'naive-ui';
-import { AddCircleOutline, AddOutline as AddIcon, CreateOutline, TrashBinOutline, StopCircleOutline, RocketOutline } from '@vicons/ionicons5';
+import { AddCircleOutline, AddOutline as AddIcon, CreateOutline, TrashBinOutline, StopCircleOutline, RocketOutline, EllipsisHorizontal } from '@vicons/ionicons5';
 import { useHookTable } from '@sa/hooks';
-import { getApps, createApp, deleteApp, startApp, stopApp } from '@/service/api/app';
+import { getApps, createApp, deleteApp, startApp, stopApp, restartApp } from '@/service/api/app';
 import { applicationStatus } from '@/service/api/settings';
 import { useRouterPush } from '@/hooks/common/router';
 import HomeLayout from '@/layouts/home-layout/index.vue';
@@ -34,6 +35,7 @@ import type { DataTableColumn as TableColumn } from 'naive-ui';
 const { routerPush } = useRouterPush();
 const authStore = useAuthStore();
 const message = useMessage();
+const dialog = useDialog();
 
 const showCreateModal = ref(false);
 const createAppForm = reactive({
@@ -136,6 +138,27 @@ const tableColumns = (): TableColumn<any>[] => [
       const isStopping = row.status === 'stopping';
       const isDeleting = row.status === 'deleting';
 
+      const dropdownOptions = [
+        {
+          label: $t('page.home.restart'),
+          key: 'restart',
+          disabled: row.status !== 'running'
+        },
+        {
+          label: $t('common.delete'),
+          key: 'delete',
+          disabled: isDeleting
+        }
+      ];
+
+      const handleDropdownSelect = (key: string) => {
+        if (key === 'restart') {
+          handleRestartApp(row.app_id);
+        } else if (key === 'delete') {
+          handleDeleteApp(row.app_id);
+        }
+      };
+
       const editButton = h(
         NButton,
         {
@@ -158,29 +181,26 @@ const tableColumns = (): TableColumn<any>[] => [
         { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), $t('page.home.pause')] : [h(NIcon, { component: RocketOutline }), $t('page.home.start')]) }
       );
 
-      const deleteButton = h(
-        NPopconfirm,
+      const moreButton = h(
+        NDropdown,
         {
-          onPositiveClick: () => handleDeleteApp(row.app_id),
-          positiveText: $t('common.confirm'),
-          negativeText: $t('common.cancel')
+          options: dropdownOptions,
+          onSelect: handleDropdownSelect
         },
         {
-          trigger: () =>
+          default: () =>
             h(
               NButton,
               {
                 size: 'small',
-                type: 'error',
-                disabled: isDeleting
+                circle: true
               },
-              { default: () => h(NIcon, { component: TrashBinOutline }) }
-            ),
-          default: () => $t('page.home.deleteConfirm')
+              { default: () => h(NIcon, { component: EllipsisHorizontal }) }
+            )
         }
       );
 
-      return h(NSpace, { justify: 'center' }, () => [editButton, toggleStatusButton, deleteButton]);
+      return h(NSpace, { justify: 'center' }, () => [editButton, toggleStatusButton, moreButton]);
     }
   }
 ];
@@ -211,7 +231,10 @@ const transformer = (response: any) => ({
   total: response.data.total
 });
 
-const { loading, empty, data, getData, columns } = useHookTable({
+const isSilentLoading = ref(false);
+const displayLoading = computed(() => loading.value && !isSilentLoading.value);
+
+const { loading, empty, data, getData: fetchData, columns } = useHookTable({
   apiFn: getApps,
   apiParams,
   transformer,
@@ -219,6 +242,35 @@ const { loading, empty, data, getData, columns } = useHookTable({
   getColumnChecks,
   getColumns,
   immediate: true
+});
+
+const getData = async (silent = false) => {
+  isSilentLoading.value = silent;
+  await fetchData();
+  isSilentLoading.value = false;
+};
+
+let pollingInterval: NodeJS.Timeout | null = null;
+
+const managePolling = () => {
+  const shouldPoll = data.value.some((app: any) => ['starting', 'stopping', 'deleting'].includes(app.status));
+
+  if (shouldPoll && !pollingInterval) {
+    pollingInterval = setInterval(() => {
+      getData(true);
+    }, 3000);
+  } else if (!shouldPoll && pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+};
+
+watch(data, managePolling, { deep: true });
+
+onUnmounted(() => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
 });
 
 const createNewApp = () => {
@@ -236,23 +288,6 @@ const handleCreateApp = async () => {
           createAppForm.appName = '';
           createAppForm.description = '';
           getData(); // Refresh the table immediately
-
-          // Start polling to check the status
-          const appId = responseData.app_id;
-          const maxAttempts = 10;
-          let attempts = 0;
-          const interval = setInterval(async () => {
-            attempts++;
-            await getData();
-            const { data: statusData, error: statusError } = await applicationStatus(appId);
-            if (!statusError && statusData == "running") {
-              message.success($t('page.home.appNowRunning', { appName: createAppForm.appName, status: statusData }));
-              clearInterval(interval);
-            } else if (attempts >= maxAttempts) {
-              message.warning($t('page.home.stopCheckingStatus', { appName: createAppForm.appName }));
-              clearInterval(interval);
-            }
-          }, 5000); // Poll every 5 seconds
         } else {
           message.error($t('page.home.failedToCreateApp'));
         }
@@ -266,18 +301,26 @@ const handleCreateApp = async () => {
   })
 };
 
-const handleDeleteApp = async (appId: string) => {
-  try {
-    const { error } = await deleteApp(appId);
-    if (!error) {
-      message.success($t('page.home.appDeleted'));
-      getData(); // Refresh the table
-    } else {
-      message.error($t('page.home.failedToDeleteApp'));
+const handleDeleteApp = (appId: string) => {
+  dialog.warning({
+    title: $t('common.warning'),
+    content: $t('page.home.deleteConfirm'),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        const { error } = await deleteApp(appId);
+        if (!error) {
+          message.success($t('page.home.appDeleted'));
+          getData();
+        } else {
+          message.error($t('page.home.failedToDeleteApp'));
+        }
+      } catch (e) {
+        message.error($t('page.home.errorDeletingApp'));
+      }
     }
-  } catch (e) {
-    message.error($t('page.home.errorDeletingApp'));
-  }
+  });
 };
 
 const handleStartApp = async (appId: string) => {
@@ -307,6 +350,20 @@ const handleStopApp = async (appId: string) => {
     message.error($t('page.home.errorStoppingApp'));
   }
 };
+
+const handleRestartApp = async (appId: string) => {
+  try {
+    const { error } = await restartApp(appId);
+    if (!error) {
+      message.success($t('page.home.appRestarting'));
+      getData();
+    } else {
+      message.error($t('page.home.failedToRestartApp'));
+    }
+  } catch (e) {
+    message.error($t('page.home.errorRestartingApp'));
+  }
+};
 </script>
 
 <template>
@@ -329,7 +386,7 @@ const handleStopApp = async (appId: string) => {
               size="small"
               :scroll-x="962"
               class="sm:h-full"
-              :loading="loading"
+              :loading="displayLoading"
             />
           </NCard>
         </div>

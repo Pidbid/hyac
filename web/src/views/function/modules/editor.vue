@@ -10,7 +10,6 @@ const isSettingValue = ref(false);
 
 interface Props {
   modelValue: string;
-  height?: number;
   language?: string;
   fontSize?: number;
   minimap: boolean;
@@ -19,7 +18,6 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   language: 'python',
-  height: 400,
   fontSize: 16,
   minimap: true,
   theme: 'github-light'
@@ -38,7 +36,7 @@ const {
 } = useMonaco({
   themes: ['github-dark', 'github-light'],
   languages: ['javascript', 'typescript', 'python', 'vue', 'json'],
-  MAX_HEIGHT: 3000,
+  MAX_HEIGHT: '100%',
   readOnly: false,
   isCleanOnBeforeCreate: true,
 
@@ -122,7 +120,7 @@ watch(
 </script>
 
 <template>
-  <div>
-    <div ref="editorContainer" class="editor" />
+  <div class="h-full w-full">
+    <div ref="editorContainer" class="h-full w-full" />
   </div>
 </template>

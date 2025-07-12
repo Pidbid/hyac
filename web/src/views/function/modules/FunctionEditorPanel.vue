@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { NCard, NButton, NIcon } from 'naive-ui';
 import { CheckmarkOutline, SaveOutline, InformationCircleOutline, BrushOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
@@ -20,8 +20,6 @@ const props = defineProps<{
 
 const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings']);
 
-const editorFullRef = ref<HTMLElement | null>(null);
-const editorHeight = ref(0);
 
 const editorConfig = ref({
   language: 'python',
@@ -30,29 +28,6 @@ const editorConfig = ref({
   theme: 'github-light'
 });
 
-const updateEditorHeight = () => {
-  if (editorFullRef.value) {
-    // 减去顶部和底部间距, 这里的 40 是 NCard header 的高度
-    editorHeight.value = editorFullRef.value.clientHeight - 40;
-  }
-};
-
-onMounted(() => {
-  nextTick(() => {
-    updateEditorHeight();
-  });
-  window.addEventListener('resize', updateEditorHeight);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateEditorHeight);
-});
-
-watch(() => props.func, () => {
-  nextTick(() => {
-    updateEditorHeight();
-  });
-});
 
 </script>
 
@@ -85,8 +60,8 @@ watch(() => props.func, () => {
         </NButton>
       </div>
     </template>
-    <div ref="editorFullRef" class="flex-1 min-h-0 overflow-hidden p-4">
-      <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)" :height="editorHeight"
+    <div class="flex-1 min-h-0">
+      <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)"
         :language="props.editorConfig.language" :font-size="props.editorConfig.fontSize" :minimap="props.editorConfig.minimap" :theme="props.editorConfig.theme" />
     </div>
   </NCard>

@@ -49,8 +49,8 @@ const packageSelectInput = ref({
 })
 const packageResult = ref<string[]>([])
 let addDependenceDialogRef: any = null;
-const commonDependencies = ref<Api.Settings.DependenceInfo[]>([]);
-const systemDependencies = ref<Api.Settings.DependenceInfo[]>([]);
+const commonDependencies = ref<Api.Settings.Dependency[]>([]);
+const systemDependencies = ref<Api.Settings.Dependency[]>([]);
 const userEnv = ref<Api.Settings.EnvInfo[]>([]);
 const systemEnv = ref<Api.Settings.EnvInfo[]>([]);
 const storedEditorConfig = localStorage.getItem('editorConfig');
@@ -361,7 +361,7 @@ const handleFunctionEditorSetting = () => {
 };
 
 
-const handleDeleteDependence = (dep: Api.Settings.DependenceInfo) => {
+const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
   dialog.warning({
     title: $t('page.function.confirmDeleteDependence'),
     content: $t('page.function.deleteDependenceConfirm', { name: dep.name }),
@@ -411,14 +411,25 @@ const handlePackageAdd = async (restart: boolean = false) => {
   addDependenceDialogRef.destroy();
 }
 
-const handlePackageSearch = async () => {
-  isDependenceLoading.value = true;
-  const { data, error } = await dependenceSearch(applicationStore.appId, packageSelectInput.value.name, false);
-  isDependenceLoading.value = false;
-  if (!error) {
-    packageResult.value = data
+let searchTimeout: number | null = null;
+
+const handlePackageSearch = (query: string) => {
+  if (!query) {
+    packageResult.value = [];
+    return;
   }
-}
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  isDependenceLoading.value = true;
+  searchTimeout = window.setTimeout(async () => {
+    const { data, error } = await dependenceSearch(applicationStore.appId, query, false);
+    if (!error) {
+      packageResult.value = data;
+    }
+    isDependenceLoading.value = false;
+  }, 500); // 500ms debounce
+};
 
 const handleAddDependence = async (row: { name: string }) => {
   packageSelectInput.value.name = row.name
@@ -514,12 +525,19 @@ const handleDependence = async (showDialog: boolean = true) => {
           }),
           h(NTabPane, { name: $t('page.function.add'), tab: $t('page.function.add') }, {
             default: () => [
-              h(NInput, { value: packageSelectInput.value.name, placeholder: $t('page.function.dependenceNamePlaceholder'), onUpdateValue: (value) => { packageSelectInput.value.name = value; } }, {
-                suffix: () => h(NButton, { size: 'small', loading: isDependenceLoading.value, onClick: handlePackageSearch }, {
-                  default: () => h(NIcon, { component: SearchOutline })
-                })
+              h(NInput, {
+                value: packageSelectInput.value.name,
+                placeholder: $t('page.function.dependenceNamePlaceholder'),
+                loading: isDependenceLoading.value,
+                clearable: true,
+                onUpdateValue: (value) => {
+                  packageSelectInput.value.name = value;
+                  handlePackageSearch(value);
+                }
+              }, {
+                suffix: () => h(NIcon, { component: SearchOutline })
               }),
-              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('page.function.actions'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
+              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('common.action._self'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
             ]
           })
         ]
@@ -707,7 +725,7 @@ onBeforeUnmount(() => {
         <div v-if="functions.length > 0" class="w-full h-full">
           <NSplit :size="0.85">
             <template #1>
-              <NSplit :size="0.8" direction="vertical">
+              <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
                   <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
                     @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />

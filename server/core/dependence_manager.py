@@ -1,17 +1,11 @@
+import asyncio
 import httpx
-import math
-from datetime import datetime
 from pydantic import BaseModel
-from loguru import logger
-from thefuzz import process
-
-
-from models import SettingModel
 
 
 class PackageInfoModel(BaseModel):
     name: str
-    author: str
+    author: str | None = None
     description: str = ""
     description_type: str = "text/markdown"
     versions: list[str] = []
@@ -20,69 +14,76 @@ class PackageInfoModel(BaseModel):
 class DependenceManager:
     def __init__(self):
         self.url = "https://pypi.org"
-        self.dependencies = []
-        self.client = httpx.AsyncClient()
+        self.client = httpx.AsyncClient(timeout=10.0)
 
-    async def packages_update(self) -> bool:
-        dep_db_res = await SettingModel.find_one(SettingModel.name == "dependencies")
-        if not dep_db_res:
-            await SettingModel(
-                name="dependencies",
-                data=[],
-                create_at=datetime.now(),
-                update_at=datetime.now(),
-            ).insert()
-        self.dependencies = []
-        dep_res = await self.client.get(
-            url=self.url + "/simple/",
-            headers={"Accept": "application/vnd.pypi.simple.v1+json"},
-        )
-        if dep_res.status_code == 200:
-            dep_list = [i["name"] for i in dep_res.json()["projects"]]
-            for i in range(1, math.ceil(len(dep_list) / 5000)):
-                insert_list = dep_list[(i - 1) * 1000 : i * 1000]
-                await SettingModel.find_one(SettingModel.name == "dependencies").update(
-                    {"$push": {"data": {"$each": insert_list}}}
-                )
-            return True
-        else:
-            logger.error("Dependencies update failed.")
-            return False
+    async def _check_package_exists(self, name: str) -> str | None:
+        """Check if a package exists on PyPI using a HEAD request."""
+        try:
+            # Use HEAD request for efficiency as we only need the status code
+            response = await self.client.head(f"{self.url}/pypi/{name}/json")
+            if response.status_code == 200:
+                return name
+        except httpx.RequestError:
+            return None
+        return None
 
     async def package_search(self, name: str) -> list[str]:
-        pkg_res = await self.client.get(
-            url=self.url + "/simple/",
-            headers={"Accept": "application/vnd.pypi.simple.v1+json"},
-        )
-        if pkg_res.status_code == 200:
-            pkg_json = pkg_res.json()
-            pkg_list = []
-            for pkg in pkg_json["projects"]:
-                if name in pkg["name"]:
-                    pkg_list.append(pkg["name"])
-            pkg_list = [p[0] for p in process.extract(name, pkg_list, limit=20)]
-            return pkg_list
-        else:
+        """
+        Suggests package names by checking for existence of common variations.
+        This is not a real search, but a validation/suggestion mechanism.
+        """
+        if not name:
             return []
 
+        # Create a set of candidate names to check for common naming conventions
+        name = name.lower()
+        candidates = {name}
+        if "-" in name:
+            candidates.add(name.replace("-", "_"))
+        if "_" in name:
+            candidates.add(name.replace("_", "-"))
+
+        # Asynchronously check for the existence of all candidates
+        tasks = [self._check_package_exists(candidate) for candidate in candidates]
+        results = await asyncio.gather(*tasks)
+
+        # Return a list of valid, non-None package names
+        return sorted([res for res in results if res])
+
     async def package_info(self, name: str) -> dict:
-        dep_res = await self.client.get(
-            f"{self.url}/pypi/{name}/json",
-            headers={"Accept": "application/vnd.pypi.simple.v1+json"},
-        )
-        if dep_res.status_code == 200:
-            pkj_json = dep_res.json()
+        """Fetches detailed information for a single package."""
+        try:
+            response = await self.client.get(f"{self.url}/pypi/{name}/json")
+            response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
+
+            pkg_json = response.json()
+            info = pkg_json.get("info", {})
+            releases = pkg_json.get("releases", {})
+
+            # Sort versions using a robust method if possible, otherwise reverse chronological
+            try:
+                from packaging.version import parse as parse_version
+
+                sorted_versions = sorted(
+                    releases.keys(), key=parse_version, reverse=True
+                )
+            except ImportError:
+                sorted_versions = sorted(releases.keys(), reverse=True)
+
             return {
-                "name": name,
-                "author": pkj_json["info"]["author"],
-                "description": pkj_json["info"]["description"],
-                "description_type": pkj_json["info"]["description_content_type"],
-                "versions": list(pkj_json["releases"].keys())[::-1],
+                "name": info.get("name", name),
+                "author": info.get("author"),
+                "description": info.get("description", ""),
+                "description_type": info.get(
+                    "description_content_type", "text/markdown"
+                ),
+                "versions": sorted_versions,
             }
-        else:
+        except (httpx.RequestError, httpx.HTTPStatusError):
             return {}
 
     async def package_add(self, appid: str, name: str, version: str):
+        # This method seems to be a placeholder, keeping it as is.
         return
 
 
