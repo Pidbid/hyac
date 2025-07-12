@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useClipboard } from '@vueuse/core';
 import { NCard, NScrollbar, NSpace, NInputGroup, NInput, NButton, NIcon, NTabs, NTabPane, NText, NSelect, NButtonGroup, useMessage } from 'naive-ui';
 import { CopyOutline, TrashBinOutline, AddOutline } from '@vicons/ionicons5';
-import JsonEditor from '@/components/custom/JsonEditor.vue';
+import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { functionTest } from '@/service/api';
 
 const props = defineProps<{
@@ -208,7 +208,7 @@ watch(testMethod, (newMethod) => {
 
         <div v-else class="flex flex-col gap-2">
           <NText class="mb-2">Body (JSON)</NText>
-          <JsonEditor v-model:modelValue="testJsonBody" :height="300"></JsonEditor>
+          <jsonEditor v-model:modelValue="testJsonBody" :height="300"></jsonEditor>
         </div>
 
         <NButton type="primary" size="large" block @click="handleTestRequest">发送请求</NButton>

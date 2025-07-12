@@ -33,7 +33,7 @@ import {
 import { Console } from 'console';
 import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument } from "@/service/api"
 import { useApplicationStore } from '@/store/modules/application';
-import JsonEditor from '@/components/custom/jsonEditor.vue';
+import jsonEditor from '@/components/custom/jsonEditor.vue';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -72,24 +72,26 @@ watch(selectedCollection, () => {
 
 // 操作函数
 const handleCreateCollection = () => {
-  let collectionName = '';
+  const collectionName = ref('');
   dialog.info({
     title: '创建集合',
     content: () => h(NInput, {
       placeholder: '请输入集合名称',
+      value: collectionName.value,
       onUpdateValue: (v: string) => {
-        collectionName = v;
+        collectionName.value = v;
       }
     }),
     positiveText: '确定',
     negativeText: '取消',
     onPositiveClick: async () => {
-      if (collectionName) {
-        const { data, error } = await CreateCollection(applicationStore.appId, collectionName)
+      if (collectionName.value) {
+        const { data, error } = await CreateCollection(applicationStore.appId, collectionName.value)
         if (!error) {
           await getApplicationCollections()
-          selectedCollection.value = collectionName;
+          selectedCollection.value = collectionName.value;
           message.success("集合创建成功")
+          collectionName.value = '';
         }
       }
     }
@@ -101,7 +103,7 @@ const handleCreateDocument = () => {
   dialog.info({
     title: '插入文档',
     content: () =>
-      h(JsonEditor, {
+      h(jsonEditor, {
         modelValue: documentContent.value,
         'onUpdate:modelValue': (v: any) => {
           documentContent.value = v;
@@ -109,6 +111,9 @@ const handleCreateDocument = () => {
       }),
     positiveText: '确定',
     negativeText: '取消',
+    onNegativeClick: () => {
+      documentContent.value = '{}';
+    },
     onPositiveClick: async () => {
       try {
         const { data, error } = await CreateDocument(
@@ -122,6 +127,7 @@ const handleCreateDocument = () => {
           })
           page.value = 1;
           message.success("创建成功")
+          documentContent.value = '{}';
         }
       } catch {
         message.error('JSON格式错误，请检查');
@@ -415,8 +421,7 @@ onMounted(async () => {
               <div class="flex-1 min-h-0 p-4">
                 <div v-if="editingDocument">
                   <NThing title="编辑内容"></NThing>
-                  <jsonEditor v-model="editingDocumentJson" :height="400">
-                  </jsonEditor>
+                  <jsonEditor v-model="editingDocumentJson" :height="400" />
                   <div class="flex flex-row gap-2 flex-row-reverse">
                     <NButton type="primary" @click="handleSaveDocument">保存</NButton>
                     <NButton type="error" @click="handleCancelEdit">取消</NButton>

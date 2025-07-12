@@ -155,9 +155,9 @@ const handleCreateFunction = () => {
 
   fetchLocalTemplates(localCreateData.type);
 
-  dialog.info({
+  const d = dialog.info({
     title: '创建函数',
-    content: () => h(NForm, { ref: formRef, model: localCreateData, rules: rules, labelPlacement: 'left', labelWidth: 80 }, {
+    content: () => h(NForm, { ref: formRef, model: localCreateData, rules: rules, labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
         h(NFormItem, { label: '函数名称', path: 'name' }, {
           default: () => h(NInput, {
@@ -208,6 +208,14 @@ const handleCreateFunction = () => {
     }),
     positiveText: '确定',
     negativeText: '取消',
+    onNegativeClick: () => {
+      // Reset form data on cancellation
+      localCreateData.name = '';
+      localCreateData.description = '';
+      localCreateData.type = 'endpoint';
+      localCreateData.template_id = '';
+      localCreateData.tags = [];
+    },
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
@@ -224,6 +232,12 @@ const handleCreateFunction = () => {
             message.success('创建成功');
             await getFunctionData();
             const newFunc = functions.value.find(func => func.name === localCreateData.name);
+            // Reset form data after successful creation
+            localCreateData.name = '';
+            localCreateData.description = '';
+            localCreateData.type = 'endpoint';
+            localCreateData.template_id = '';
+            localCreateData.tags = [];
             if (newFunc) {
               functionSelect(newFunc);
             }
@@ -314,9 +328,9 @@ const handleFunctionEditorSetting = () => {
     language: 'python',
     minimap: editorConfig.value.minimap,
   });
-  dialog.info({
+  const d = dialog.info({
     title: '编辑器设置',
-    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80 }, {
+    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
         h(NFormItem, { label: '字体大小' }, {
           default: () => h(NInputNumber, {
@@ -420,7 +434,7 @@ const handleAddDependence = async (row: { name: string }) => {
   };
   addDependenceDialogRef = dialog.info({
     title: '添加',
-    content: () => h(NForm, { ref: formRef, model: packageSelectInput.value, rules: rules }, {
+    content: () => h(NForm, { ref: formRef, model: packageSelectInput.value, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); handlePackageAdd(false); } } }, {
       default: () => [
         h(NFormItem, { label: "依赖名称", path: "name" }, {
           default:
@@ -434,7 +448,10 @@ const handleAddDependence = async (row: { name: string }) => {
     }),
     action: () => h(NButtonGroup, { class: "flex justify-end gap-2 w-full" }, {
       default: () => [
-        h(NButton, { type: "default", size: "small", onClick: () => { addDependenceDialogRef.destroy() } }, { default: () => "取消" }),
+        h(NButton, { type: "default", size: "small", onClick: () => {
+          addDependenceDialogRef.destroy();
+          packageSelectInput.value = { name: '', version: '' };
+         } }, { default: () => "取消" }),
         h(NButton, { type: "success", size: "small", onClick: () => handlePackageAdd(false) }, { default: () => "安装" }),
         h(NButton, { type: "info", size: "small", onClick: () => handlePackageAdd(true) }, { default: () => "安装并重启" })
       ]
@@ -450,6 +467,8 @@ const handleAddDependence = async (row: { name: string }) => {
 }
 
 const handleDependence = async (showDialog: boolean = true) => {
+  packageSelectInput.value = { name: "", version: "" };
+  packageResult.value = [];
   isDependenceLoading.value = true;
   const { data, error } = await dependenciesData(applicationStore.appId);
   isDependenceLoading.value = false;
@@ -563,9 +582,9 @@ const handleAddEnv = () => {
     key: { required: true, message: '请输入变量名', trigger: 'blur' },
     value: { required: true, message: '请输入变量值', trigger: 'blur' }
   };
-  dialog.info({
+  const d = dialog.info({
     title: '添加环境变量',
-    content: () => h(NForm, { ref: formRef, model: newEnv, rules: rules }, {
+    content: () => h(NForm, { ref: formRef, model: newEnv, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
         h(NFormItem, { label: 'Key', path: 'key' }, {
           default: () => h(NInput, { value: newEnv.key, onUpdateValue: (v) => newEnv.key = v })
@@ -577,6 +596,10 @@ const handleAddEnv = () => {
     }),
     positiveText: '确定',
     negativeText: '取消',
+    onNegativeClick: () => {
+      newEnv.key = '';
+      newEnv.value = '';
+    },
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
@@ -584,6 +607,8 @@ const handleAddEnv = () => {
           if (!error) {
             message.success('添加成功');
             await handleEnvSetting(false);
+            newEnv.key = '';
+            newEnv.value = '';
           } else {
             message.error('添加失败');
           }
@@ -599,9 +624,9 @@ const handleEditEnv = (env: Api.Settings.EnvInfo) => {
   const rules = {
     value: { required: true, message: '请输入变量值', trigger: 'blur' }
   };
-  dialog.info({
+  const d = dialog.info({
     title: '编辑环境变量',
-    content: () => h(NForm, { ref: formRef, model: editEnv, rules: rules }, {
+    content: () => h(NForm, { ref: formRef, model: editEnv, rules: rules, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
       default: () => [
         h(NFormItem, { label: 'Key' }, {
           default: () => h(NInput, { value: editEnv.key, disabled: true })

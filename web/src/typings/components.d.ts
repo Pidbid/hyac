@@ -25,6 +25,7 @@ declare module 'vue' {
     IconMdiKeyboardEsc: typeof import('~icons/mdi/keyboard-esc')['default']
     IconMdiKeyboardReturn: typeof import('~icons/mdi/keyboard-return')['default']
     IconUilSearch: typeof import('~icons/uil/search')['default']
+    jsonEditor: typeof import('./../components/custom/jsonEditor.vue')['default']
     JsonEditor: typeof import('./../components/custom/jsonEditor.vue')['default']
     LangSwitch: typeof import('./../components/common/lang-switch.vue')['default']
     LookForward: typeof import('./../components/custom/look-forward.vue')['default']

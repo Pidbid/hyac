@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, h, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import JsonEditor from '@/components/custom/JsonEditor.vue';
+import JsonEditor from '@/components/custom/jsonEditor.vue';
 import {
   NCard,
   NButton,
@@ -188,26 +188,27 @@ const handleUploadFile = () => {
 };
 
 const handleCreateFolder = () => {
-  let folderName = '';
+  const folderName = ref('');
   dialog.info({
     title: '新建文件夹',
     content: () =>
       h(NInput, {
         placeholder: '请输入文件夹名称',
+        value: folderName.value,
         onUpdateValue: (v: string) => {
-          folderName = v;
+          folderName.value = v;
         }
       }),
     positiveText: '确定',
     negativeText: '取消',
     onPositiveClick: async () => {
-      if (!folderName || folderName.includes('/')) {
+      if (!folderName.value || folderName.value.includes('/')) {
         message.error('文件夹名称不能为空且不能包含斜杠');
         return;
       }
 
       const currentPath = pathArrayToString();
-      const fullFolderName = `${currentPath}${folderName}`;
+      const fullFolderName = `${currentPath}${folderName.value}`;
 
       try {
         message.loading('正在创建文件夹...', { duration: 0 });
@@ -219,8 +220,9 @@ const handleCreateFolder = () => {
           return;
         }
 
-        message.success(`文件夹 "${folderName}" 创建成功`);
+        message.success(`文件夹 "${folderName.value}" 创建成功`);
         await handleDataInit(); // 刷新列表
+        folderName.value = '';
       } catch (err: any) {
         message.destroyAll();
         message.error(`创建异常: ${err.message}`);
@@ -503,7 +505,7 @@ onBeforeUnmount(() => {
             </div>
             <!-- JSON Preview -->
             <div v-else-if="previewType === 'json' && previewContent !== null">
-              <JsonEditor v-model="previewContent" :height="200" />
+              <jsonEditor v-model="previewContent" :height="200" />
             </div>
           </div>
 

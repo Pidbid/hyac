@@ -233,6 +233,8 @@ const handleCreateApp = async () => {
         if (!error) {
           message.success('Application creation request sent. Starting in the background...');
           showCreateModal.value = false;
+          createAppForm.appName = '';
+          createAppForm.description = '';
           getData(); // Refresh the table immediately
 
           // Start polling to check the status
@@ -371,7 +373,7 @@ const handleStopApp = async (appId: string) => {
     </NGrid>
 
     <NModal v-model:show="showCreateModal" preset="card" title="Create New Application" style="width: 600px">
-      <NForm ref="formRef" :model="createAppForm" :rules="rules" label-placement="left" label-width="auto">
+      <NForm ref="formRef" :model="createAppForm" :rules="rules" label-placement="left" label-width="auto" @keyup.enter="handleCreateApp">
         <NFormItem label="Application Name" path="appName">
           <NInput v-model:value="createAppForm.appName" placeholder="Enter application name" />
         </NFormItem>
