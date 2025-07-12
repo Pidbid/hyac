@@ -498,6 +498,7 @@ declare namespace App {
           newApplication: string;
           pause: string;
           start: string;
+          restart: string;
           deleteConfirm: string;
           appNamePlaceholder: string;
           appDescPlaceholder: string;
@@ -517,6 +518,9 @@ declare namespace App {
           appStopping: string;
           failedToStopApp: string;
           errorStoppingApp: string;
+          appRestarting: string;
+          failedToRestartApp: string;
+          errorRestartingApp: string;
         };
         apps: {
           functionCount: string;

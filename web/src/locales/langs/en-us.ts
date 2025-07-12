@@ -251,6 +251,7 @@ const local: App.I18n.Schema = {
       newApplication: 'New Application',
       pause: 'Pause',
       start: 'Start',
+      restart: 'Restart',
       deleteConfirm: 'Are you sure you want to delete this application?',
       appNamePlaceholder: 'Please enter application name',
       appDescPlaceholder: 'Please enter application description',
@@ -269,7 +270,10 @@ const local: App.I18n.Schema = {
       errorStartingApp: 'An error occurred while starting the application',
       appStopping: 'Application is stopping...',
       failedToStopApp: 'Failed to stop application',
-      errorStoppingApp: 'An error occurred while stopping the application'
+      errorStoppingApp: 'An error occurred while stopping the application',
+      appRestarting: 'Application is restarting...',
+      failedToRestartApp: 'Failed to restart application',
+      errorRestartingApp: 'An error occurred while restarting the application'
     },
     apps: {
       functionCount: 'Functions',

@@ -251,6 +251,7 @@ const local: App.I18n.Schema = {
       newApplication: '新建应用',
       pause: '暂停',
       start: '启动',
+      restart: '重启',
       deleteConfirm: '你确定要删除这个应用吗？',
       appNamePlaceholder: '请输入应用名称',
       appDescPlaceholder: '请输入应用描述',
@@ -269,7 +270,10 @@ const local: App.I18n.Schema = {
       errorStartingApp: '启动应用时发生错误',
       appStopping: '应用正在停止...',
       failedToStopApp: '停止应用失败',
-      errorStoppingApp: '停止应用时发生错误'
+      errorStoppingApp: '停止应用时发生错误',
+      appRestarting: '应用正在重启...',
+      failedToRestartApp: '重启应用失败',
+      errorRestartingApp: '重启应用时发生错误'
     },
     apps: {
       functionCount: '函数数量',
