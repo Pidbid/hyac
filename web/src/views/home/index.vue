@@ -41,6 +41,16 @@ const createAppForm = reactive({
   description: ''
 });
 
+const formRef = ref<any>(null);
+
+const rules = {
+  appName: {
+    required: true,
+    message: '请输入应用名称',
+    trigger: 'blur'
+  }
+};
+
 // Fallback to 'wicos' if userName is not available from store
 const userName = authStore.userInfo?.username || 'wicos';
 
@@ -216,39 +226,42 @@ const createNewApp = () => {
 };
 
 const handleCreateApp = async () => {
-  if (!createAppForm.appName) {
-    message.error('Please enter an application name');
-    return;
-  }
-  try {
-    const { data: responseData, error } = await createApp(createAppForm.appName, createAppForm.description);
-    if (!error) {
-      message.success('Application creation request sent. Starting in the background...');
-      showCreateModal.value = false;
-      getData(); // Refresh the table immediately
+  formRef.value?.validate(async (errors: any) => {
+    if (!errors) {
+      try {
+        const { data: responseData, error } = await createApp(createAppForm.appName, createAppForm.description);
+        if (!error) {
+          message.success('Application creation request sent. Starting in the background...');
+          showCreateModal.value = false;
+          getData(); // Refresh the table immediately
 
-      // Start polling to check the status
-      const appId = responseData.app_id;
-      const maxAttempts = 10;
-      let attempts = 0;
-      const interval = setInterval(async () => {
-        attempts++;
-        await getData();
-        const { data: statusData, error: statusError } = await applicationStatus(appId);
-        if (!statusError && statusData == "running") {
-          message.success(`Application '${createAppForm.appName}' is now ${statusData}.`);
-          clearInterval(interval);
-        } else if (attempts >= maxAttempts) {
-          message.warning(`Stopped checking status for '${createAppForm.appName}'. Please check manually.`);
-          clearInterval(interval);
+          // Start polling to check the status
+          const appId = responseData.app_id;
+          const maxAttempts = 10;
+          let attempts = 0;
+          const interval = setInterval(async () => {
+            attempts++;
+            await getData();
+            const { data: statusData, error: statusError } = await applicationStatus(appId);
+            if (!statusError && statusData == "running") {
+              message.success(`Application '${createAppForm.appName}' is now ${statusData}.`);
+              clearInterval(interval);
+            } else if (attempts >= maxAttempts) {
+              message.warning(`Stopped checking status for '${createAppForm.appName}'. Please check manually.`);
+              clearInterval(interval);
+            }
+          }, 5000); // Poll every 5 seconds
+        } else {
+          message.error('Failed to create application');
         }
-      }, 5000); // Poll every 5 seconds
+      } catch (e) {
+        message.error('An error occurred while creating the application');
+      }
     } else {
-      message.error('Failed to create application');
+      console.log(errors)
+      message.error('请填写完整')
     }
-  } catch (e) {
-    message.error('An error occurred while creating the application');
-  }
+  })
 };
 
 const handleDeleteApp = async (appId: string) => {
@@ -358,7 +371,7 @@ const handleStopApp = async (appId: string) => {
     </NGrid>
 
     <NModal v-model:show="showCreateModal" preset="card" title="Create New Application" style="width: 600px">
-      <NForm :model="createAppForm" label-placement="left" label-width="auto">
+      <NForm ref="formRef" :model="createAppForm" :rules="rules" label-placement="left" label-width="auto">
         <NFormItem label="Application Name" path="appName">
           <NInput v-model:value="createAppForm.appName" placeholder="Enter application name" />
         </NFormItem>

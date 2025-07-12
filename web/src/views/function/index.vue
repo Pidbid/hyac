@@ -128,7 +128,8 @@ const functionSelect = (func: Api.Function.FunctionInfo) => {
 };
 
 const handleCreateFunction = () => {
-    const localCreateData = reactive({
+  const formRef = ref<any>(null);
+  const localCreateData = reactive({
     name: '',
     description: '',
     type: "endpoint",
@@ -136,6 +137,11 @@ const handleCreateFunction = () => {
     tags: [] as string[],
     templateOptions: [] as SelectOption[]
   });
+
+  const rules = {
+    name: { required: true, message: '请输入函数名称', trigger: 'blur' },
+    template_id: { required: true, message: '请选择函数模板', trigger: 'change' }
+  };
 
   const fetchLocalTemplates = async (functionType: string) => {
     const { data, error } = await getFunctionTemplates(applicationStore.appId, 1, 100, functionType);
@@ -151,9 +157,9 @@ const handleCreateFunction = () => {
 
   dialog.info({
     title: '创建函数',
-    content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80 }, {
+    content: () => h(NForm, { ref: formRef, model: localCreateData, rules: rules, labelPlacement: 'left', labelWidth: 80 }, {
       default: () => [
-        h(NFormItem, { label: '函数名称' }, {
+        h(NFormItem, { label: '函数名称', path: 'name' }, {
           default: () => h(NInput, {
             placeholder: '请输入函数名称',
             value: localCreateData.name,
@@ -165,6 +171,7 @@ const handleCreateFunction = () => {
             value: localCreateData.type,
             onUpdateValue: (value) => {
               localCreateData.type = value;
+              localCreateData.template_id = '';
               fetchLocalTemplates(value);
             }
           }, {
@@ -174,7 +181,7 @@ const handleCreateFunction = () => {
             ]
           })
         }),
-        h(NFormItem, { label: '函数模板' }, {
+        h(NFormItem, { label: '函数模板', path: 'template_id' }, {
           default: () => h(NSelect, {
             placeholder: '请选择函数模板',
             options: localCreateData.templateOptions,
@@ -201,26 +208,30 @@ const handleCreateFunction = () => {
     }),
     positiveText: '确定',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      const { data, error } = await CreateFunction(
-        applicationStore.appId,
-        localCreateData.name,
-        localCreateData.type,
-        localCreateData.description,
-        localCreateData.tags,
-        appStore.locale,
-        localCreateData.template_id
-      );
-      if (!error) {
-        message.success('创建成功');
-        await getFunctionData();
-        const newFunc = functions.value.find(func => func.name === localCreateData.name);
-        if (newFunc) {
-          functionSelect(newFunc);
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await CreateFunction(
+            applicationStore.appId,
+            localCreateData.name,
+            localCreateData.type,
+            localCreateData.description,
+            localCreateData.tags,
+            appStore.locale,
+            localCreateData.template_id
+          );
+          if (!error) {
+            message.success('创建成功');
+            await getFunctionData();
+            const newFunc = functions.value.find(func => func.name === localCreateData.name);
+            if (newFunc) {
+              functionSelect(newFunc);
+            }
+          } else {
+            message.error('创建失败，请稍后重试');
+          }
         }
-      } else {
-        message.error('创建失败，请稍后重试');
-      }
+      });
     }
   });
 };
@@ -403,17 +414,21 @@ const handleAddDependence = async (row: { name: string }) => {
   }
   packageSelectInput.value.version = data?.versions?.[0] ?? '';
   isDependenceLoading.value = false;
+  const formRef = ref<any>(null);
+  const rules = {
+    name: { required: true, message: '请输入依赖名称', trigger: 'blur' }
+  };
   addDependenceDialogRef = dialog.info({
     title: '添加',
-    content: () => h(NForm, {}, {
+    content: () => h(NForm, { ref: formRef, model: packageSelectInput.value, rules: rules }, {
       default: () => [
-        h(NFormItem, { label: "依赖名称" }, {
+        h(NFormItem, { label: "依赖名称", path: "name" }, {
           default:
-            () => h(NInput, { value: packageSelectInput.value.name, disabled: true })
+            () => h(NInput, { value: packageSelectInput.value.name, onUpdateValue: (v) => packageSelectInput.value.name = v })
         }),
         h(NFormItem, { label: "版本" }, {
           default:
-            () => h(NSelect, { defaultValue: packageSelectInput.value.version, options: data?.versions?.map((v: string) => ({ label: v, value: v })) ?? [] })
+            () => h(NSelect, { value: packageSelectInput.value.version, onUpdateValue: (v) => packageSelectInput.value.version = v, options: data?.versions?.map((v: string) => ({ label: v, value: v })) ?? [] })
         }),
       ]
     }),
@@ -542,57 +557,74 @@ const handleEnvSetting = async (showDialog: boolean = true) => {
 }
 
 const handleAddEnv = () => {
+  const formRef = ref<any>(null);
   const newEnv = reactive({ key: '', value: '' });
+  const rules = {
+    key: { required: true, message: '请输入变量名', trigger: 'blur' },
+    value: { required: true, message: '请输入变量值', trigger: 'blur' }
+  };
   dialog.info({
     title: '添加环境变量',
-    content: () => h(NForm, { model: newEnv }, {
+    content: () => h(NForm, { ref: formRef, model: newEnv, rules: rules }, {
       default: () => [
-        h(NFormItem, { label: 'Key' }, {
+        h(NFormItem, { label: 'Key', path: 'key' }, {
           default: () => h(NInput, { value: newEnv.key, onUpdateValue: (v) => newEnv.key = v })
         }),
-        h(NFormItem, { label: 'Value' }, {
+        h(NFormItem, { label: 'Value', path: 'value' }, {
           default: () => h(NInput, { value: newEnv.value, onUpdateValue: (v) => newEnv.value = v })
         })
       ]
     }),
     positiveText: '确定',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      const { error } = await addEnv(applicationStore.appId, newEnv.key, newEnv.value);
-      if (!error) {
-        message.success('添加成功');
-        await handleEnvSetting(false);
-      } else {
-        message.error('添加失败');
-      }
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await addEnv(applicationStore.appId, newEnv.key, newEnv.value);
+          if (!error) {
+            message.success('添加成功');
+            await handleEnvSetting(false);
+          } else {
+            message.error('添加失败');
+          }
+        }
+      });
     }
   });
 }
 
 const handleEditEnv = (env: Api.Settings.EnvInfo) => {
+  const formRef = ref<any>(null);
   const editEnv = reactive({ ...env });
+  const rules = {
+    value: { required: true, message: '请输入变量值', trigger: 'blur' }
+  };
   dialog.info({
     title: '编辑环境变量',
-    content: () => h(NForm, { model: editEnv }, {
+    content: () => h(NForm, { ref: formRef, model: editEnv, rules: rules }, {
       default: () => [
         h(NFormItem, { label: 'Key' }, {
           default: () => h(NInput, { value: editEnv.key, disabled: true })
         }),
-        h(NFormItem, { label: 'Value' }, {
+        h(NFormItem, { label: 'Value', path: 'value' }, {
           default: () => h(NInput, { value: editEnv.value, onUpdateValue: (v) => editEnv.value = v })
         })
       ]
     }),
     positiveText: '确定',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      const { error } = await addEnv(applicationStore.appId, editEnv.key, editEnv.value);
-      if (!error) {
-        message.success('修改成功');
-        await handleEnvSetting(false);
-      } else {
-        message.error('修改失败');
-      }
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await addEnv(applicationStore.appId, editEnv.key, editEnv.value);
+          if (!error) {
+            message.success('修改成功');
+            await handleEnvSetting(false);
+          } else {
+            message.error('修改失败');
+          }
+        }
+      });
     }
   });
 }
