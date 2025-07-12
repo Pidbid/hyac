@@ -17,7 +17,9 @@ import {
   useDialog,
   useMessage,
   NSplit,
-  NButtonGroup
+  NButtonGroup,
+  NScrollbar,
+  NFlex
 } from 'naive-ui';
 import {
   AddOutline,
@@ -339,7 +341,8 @@ onMounted(async () => {
   <div class="h-full flex w-full">
     <NSplit :size="0.1" :min="0.1" :max="0.3">
       <template #1>
-        <NCard title="集合" :bordered="false" size="small" class="h-full flex flex-col card-wrapper">
+        <NCard title="集合" :bordered="false" size="small" class="h-full flex flex-col card-wrapper"
+          :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }">
           <template #header-extra>
             <NButton type="primary" size="small" @click="handleCreateCollection">
               <template #icon>
@@ -347,7 +350,7 @@ onMounted(async () => {
               </template>
             </NButton>
           </template>
-          <div class="flex-1 min-h-0 overflow-y-auto">
+          <NScrollbar class="h-full">
             <NList hoverable clickable>
               <NListItem v-for="collection in collections" :key="collection"
                 :class="{ 'selected-collection-item': selectedCollection === collection }"
@@ -372,7 +375,7 @@ onMounted(async () => {
                 </NThing>
               </NListItem>
             </NList>
-          </div>
+          </NScrollbar>
         </NCard>
       </template>
       <template #2>
@@ -402,7 +405,8 @@ onMounted(async () => {
               </div>
               <div class="flex justify-center p-4 border-t border-gray-200">
                 <NPagination v-model:page="page" v-model:page-size="pageSize" :item-count="totalDocuments"
-                  :page-sizes="[10, 15, 20, 50]" show-size-picker :on-update:page="paginationUpPage" :on-update:page-size="paginationUpSize" />
+                  :page-sizes="[10, 15, 20, 50]" show-size-picker :on-update:page="paginationUpPage"
+                  :on-update:page-size="paginationUpSize" />
               </div>
             </NCard>
           </template>
@@ -444,14 +448,6 @@ onMounted(async () => {
 .selected-collection-item {
   background-color: #e8f0ff;
   /* A light blue for selection */
-}
-
-.n-card.flex.flex-col>.n-card__content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0 !important;
 }
 
 .n-data-table .n-data-table-td {

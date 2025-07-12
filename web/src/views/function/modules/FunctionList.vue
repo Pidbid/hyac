@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NIcon, NCard, NList, NListItem, NThing, NTag, NEmpty, NTooltip } from 'naive-ui';
+import { NButton, NIcon, NCard, NList, NListItem, NThing, NTag, NEmpty, NTooltip, NScrollbar } from 'naive-ui';
 import { AddOutline, TrashSharp, CubeOutline, BrushOutline, HammerOutline } from '@vicons/ionicons5';
 
 defineProps<{
@@ -12,7 +12,8 @@ const emit = defineEmits(['create-function', 'select-function', 'delete-function
 </script>
 
 <template>
-  <NCard title="云函数列表" :bordered="false" size="small" class="h-full">
+  <NCard title="云函数列表" :bordered="false" size="small" class="h-full flex flex-col"
+    :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }">
     <template #header-extra>
       <NButton type="primary" size="small" @click="emit('create-function')">
         <template #icon>
@@ -44,7 +45,7 @@ const emit = defineEmits(['create-function', 'select-function', 'delete-function
         </n-tooltip>
       </div>
     </template>
-    <div class="function-list-container">
+    <NScrollbar class="h-full">
       <NList v-if="functions.length > 0" hoverable clickable>
         <NListItem v-for="func in functions" :key="func.id" @click="emit('select-function', func)"
           :class="{ 'selected-function-item': selectedFunctionId === func.id }">
@@ -60,17 +61,11 @@ const emit = defineEmits(['create-function', 'select-function', 'delete-function
         </NListItem>
       </NList>
       <NEmpty v-else description="暂无函数" class="h-full flex items-center justify-center" />
-    </div>
+    </NScrollbar>
   </NCard>
 </template>
 
 <style scoped>
-.function-list-container {
-  max-height: calc(100% - 48px);
-  /* 减去NCard的header高度，NCard的header默认高度是48px */
-  overflow-y: auto;
-}
-
 .selected-function-item {
   background-color: #f3f3f5;
 }
