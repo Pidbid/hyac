@@ -245,6 +245,40 @@ async def stop_application(
     )
 
 
+@router.post("/restart", response_model=BaseResponse)
+async def restart_application(
+    data: ApplicationOperationRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Restarts a running application by creating a background task.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or you don't have permission"
+        )
+
+    if app.status != ApplicationStatus.RUNNING:
+        raise HTTPException(status_code=400, detail="Application is not running.")
+
+    # Create a task to restart the application
+    task = Task(
+        task_id=generate_short_id(),
+        action=TaskAction.RESTART_APP,
+        payload={"app_id": app.app_id},
+    )
+    await task.insert()
+
+    return BaseResponse(
+        code=0,
+        msg="Application restart task has been created and is being processed.",
+        data={"app_id": app.app_id, "task_id": task.task_id},
+    )
+
+
 @router.post("/update_description", response_model=BaseResponse)
 async def update_application_description(
     data: UpdateApplicationDescriptionRequest, current_user=Depends(get_current_user)
