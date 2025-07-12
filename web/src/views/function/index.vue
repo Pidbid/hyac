@@ -23,7 +23,8 @@ import {
   packageRemove,
   getEnvsData,
   addEnv,
-  removeEnv
+  removeEnv,
+  getDomain
 } from '@/service/api';
 
 import FunctionList from './modules/FunctionList.vue';
@@ -80,8 +81,9 @@ const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 
 // Computed
 const functionAddress = computed(() => {
-  if (selectedFunction.value.id !== '') {
-    return `http://${applicationStore.appId}.hyacos.top/${selectedFunction.value.id}`;
+  const domain = localStorage.getItem('hyac_domain');
+  if (selectedFunction.value.id !== '' && domain) {
+    return `http://${applicationStore.appId}.${domain}/${selectedFunction.value.id}`;
   }
   return '';
 });
@@ -675,6 +677,10 @@ const handleDeleteEnv = (env: Api.Settings.EnvInfo) => {
 
 // Lifecycle
 onMounted(async () => {
+  const { data: domain, error } = await getDomain();
+  if (!error) {
+    localStorage.setItem('hyac_domain', domain);
+  }
   await getFunctionData();
   logStore.connect();
   if (selectedFunction.value.id) {
