@@ -25,6 +25,7 @@ const handleRestart = () => {
       const { error } = await restartApp(applicationStore.appInfo.appId);
       if (!error) {
         message.success($t('page.setting.restartInitiated'));
+        router.push({ name: 'home' });
       } else {
         message.error($t('page.setting.restartFailed'));
       }
@@ -42,6 +43,7 @@ const handleStop = () => {
       const { error } = await stopApp(applicationStore.appInfo.appId);
       if (!error) {
         message.success($t('page.setting.stopInitiated'));
+        router.push({ name: 'home' });
       } else {
         message.error($t('page.setting.stopFailed'));
       }
