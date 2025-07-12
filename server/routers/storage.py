@@ -124,21 +124,18 @@ async def upload_file(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(await file.read())
-        temp_file_path = tmp.name
+    try:
+        success = await minio_manager.upload_file_stream(
+            bucket_name=appId.lower(), object_name=object_name, file_stream=file
+        )
+        if not success:
+            return BaseResponse(code=500, msg="File upload failed")
 
-    success = await minio_manager.upload_file(
-        appId.lower(), object_name, temp_file_path
-    )
-    Path(temp_file_path).unlink()
-
-    if not success:
-        return BaseResponse(code=500, msg="File upload failed")
-
-    return BaseResponse(
-        code=0, msg="File uploaded successfully", data={"filename": file.filename}
-    )
+        return BaseResponse(
+            code=0, msg="File uploaded successfully", data={"filename": file.filename}
+        )
+    except Exception as e:
+        return BaseResponse(code=500, msg=f"File upload failed: {e}")
 
 
 @router.post("/download_file")

@@ -170,6 +170,37 @@ class MinioManager:
             logger.error(f"Failed to upload file '{file_path}': {e}")
             return False
 
+    async def upload_file_stream(
+        self, bucket_name: str, object_name: str, file_stream
+    ) -> bool:
+        """
+        Uploads a file-like object to a bucket using a stream.
+        """
+        if not self._check_client():
+            return False
+        assert self.client is not None
+        try:
+            # Get the size of the file by seeking to the end
+            file_stream.file.seek(0, io.SEEK_END)
+            file_size = file_stream.file.tell()
+            file_stream.file.seek(0, io.SEEK_SET)
+
+            await asyncio.to_thread(
+                self.client.put_object,
+                bucket_name,
+                object_name,
+                file_stream.file,
+                length=file_size,
+                content_type=file_stream.content_type,
+            )
+            logger.info(
+                f"File stream '{object_name}' uploaded to bucket '{bucket_name}'."
+            )
+            return True
+        except S3Error as e:
+            logger.error(f"Failed to upload file stream '{object_name}': {e}")
+            return False
+
     async def download_file(
         self, bucket_name: str, object_name: str, file_path: str
     ) -> bool:
