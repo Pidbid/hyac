@@ -142,6 +142,22 @@ docker-compose up -d
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Pidbid/Hyac&type=Date)](https://star-history.com/#Pidbid/Hyac&Date)
 
+## 🗺️ Roadmap
+
+We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform. Community contributions and suggestions are welcome!
+
+### Platform-Level Features
+- [ ] **Multi-User & Permissions Management**: Introduce roles (e.g., admin, developer) for fine-grained access control.
+- [ ] **Platform Monitoring Dashboard**: Provide a global view of system status, resource utilization, and audit logs.
+- [ ] **Runtime Management**: Allow administrators to add, configure, and manage new function runtime environments (e.g., Node.js, Deno).
+- [ ] **System-Level Integration Configuration**: Offer a unified interface to configure global SMTP, object storage, and third-party notification services.
+
+### Application-Level Features
+- [ ] **Custom Domains & Advanced Access Control**: Support binding custom domains and provide IP whitelist/blacklist functionality.
+- [ ] **Resource Quota Management**: Allow setting limits on CPU, memory, and execution timeout for individual applications.
+- [ ] **Dependency Analysis & Security Scanning**: Integrate tools to detect dependency conflicts and known security vulnerabilities.
+- [ ] **Function Template Marketplace**: Create a community-driven marketplace for sharing and using pre-built function templates.
+
 ## 🤝 Contributing
 
 We welcome contributions of all forms! If you have great ideas or find issues, please feel free to submit a Pull Request or Issue.
