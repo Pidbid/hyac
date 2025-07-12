@@ -131,8 +131,9 @@ async function fetchData() {
   isLoading.value = false;
 }
 
-async function handleSearch() {
-  const query = newPackageName.value;
+let searchTimeout: number | null = null;
+
+async function handleSearch(query: string) {
   if (!query) {
     searchResults.value = [];
     return;
@@ -144,6 +145,16 @@ async function handleSearch() {
     searchResults.value = data.map((item: string) => ({ label: item, value: item }));
   }
   searchLoading.value = false;
+}
+
+function onSearchInput(value: string) {
+  newPackageName.value = value;
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  searchTimeout = window.setTimeout(() => {
+    handleSearch(value);
+  }, 500); // 500ms debounce
 }
 
 async function handleSelectPackage(packageName: string) {
@@ -258,19 +269,17 @@ onMounted(fetchData);
       @after-leave="() => { newPackageName = ''; newPackageVersion = ''; searchResults = []; versionOptions = []; }"
     >
       <NSpace vertical>
-        <NInputGroup>
-          <NInput
-            v-model:value="newPackageName"
-            :placeholder="$t('page.setting.dependencyNamePlaceholder')"
-            clearable
-            @keydown.enter="handleSearch"
-          />
-          <NButton type="primary" ghost :loading="searchLoading" @click="handleSearch">
-            <template #icon>
-              <NIcon :component="SearchOutline" />
-            </template>
-          </NButton>
-        </NInputGroup>
+        <NInput
+          :value="newPackageName"
+          :placeholder="$t('page.setting.dependencyNamePlaceholder')"
+          clearable
+          :loading="searchLoading"
+          @update:value="onSearchInput"
+        >
+          <template #suffix>
+            <NIcon :component="SearchOutline" />
+          </template>
+        </NInput>
         <NDataTable
           v-if="searchResults.length > 0"
           :columns="searchColumns"
