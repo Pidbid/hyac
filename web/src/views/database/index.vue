@@ -34,6 +34,7 @@ import { Console } from 'console';
 import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument } from "@/service/api"
 import { useApplicationStore } from '@/store/modules/application';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
+import { $t } from '@/locales';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -74,23 +75,23 @@ watch(selectedCollection, () => {
 const handleCreateCollection = () => {
   const collectionName = ref('');
   dialog.info({
-    title: '创建集合',
+    title: $t('page.database.createCollection'),
     content: () => h(NInput, {
-      placeholder: '请输入集合名称',
+      placeholder: $t('page.database.collectionNamePlaceholder'),
       value: collectionName.value,
       onUpdateValue: (v: string) => {
         collectionName.value = v;
       }
     }),
-    positiveText: '确定',
-    negativeText: '取消',
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       if (collectionName.value) {
         const { data, error } = await CreateCollection(applicationStore.appId, collectionName.value)
         if (!error) {
           await getApplicationCollections()
           selectedCollection.value = collectionName.value;
-          message.success("集合创建成功")
+          message.success($t('page.database.createSuccess'))
           collectionName.value = '';
         }
       }
@@ -101,7 +102,7 @@ const handleCreateCollection = () => {
 const handleCreateDocument = () => {
   const documentContent = ref<string>("{}");
   dialog.info({
-    title: '插入文档',
+    title: $t('page.database.insertDocument'),
     content: () =>
       h(jsonEditor, {
         modelValue: documentContent.value,
@@ -109,8 +110,8 @@ const handleCreateDocument = () => {
           documentContent.value = v;
         }
       }),
-    positiveText: '确定',
-    negativeText: '取消',
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onNegativeClick: () => {
       documentContent.value = '{}';
     },
@@ -126,11 +127,11 @@ const handleCreateDocument = () => {
             await getCollectionDocuments(selectedCollection.value, 1, 15)
           })
           page.value = 1;
-          message.success("创建成功")
+          message.success($t('page.database.createDocumentSuccess'))
           documentContent.value = '{}';
         }
       } catch {
-        message.error('JSON格式错误，请检查');
+        message.error($t('page.database.jsonFormatError'));
       }
     }
   });
@@ -144,35 +145,35 @@ const handleEditDocument = (doc: any) => {
 
 const handleDeleteDocument = (doc: any) => {
   dialog.warning({
-    title: '确认删除',
-    content: `确定要删除文档 ID: ${doc._id} 吗？`,
-    positiveText: '确定',
-    negativeText: '取消',
+    title: $t('page.database.confirmDelete'),
+    content: $t('page.database.deleteDocumentConfirm', { id: doc._id }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { data, error } = await DeleteDocument(applicationStore.appId, selectedCollection.value, doc._id)
       if (!error) {
         await getCollectionDocuments(selectedCollection.value, 1, 15)
-        message.success("删除成功")
+        message.success($t('page.database.deleteSuccess'))
       }
     },
     onNegativeClick: () => {
-      message.info('已取消删除');
+      message.info($t('page.database.deleteCancelled'));
     }
   });
 };
 
 const handleDeleteCollection = (colName: string) => {
   dialog.error({
-    title: '确认删除',
-    content: `确定要删除集合: ${colName} 吗？删除后不可恢复，请谨慎操作！`,
-    positiveText: '确定',
-    negativeText: '取消',
+    title: $t('page.database.confirmDelete'),
+    content: $t('page.database.deleteCollectionConfirm', { name: colName }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { data, error } = await DeleteCollection(applicationStore.appId, colName)
       if (!error) {
         await getApplicationCollections()
         selectedCollection.value = collections.value[0];
-        message.success("删除成功")
+        message.success($t('page.database.deleteSuccess'))
       }
     }
   });
@@ -180,19 +181,19 @@ const handleDeleteCollection = (colName: string) => {
 
 const handleClearCollection = (colName: string) => {
   dialog.warning({
-    title: '确认清空',
-    content: `确定要清空集合: ${colName} 吗？清空后不可恢复，请谨慎操作！`,
-    positiveText: '确定',
-    negativeText: '取消',
+    title: $t('page.database.confirmClear'),
+    content: $t('page.database.clearCollectionConfirm', { name: colName }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { data, error } = await ClearCollection(applicationStore.appId, colName)
       if (!error) {
         await getCollectionDocuments(selectedCollection.value, 1, 15)
-        message.success("清空成功")
+        message.success($t('page.database.clearSuccess'))
       }
     },
     onNegativeClick: () => {
-      message.info('已取消删除');
+      message.info($t('page.database.deleteCancelled'));
     }
   });
 };
@@ -205,22 +206,22 @@ const handleSaveDocument = async () => {
       await getCollectionDocuments(selectedCollection.value, 1, 15)
       editingDocument.value = null; // 保存后清空编辑状态
       editingDocumentJson.value = "";
-      message.success("保存成功")
+      message.success($t('page.database.saveSuccess'))
     }
   } catch (e) {
-    message.error('保存失败，请检查数据格式');
+    message.error($t('page.database.saveFailed'));
   }
 };
 
 const handleCancelEdit = () => {
   editingDocument.value = null;
   editingDocumentJson.value = '';
-  message.info('取消编辑');
+  message.info($t('page.database.cancelEdit'));
 };
 
 const handleRefreshDocuments = async () => {
   await getCollectionDocuments(selectedCollection.value, 1, 15)
-  message.success("刷新成功")
+  message.success($t('page.database.refreshSuccess'))
 };
 
 
@@ -236,13 +237,13 @@ const formatJson = (data: any) => {
 // 表格列定义
 const documentColumns = [
   {
-    title: 'ID',
+    title: $t('page.database.idColumn'),
     key: 'id',
     width: 100,
     render: (row: any, index: number) => h('span', {}, (page.value - 1) * pageSize.value + index + 1)
   },
   {
-    title: '内容',
+    title: $t('page.database.contentColumn'),
     key: 'content',
     minWidth: 200,
     render: (row: any) => h(
@@ -270,7 +271,7 @@ const documentColumns = [
     )
   },
   {
-    title: '操作',
+    title: $t('page.database.actionsColumn'),
     key: 'actions',
     width: 120,
     render: (row: any) => h(
@@ -347,7 +348,7 @@ onMounted(async () => {
   <div class="h-full flex w-full">
     <NSplit :size="0.1" :min="0.1" :max="0.3">
       <template #1>
-        <NCard title="集合" :bordered="false" size="small" class="h-full flex flex-col card-wrapper"
+        <NCard :title="$t('page.database.collection')" :bordered="false" size="small" class="h-full flex flex-col card-wrapper"
           :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }">
           <template #header-extra>
             <NButton type="primary" size="small" @click="handleCreateCollection">
@@ -387,7 +388,7 @@ onMounted(async () => {
       <template #2>
         <NSplit :size="0.85" :min="0.4" :max="0.9">
           <template #1>
-            <NCard :title="selectedCollection || '文档'" :bordered="false" size="small"
+            <NCard :title="selectedCollection || $t('page.database.document')" :bordered="false" size="small"
               class="h-full flex flex-col card-wrapper"
               :content-style="{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }">
               <template #header-extra>
@@ -401,7 +402,7 @@ onMounted(async () => {
                     <template #icon>
                       <NIcon :component="AddOutline" />
                     </template>
-                    插入文档
+                    {{ $t('page.database.insertDocument') }}
                   </NButton>
                 </NSpace>
               </template>
@@ -417,17 +418,17 @@ onMounted(async () => {
             </NCard>
           </template>
           <template #2>
-            <NCard title="文档操作" :bordered="false" size="small" class="h-full flex flex-col card-wrapper">
+            <NCard :title="$t('page.database.documentOperations')" :bordered="false" size="small" class="h-full flex flex-col card-wrapper">
               <div class="flex-1 min-h-0 p-4">
                 <div v-if="editingDocument">
-                  <NThing title="编辑内容"></NThing>
+                  <NThing :title="$t('page.database.editContent')"></NThing>
                   <jsonEditor v-model="editingDocumentJson" :height="400" />
                   <div class="flex flex-row gap-2 flex-row-reverse">
-                    <NButton type="primary" @click="handleSaveDocument">保存</NButton>
-                    <NButton type="error" @click="handleCancelEdit">取消</NButton>
+                    <NButton type="primary" @click="handleSaveDocument">{{ $t('page.database.save') }}</NButton>
+                    <NButton type="error" @click="handleCancelEdit">{{ $t('page.database.cancel') }}</NButton>
                   </div>
                 </div>
-                <NEmpty v-else description="选择一个文档进行编辑或创建新文档" class="h-full flex items-center justify-center">
+                <NEmpty v-else :description="$t('page.database.emptyDescription')" class="h-full flex items-center justify-center">
                   <template #icon>
                     <NIcon :component="DocumentTextOutline" />
                   </template>

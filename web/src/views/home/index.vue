@@ -46,7 +46,7 @@ const formRef = ref<any>(null);
 const rules = {
   appName: {
     required: true,
-    message: '请输入应用名称',
+    message: $t('page.home.appNamePlaceholder'),
     trigger: 'blur'
   }
 };
@@ -55,12 +55,12 @@ const rules = {
 const userName = authStore.userInfo?.username || 'wicos';
 
 const cardData = [
-  { title: 'WeChat Mini Program/Public Account' },
-  { title: 'Android or iOS app' },
-  { title: 'Personal blog, corporate official website' },
-  { title: 'Enterprise information construction' },
-  { title: 'Personal developer\'s "handy cloud"' },
-  { title: 'waiting for you to explore' }
+  { title: $t('page.home.miniProgram') },
+  { title: $t('page.home.androidOrIos') },
+  { title: $t('page.home.blogOrWebsite') },
+  { title: $t('page.home.enterpriseInfo') },
+  { title: $t('page.home.handyCloud') },
+  { title: $t('page.home.explore') }
 ];
 
 const apiParams = reactive({
@@ -144,7 +144,7 @@ const tableColumns = (): TableColumn<any>[] => [
           disabled: row.status !== 'running',
           onClick: () => routerToApps(row)
         },
-        { default: () => [h(NIcon, { component: CreateOutline }), '编辑'] }
+        { default: () => [h(NIcon, { component: CreateOutline }), $t('common.edit')] }
       );
 
       const toggleStatusButton = h(
@@ -155,7 +155,7 @@ const tableColumns = (): TableColumn<any>[] => [
           disabled: isDeleting || isStarting || isStopping,
           onClick: () => (isRunning ? handleStopApp(row.app_id) : handleStartApp(row.app_id))
         },
-        { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), '暂停'] : [h(NIcon, { component: RocketOutline }), '启动']) }
+        { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), $t('page.home.pause')] : [h(NIcon, { component: RocketOutline }), $t('page.home.start')]) }
       );
 
       const deleteButton = h(
@@ -176,7 +176,7 @@ const tableColumns = (): TableColumn<any>[] => [
               },
               { default: () => h(NIcon, { component: TrashBinOutline }) }
             ),
-          default: () => '你确定要删除这个应用吗？'
+          default: () => $t('page.home.deleteConfirm')
         }
       );
 
@@ -231,7 +231,7 @@ const handleCreateApp = async () => {
       try {
         const { data: responseData, error } = await createApp(createAppForm.appName, createAppForm.description);
         if (!error) {
-          message.success('Application creation request sent. Starting in the background...');
+          message.success($t('page.home.appCreationRequestSent'));
           showCreateModal.value = false;
           createAppForm.appName = '';
           createAppForm.description = '';
@@ -246,22 +246,22 @@ const handleCreateApp = async () => {
             await getData();
             const { data: statusData, error: statusError } = await applicationStatus(appId);
             if (!statusError && statusData == "running") {
-              message.success(`Application '${createAppForm.appName}' is now ${statusData}.`);
+              message.success($t('page.home.appNowRunning', { appName: createAppForm.appName, status: statusData }));
               clearInterval(interval);
             } else if (attempts >= maxAttempts) {
-              message.warning(`Stopped checking status for '${createAppForm.appName}'. Please check manually.`);
+              message.warning($t('page.home.stopCheckingStatus', { appName: createAppForm.appName }));
               clearInterval(interval);
             }
           }, 5000); // Poll every 5 seconds
         } else {
-          message.error('Failed to create application');
+          message.error($t('page.home.failedToCreateApp'));
         }
       } catch (e) {
-        message.error('An error occurred while creating the application');
+        message.error($t('page.home.errorCreatingApp'));
       }
     } else {
       console.log(errors)
-      message.error('请填写完整')
+      message.error($t('page.home.fillInCompletely'))
     }
   })
 };
@@ -270,13 +270,13 @@ const handleDeleteApp = async (appId: string) => {
   try {
     const { error } = await deleteApp(appId);
     if (!error) {
-      message.success('Application deleted successfully');
+      message.success($t('page.home.appDeleted'));
       getData(); // Refresh the table
     } else {
-      message.error('Failed to delete application');
+      message.error($t('page.home.failedToDeleteApp'));
     }
   } catch (e) {
-    message.error('An error occurred while deleting the application');
+    message.error($t('page.home.errorDeletingApp'));
   }
 };
 
@@ -284,13 +284,13 @@ const handleStartApp = async (appId: string) => {
   try {
     const { error } = await startApp(appId);
     if (!error) {
-      message.success('Application is starting...');
+      message.success($t('page.home.appStarting'));
       getData();
     } else {
-      message.error('Failed to start application');
+      message.error($t('page.home.failedToStartApp'));
     }
   } catch (e) {
-    message.error('An error occurred while starting the application');
+    message.error($t('page.home.errorStartingApp'));
   }
 };
 
@@ -298,13 +298,13 @@ const handleStopApp = async (appId: string) => {
   try {
     const { error } = await stopApp(appId);
     if (!error) {
-      message.success('Application is stopping...');
+      message.success($t('page.home.appStopping'));
       getData();
     } else {
-      message.error('Failed to stop application');
+      message.error($t('page.home.failedToStopApp'));
     }
   } catch (e) {
-    message.error('An error occurred while stopping the application');
+    message.error($t('page.home.errorStoppingApp'));
   }
 };
 </script>
@@ -336,14 +336,10 @@ const handleStopApp = async (appId: string) => {
         <div v-else class="h-full w-full flex-col-center">
           <div class="m-auto flex-col-center">
             <NH1 class="text-3xl! font-bold!">
-              Hello 👋, {{ userName }}, Welcome to the Hyac cloud development platform!
+              {{ $t('page.home.welcome', { userName }) }}
             </NH1>
             <NP class="text-16px text-gray-500 mt-4 text-center">
-              Here, you can develop any application as a full-stack, backend,
-              <br />
-              cloud development user, Node.js developer, independent
-              <br />
-              developer, etc., for example:
+              {{ $t('page.home.welcomeDescription') }}
             </NP>
 
             <NGrid :x-gap="24" :y-gap="24" :cols="3" class="mt-8 w-[900px]">
@@ -358,37 +354,37 @@ const handleStopApp = async (appId: string) => {
             </NGrid>
 
             <NP class="text-14px text-gray-400 mt-8">
-              Come and create an application of your own~
+              {{ $t('page.home.createYourApp') }}
             </NP>
 
             <NButton type="primary" size="large" class="mt-4" @click="createNewApp">
               <template #icon>
                 <NIcon :component="AddIcon" />
               </template>
-              New Application
+              {{ $t('page.home.newApplication') }}
             </NButton>
           </div>
         </div>
       </NGridItem>
     </NGrid>
 
-    <NModal v-model:show="showCreateModal" preset="card" title="Create New Application" style="width: 600px">
+    <NModal v-model:show="showCreateModal" preset="card" :title="$t('page.home.newApplication')" style="width: 600px">
       <NForm ref="formRef" :model="createAppForm" :rules="rules" label-placement="left" label-width="auto" @keyup.enter="handleCreateApp">
-        <NFormItem label="Application Name" path="appName">
-          <NInput v-model:value="createAppForm.appName" placeholder="Enter application name" />
+        <NFormItem :label="$t('page.home.appName')" path="appName">
+          <NInput v-model:value="createAppForm.appName" :placeholder="$t('page.home.appNamePlaceholder')" />
         </NFormItem>
-        <NFormItem label="Description" path="description">
+        <NFormItem :label="$t('page.home.appDesc')" path="description">
           <NInput
             v-model:value="createAppForm.description"
             type="textarea"
-            placeholder="Enter application description"
+            :placeholder="$t('page.home.appDescPlaceholder')"
           />
         </NFormItem>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-x-4">
-          <NButton @click="showCreateModal = false">Cancel</NButton>
-          <NButton type="primary" @click="handleCreateApp">Create</NButton>
+          <NButton @click="showCreateModal = false">{{ $t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="handleCreateApp">{{ $t('page.home.create') }}</NButton>
         </div>
       </template>
     </NModal>

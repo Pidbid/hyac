@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { NCard, NButtonGroup, NTooltip, NButton, NIcon, NScrollbar, NFlex } from 'naive-ui';
 import { TerminalOutline, EaselOutline, ReaderOutline } from '@vicons/ionicons5';
+import { $t } from '@/locales';
 
 const props = defineProps<{
   logs: Api.Function.FunctionLogsInfo[];
@@ -21,7 +22,7 @@ const filteredLogs = computed(() => {
 </script>
 
 <template>
-  <NCard title="日志" :bordered="false" size="small" class="h-full"
+  <NCard :title="$t('page.function.log')" :bordered="false" size="small" class="h-full"
     :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }">
     <template #header-extra>
       <NButtonGroup>
@@ -34,7 +35,7 @@ const filteredLogs = computed(() => {
               </template>
             </NButton>
           </template>
-          全部日志
+          {{ $t('page.function.allLogs') }}
         </NTooltip>
         <NTooltip trigger="hover">
           <template #trigger>
@@ -45,7 +46,7 @@ const filteredLogs = computed(() => {
               </template>
             </NButton>
           </template>
-          函数日志
+          {{ $t('page.function.functionLogs') }}
         </NTooltip>
         <NTooltip trigger="hover">
           <template #trigger>
@@ -56,7 +57,7 @@ const filteredLogs = computed(() => {
               </template>
             </NButton>
           </template>
-          系统日志
+          {{ $t('page.function.systemLogs') }}
         </NTooltip>
       </NButtonGroup>
     </template>

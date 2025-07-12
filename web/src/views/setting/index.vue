@@ -134,7 +134,7 @@ const appMenuOptions = computed(() => [
     icon: () => h(PersonOutline)
   },
   {
-    label: 'CORS',
+    label: $t('page.setting.cors' as any),
     key: 'cors',
     icon: () => h(GlobeOutline)
   },
@@ -288,7 +288,7 @@ const NotificationsSettings = {
                     NCollapseItem,
                     { name: 'email' },
                     {
-                      header: () => h('div', { class: 'font-bold' }, 'EMail ' + $t('page.setting.notifications' as any)),
+                      header: () => h('div', { class: 'font-bold' }, $t('page.setting.emailNotifications' as any)),
                       'header-extra': () =>
                         h(NSwitch, {
                           value: notificationSettingsData.value.email.enabled,
@@ -307,7 +307,7 @@ const NotificationsSettings = {
                                   default: () => [
                                     h(
                                       NFormItemGi,
-                                      { label: 'SMTP ' + $t('page.setting.server' as any) },
+                                      { label: `SMTP ${$t('page.setting.server' as any)}` },
                                       {
                                         default: () =>
                                           h(NInput, {
@@ -379,7 +379,7 @@ const NotificationsSettings = {
                     NCollapseItem,
                     { name: 'webhook' },
                     {
-                      header: () => h('div', { class: 'font-bold' }, 'WebHook ' + $t('page.setting.notifications' as any)),
+                      header: () => h('div', { class: 'font-bold' }, $t('page.setting.webhookNotifications' as any)),
                       'header-extra': () =>
                         h(NSwitch, {
                           value: notificationSettingsData.value.webhook.enabled,
@@ -398,7 +398,7 @@ const NotificationsSettings = {
                                   default: () => [
                                     h(
                                       NFormItemGi,
-                                      { label: 'URL' },
+                                      { label: $t('page.setting.url' as any) },
                                       {
                                         default: () =>
                                           h(NInput, {
@@ -473,7 +473,7 @@ const NotificationsSettings = {
                               ),
                               h(
                                 NFormItemGi,
-                                { label: '通知ID', span: 1 },
+                                { label: $t('page.setting.notificationId' as any), span: 1 },
                                 {
                                   default: () =>
                                     h(NInput, {
@@ -606,7 +606,7 @@ const CorsSettings = {
   render: () =>
     h(
       NCard,
-      { title: 'CORS', bordered: false },
+      { title: $t('page.setting.cors' as any), bordered: false },
       {
         default: () =>
           h('div', [
@@ -617,7 +617,7 @@ const CorsSettings = {
                 default: () => [
                   h(
                     NFormItem,
-                    { label: 'Allow Origins' },
+                    { label: $t('page.setting.allowOrigins' as any) },
                     {
                       default: () =>
                         h(NDynamicTags, {
@@ -630,7 +630,7 @@ const CorsSettings = {
                   ),
                   h(
                     NFormItem,
-                    { label: 'Allow Credentials' },
+                    { label: $t('page.setting.allowCredentials' as any) },
                     {
                       default: () =>
                         h(NSwitch, {
@@ -643,7 +643,7 @@ const CorsSettings = {
                   ),
                   h(
                     NFormItem,
-                    { label: 'Allow Methods' },
+                    { label: $t('page.setting.allowMethods' as any) },
                     {
                       default: () =>
                         h(NDynamicTags, {
@@ -656,7 +656,7 @@ const CorsSettings = {
                   ),
                   h(
                     NFormItem,
-                    { label: 'Allow Headers' },
+                    { label: $t('page.setting.allowHeaders' as any) },
                     {
                       default: () =>
                         h(NDynamicTags, {

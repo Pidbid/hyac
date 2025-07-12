@@ -33,7 +33,7 @@ const cardData = computed<CardData[]>(() => [
     title: $t('page.apps.requestCount'),
     value: props.summary?.functions.requests.total ?? 0,
     unit: '',
-    ending: '次',
+    ending: $t('page.apps.requestCountUnit'),
     color: {
       start: '#ec4786',
       end: '#b955a4'
@@ -45,7 +45,7 @@ const cardData = computed<CardData[]>(() => [
     title: $t('page.apps.functionCount'),
     value: props.summary?.functions.count ?? 0,
     unit: '',
-    ending: '个',
+    ending: $t('page.apps.functionCountUnit'),
     color: {
       start: '#865ec0',
       end: '#5144b4'
@@ -57,7 +57,7 @@ const cardData = computed<CardData[]>(() => [
     title: $t('page.apps.databaseCount'),
     value: props.summary?.database.count ?? 0,
     unit: '',
-    ending: '条',
+    ending: $t('page.apps.databaseCountUnit'),
     color: {
       start: '#56cdf3',
       end: '#719de3'
@@ -69,7 +69,7 @@ const cardData = computed<CardData[]>(() => [
     title: $t('page.apps.storageCount'),
     value: props.summary?.storage.total_usage_mb ?? 0,
     unit: '',
-    ending: 'MB',
+    ending: $t('page.apps.storageCountUnit'),
     color: {
       start: '#fcbc25',
       end: '#f68057'

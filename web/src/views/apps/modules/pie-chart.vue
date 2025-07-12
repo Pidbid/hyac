@@ -28,7 +28,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
   series: [
     {
       color: ['#5da8ff', '#8e9dff', '#fedc69', '#26deca', '#ff8c9a'],
-      name: 'Top 5 Functions',
+      name: $t('page.apps.top5Functions'),
       type: 'pie',
       radius: ['45%', '75%'],
       avoidLabelOverlap: false,
@@ -71,7 +71,7 @@ async function getChartData() {
   if (data) {
     updateOptions(opts => {
       const chartData = data.map(item => ({
-        name: item.function_name || 'Unknown',
+        name: item.function_name || $t('page.apps.unknown'),
         value: item.count
       }));
 

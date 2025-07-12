@@ -5,6 +5,7 @@ import { NCard, NScrollbar, NSpace, NInputGroup, NInput, NButton, NIcon, NTabs, 
 import { CopyOutline, TrashBinOutline, AddOutline } from '@vicons/ionicons5';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { functionTest } from '@/service/api';
+import { $t } from '@/locales';
 
 const props = defineProps<{
   functionAddress: string;
@@ -17,7 +18,7 @@ const testMethod = ref('GET');
 const testHeadersList = ref<{ key: string; value: string; disabled?: boolean }[]>([{ key: '', value: '' }]);
 const testQueryParamsList = ref<{ key: string; value: string }[]>([{ key: '', value: '' }]);
 const testJsonBody = ref('{}');
-const testResult = ref('点击"发送请求"进行测试...');
+const testResult = ref($t('page.function.clickToSend'));
 const requestResponse = ref('');
 
 const handleTestRequest = async () => {
@@ -40,28 +41,28 @@ const handleTestRequest = async () => {
     try {
       body = JSON.parse(testJsonBody.value);
     } catch (e) {
-      message.error('POST 请求格式不正确');
+      message.error($t('page.function.postFormatError'));
       return;
     }
   }
 
   try {
-    requestResponse.value = '请求中...\n';
+    requestResponse.value = $t('page.function.requesting') + '\n';
     const response = await functionTest(props.functionAddress, testMethod.value, headers, query, body);
     if (response && response.data) {
       testResult.value = JSON.stringify(response.data, null, 2);
-      requestResponse.value += `请求成功: ${JSON.stringify(response.data, null, 2)}`;
+      requestResponse.value += `${$t('page.function.requestSuccessNoData')}: ${JSON.stringify(response.data, null, 2)}`;
     } else {
-      testResult.value = '请求成功，但没有返回数据。';
-      requestResponse.value += '请求成功，但没有返回数据。';
+      testResult.value = $t('page.function.requestSuccessNoData');
+      requestResponse.value += $t('page.function.requestSuccessNoData');
     }
   } catch (error: any) {
     if (error.response) {
-      const errorText = `请求失败:\n${JSON.stringify(error.response.data, null, 2)}`;
+      const errorText = `${$t('page.function.requestFailed')}\n${JSON.stringify(error.response.data, null, 2)}`;
       testResult.value = errorText;
       requestResponse.value += errorText;
     } else {
-      const errorText = `请求失败:\n${error.message}`;
+      const errorText = `${$t('page.function.requestFailed')}\n${error.message}`;
       testResult.value = errorText;
       requestResponse.value += errorText;
     }
@@ -71,7 +72,7 @@ const handleTestRequest = async () => {
 const handleHeaderSelect = (value: string, index: number) => {
   const isDuplicate = testHeadersList.value.some((h, i) => i !== index && h.key === value && value !== '');
   if (isDuplicate) {
-    message.warning(`已存在相同的Header键: ${value}`);
+    message.warning($t('page.function.duplicateHeader', { key: value }));
     return;
   }
   testHeadersList.value[index].key = value;
@@ -79,7 +80,7 @@ const handleHeaderSelect = (value: string, index: number) => {
 
 const addHeader = () => {
   if (testHeadersList.value.some(h => h.key === '')) {
-    message.warning('请先填写当前空白的Header键值对');
+    message.warning($t('page.function.fillBlankHeader'));
     return;
   }
   testHeadersList.value.push({ key: '', value: '' });
@@ -87,7 +88,7 @@ const addHeader = () => {
 
 const removeHeader = (index: number) => {
   if (testHeadersList.value[index].disabled) {
-    message.warning('无法删除此Header');
+    message.warning($t('page.function.cannotDeleteHeader'));
     return;
   }
   testHeadersList.value.splice(index, 1);
@@ -95,7 +96,7 @@ const removeHeader = (index: number) => {
 
 const addQueryParam = () => {
   if (testQueryParamsList.value.some(p => p.key === '')) {
-    message.warning('请先填写当前空白的Query参数键值对');
+    message.warning($t('page.function.fillBlankQuery'));
     return;
   }
   testQueryParamsList.value.push({ key: '', value: '' });
@@ -108,18 +109,18 @@ const removeQueryParam = (index: number) => {
 const handleCopyAddress = () => {
   if (isSupported.value) {
     copy(props.functionAddress);
-    message.success('地址已复制');
+    message.success($t('page.function.addressCopied'));
   } else {
-    message.error('您的浏览器不支持复制功能');
+    message.error($t('page.function.copyFailed'));
   }
 };
 
 const handleCopyResult = () => {
   if (isSupported.value) {
     copy(testResult.value);
-    message.success('响应结果已复制');
+    message.success($t('page.function.responseCopied'));
   } else {
-    message.error('您的浏览器不支持复制功能');
+    message.error($t('page.function.copyFailed'));
   }
 };
 
@@ -143,7 +144,7 @@ watch(testMethod, (newMethod) => {
 </script>
 
 <template>
-  <NCard title="函数测试" :bordered="false" size="small" class="h-full"
+  <NCard :title="$t('page.function.functionTest')" :bordered="false" size="small" class="h-full"
     :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }">
     <NScrollbar class="h-full p-4">
       <NSpace vertical class="h-full">
@@ -170,9 +171,9 @@ watch(testMethod, (newMethod) => {
               { label: 'Content-Type', value: 'Content-Type' },
               { label: 'Accept', value: 'Accept' },
               { label: 'Authorization', value: 'Authorization' },
-            ]" placeholder="选择或输入Header" style="width: 120px" filterable tag
+            ]" :placeholder="$t('page.function.headerPlaceholder')" style="width: 120px" filterable tag
               @update:value="(value) => handleHeaderSelect(value, index)" :disabled="header.disabled" />
-            <NInput v-model:value="header.value" placeholder="Header Value" class="flex-1" :disabled="header.disabled" />
+            <NInput v-model:value="header.value" :placeholder="$t('page.function.headerValuePlaceholder')" class="flex-1" :disabled="header.disabled" />
             <NButton v-if="!header.disabled" quaternary circle @click="removeHeader(index)">
               <template #icon>
                 <NIcon :component="TrashBinOutline" />
@@ -188,10 +189,10 @@ watch(testMethod, (newMethod) => {
         </div>
 
         <div v-if="testMethod === 'GET'" class="flex flex-col gap-2">
-          <NText class="mb-2">Query Parameters</NText>
+          <NText class="mb-2">{{ $t('page.function.queryParameters') }}</NText>
           <div v-for="(param, index) in testQueryParamsList" :key="index" class="flex gap-2 items-center">
-            <NInput v-model:value="param.key" placeholder="Key" style="width: 120px" />
-            <NInput v-model:value="param.value" placeholder="Value" class="flex-1" />
+            <NInput v-model:value="param.key" :placeholder="$t('page.function.keyPlaceholder')" style="width: 120px" />
+            <NInput v-model:value="param.value" :placeholder="$t('page.function.valuePlaceholder')" class="flex-1" />
             <NButton quaternary circle @click="removeQueryParam(index)">
               <template #icon>
                 <NIcon :component="TrashBinOutline" />
@@ -207,15 +208,15 @@ watch(testMethod, (newMethod) => {
         </div>
 
         <div v-else class="flex flex-col gap-2">
-          <NText class="mb-2">Body (JSON)</NText>
+          <NText class="mb-2">{{ $t('page.function.bodyJson') }}</NText>
           <jsonEditor v-model:modelValue="testJsonBody" :height="300"></jsonEditor>
         </div>
 
-        <NButton type="primary" size="large" block @click="handleTestRequest">发送请求</NButton>
+        <NButton type="primary" size="large" block @click="handleTestRequest">{{ $t('page.function.sendRequest') }}</NButton>
 
         <div class="min-h-0 flex flex-col flex-1">
-          <NText class="mb-2">响应</NText>
-          <NInput v-model:value="testResult" type="textarea" placeholder="响应结果" :rows="10" readonly class="flex-1" />
+          <NText class="mb-2">{{ $t('page.function.response') }}</NText>
+          <NInput v-model:value="testResult" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" :rows="10" readonly class="flex-1" />
           <NButtonGroup class="self-end">
             <NButton quaternary circle class="mt-2" @click="handleCopyResult">
               <template #icon>
