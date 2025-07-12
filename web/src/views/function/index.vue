@@ -725,7 +725,7 @@ onBeforeUnmount(() => {
         <div v-if="functions.length > 0" class="w-full h-full">
           <NSplit :size="0.85">
             <template #1>
-              <NSplit :size="0.8" direction="vertical">
+              <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
                   <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
                     @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />

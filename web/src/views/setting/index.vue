@@ -60,7 +60,7 @@ const currentComponent = computed(() => {
 
 <template>
   <NCard :bordered="false" class="h-full" content-style="padding: 0; height: 100%;">
-    <NSplit direction="horizontal" :default-size="0.2" class="h-full">
+    <NSplit direction="horizontal" :default-size="0.1" class="h-full">
       <template #1>
         <div class="h-full">
           <NMenu
