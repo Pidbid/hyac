@@ -74,6 +74,7 @@ const functions = ref<Api.Function.FunctionInfo[]>([]);
 const selectedFunction = ref<Api.Function.FunctionInfo>({ id: '', name: '', type: 'endpoint', status: 'unpublished', description: '', tags: [], code: '' });
 const originalCode = ref('');
 const codeChanged = ref(false);
+const isSaving = ref(false);
 const functionRequestData = ref({ page: 1, length: 50 });
 
 const showHistoryModel = ref(false);
@@ -280,20 +281,25 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
 };
 
 const handleSaveCode = async () => {
-  if (!codeChanged.value) return;
-  const { error } = await UpdateFunctionCode(applicationStore.appId, selectedFunction.value.id, selectedFunction.value.code);
-  if (!error) {
-    const currentEditFunctionId = selectedFunction.value.id;
-    message.success($t('page.function.saveSuccess'));
-    originalCode.value = selectedFunction.value.code;
-    codeChanged.value = false;
-    await getFunctionData();
-    const updatedFunc = functions.value.find(f => f.id === currentEditFunctionId);
-    if (updatedFunc) {
+  if (!codeChanged.value || isSaving.value) return;
+  isSaving.value = true;
+  try {
+    const { error } = await UpdateFunctionCode(applicationStore.appId, selectedFunction.value.id, selectedFunction.value.code);
+    if (!error) {
+      const currentEditFunctionId = selectedFunction.value.id;
+      message.success($t('page.function.saveSuccess'));
+      originalCode.value = selectedFunction.value.code;
+      codeChanged.value = false;
+      await getFunctionData();
+      const updatedFunc = functions.value.find(f => f.id === currentEditFunctionId);
+      if (updatedFunc) {
         selectedFunction.value = updatedFunc;
+      }
+    } else {
+      message.error($t('page.function.saveFailed'));
     }
-  } else {
-    message.error($t('page.function.saveFailed'));
+  } finally {
+    isSaving.value = false;
   }
 };
 
@@ -727,7 +733,7 @@ onBeforeUnmount(() => {
             <template #1>
               <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
-                  <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" @save-code="handleSaveCode" :editor-config="editorConfig"
+                  <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" :is-saving="isSaving" @save-code="handleSaveCode" :editor-config="editorConfig"
                     @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
                 </template>
                 <template #2>
