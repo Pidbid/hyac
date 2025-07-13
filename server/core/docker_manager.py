@@ -14,7 +14,6 @@ from core.config import settings
 from models import Application, Function, FunctionTemplate
 from core.minio_manager import minio_manager
 from core.database_dynamic import dynamic_db
-from core.cache import code_cache
 
 
 class DockerManager:
@@ -803,7 +802,6 @@ async def delete_application_background(app: Application):
             Function.app_id == app.app_id
         ).to_list()
         for func in functions_to_delete:
-            code_cache.invalidate(func.app_id, func.function_id)
             await func.delete()
         logger.info(
             f"Deleted {len(functions_to_delete)} functions for app '{app.app_id}'."

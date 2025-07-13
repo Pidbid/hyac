@@ -7,7 +7,6 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.cache import code_cache
 from core.config import settings
 from core.jwt_auth import get_current_user
 from models.applications_model import Application
@@ -16,15 +15,12 @@ from models.functions_history_model import FunctionsHistory
 from models.functions_model import Function, FunctionStatus
 from models.function_template_model import FunctionTemplate
 from models.statistics_model import FunctionMetric
-from core.code_loader import CodeLoader
 
 router = APIRouter(
     prefix="/function",
     tags=["Function Management"],
     responses={404: {"description": "Not found"}},
 )
-
-code_loader = CodeLoader()
 
 
 from models.functions_model import Function, FunctionStatus, FunctionType
@@ -173,9 +169,6 @@ async def create_function(
     )
     await new_func.insert()
 
-    # Load the new function into the cache.
-    await code_loader.load_function_by_name(new_func.app_id, new_func.function_id)
-
     return BaseResponse(
         code=0,
         msg="Function created successfully",
@@ -313,8 +306,6 @@ async def delete_function(
     await FunctionsHistory.find(FunctionsHistory.function_id == function_id).delete()
     # Delete the function statistics from the database.
     await FunctionMetric.find(FunctionMetric.function_id == function_id).delete()
-    # Invalidate the function cache.
-    code_cache.invalidate(func.app_id, func.function_id)
 
     return BaseResponse(code=0, msg="Function deleted successfully", data={})
 
