@@ -1,6 +1,5 @@
 from . import cache
 from . import config
-from . import context
 from . import database
 from . import database_dynamic
 from . import docker_manager
