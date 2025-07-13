@@ -1,6 +1,6 @@
 # core/cache.py
 import time
-from typing import Optional
+from typing import Any, Optional
 from models.functions_model import Function
 
 
@@ -33,7 +33,7 @@ class CodeCache:
             key += f"::{suffix}"
         return key
 
-    def get(self, key: str) -> Optional[dict]:
+    def get(self, key: str) -> Optional[Any]:
         """
         Retrieves an item from the cache if it exists and has not expired.
         """
@@ -42,7 +42,7 @@ class CodeCache:
             return entry["data"]
         return None
 
-    def set(self, key: str, data: dict):
+    def set(self, key: str, data: Any):
         """
         Adds an item to the cache. If the cache is full, it evicts the oldest item.
         """

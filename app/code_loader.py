@@ -1,11 +1,10 @@
 # app/code_loader.py
-from typing import Optional
+from typing import Optional, Tuple
 from loguru import logger
 from types import SimpleNamespace
 
 from core.cache import code_cache
 from core.faas_minio import minio_open
-from models.applications_model import Application
 from models.functions_model import Function, FunctionStatus, FunctionType
 
 
@@ -14,61 +13,24 @@ class CodeLoader:
     Handles loading, compiling, and caching of serverless function code.
     """
 
-    @staticmethod
-    def _generate_module_key(app_id: str, function_id: str) -> str:
-        """
-        Generates a unique key for a function module.
-        """
-        return f"{app_id}::{function_id}"
-
-    async def load_function_by_name(
+    async def load_function_by_ids(
         self, app_id: str, function_id: str
-    ) -> Optional[dict]:
+    ) -> Optional[Tuple[dict, Function]]:
         """
-        Loads a function by its application name and function ID.
+        Loads a function by its application ID and function ID.
         It first checks the cache, and if not found, queries the database,
         compiles the code, and caches the result.
+        Returns a tuple of (compiled_code, function_document).
         """
         cache_key = code_cache._make_key(app_id, function_id)
 
         # Attempt to retrieve from cache first.
-        if cached_code := code_cache.get(cache_key):
-            return cached_code
+        if cached_data := code_cache.get(cache_key):
+            return cached_data
 
         # If not in cache, query the database.
-        func = await Function.find_one(
-            Function.app_id == app_id,
-            Function.function_id == function_id,
-            Function.status == FunctionStatus.PUBLISHED,
-            Function.function_type == FunctionType.ENDPOINT,
-        )
-        if not func:
-            return None
-
-        # Compile the code.
-        compiled = self._compile_code(func.code, cache_key)
-
-        # Cache the compiled code and return.
-        code_cache.set(cache_key, compiled)
-        return compiled
-
-    async def load_function_by_ids(
-        self, app_id: str, function_id: str
-    ) -> Optional[dict]:
-        """
-        Loads a function by application ID and function ID.
-        This method first resolves the application name from the app_id.
-        """
-        # First, find the app_id from the app_id.
-        app = await Application.find_one(
-            {"app_id": {"$regex": f"^{app_id}$", "$options": "i"}}
-        )
-        if not app:
-            return None
-
-        # Then, find the function document using the app_id and function_id.
         func_doc = await Function.find_one(
-            Function.app_id == app.app_id,
+            Function.app_id == app_id,
             Function.function_id == function_id,
             Function.status == FunctionStatus.PUBLISHED,
             Function.function_type == FunctionType.ENDPOINT,
@@ -76,8 +38,13 @@ class CodeLoader:
         if not func_doc:
             return None
 
-        # Call load_function_by_name with the resolved names.
-        return await self.load_function_by_name(app.app_id, func_doc.function_id)
+        # Compile the code.
+        compiled_code = self._compile_code(func_doc.code, cache_key)
+
+        # Cache the compiled code and the function document and return.
+        data_to_cache = (compiled_code, func_doc)
+        code_cache.set(cache_key, data_to_cache)
+        return data_to_cache
 
     async def load_common_function(
         self, app_id: str, function_id: str
