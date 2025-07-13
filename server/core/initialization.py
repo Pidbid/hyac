@@ -117,8 +117,15 @@ class InitializationService:
         """
         Initializes a default 'admin' user if one does not already exist.
         """
-        default_username = "admin"
-        default_password = "admin123"
+        default_username = settings.DEFAULT_ADMIN_USER
+        default_password = settings.DEFAULT_ADMIN_PASSWORD
+
+        if not default_username or not default_password:
+            logger.error(
+                "Default admin user or password is not set in the environment variables."
+            )
+            return
+
         hashed_password = hash_password(default_password)
 
         try:
