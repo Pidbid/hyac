@@ -14,7 +14,6 @@ from core.database import MongoDBManager
 from core.logger import configure_logging
 from router import router as dynamic_router
 from core.db_manager import db_manager
-from router import function_names_init
 from core.dependency_loader import install_app_dependencies
 from core.cache_watcher import watch_function_changes
 from core.env_manager import get_dynamic_envs
@@ -71,9 +70,6 @@ async def lifespan(app: FastAPI):
     # Configure the logging system.
     configure_logging()
     logger.info("Executor application starting up...")
-
-    # Initialize function names cache.
-    await function_names_init()
 
     # Load initial environment variables into the process.
     initial_envs = await get_dynamic_envs()

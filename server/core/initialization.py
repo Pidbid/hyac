@@ -13,6 +13,7 @@ from models.applications_model import (
     ApplicationStatus,
 )
 from models.functions_model import Function, FunctionStatus
+from core.jwt_auth import create_refresh_token
 from models.users_model import User
 from models.function_template_model import FunctionTemplate, TemplateType, FunctionType
 from models.tasks_model import Task, TaskAction
@@ -116,18 +117,28 @@ class InitializationService:
         """
         Initializes a default 'admin' user if one does not already exist.
         """
-        default_username = "admin"
-        default_password = "admin123"
+        default_username = settings.DEFAULT_ADMIN_USER
+        default_password = settings.DEFAULT_ADMIN_PASSWORD
+
+        if not default_username or not default_password:
+            logger.error(
+                "Default admin user or password is not set in the environment variables."
+            )
+            return
+
         hashed_password = hash_password(default_password)
 
         try:
             if not await User.find_one(User.username == default_username):
+                token_data = {"sub": default_username}
+                refresh_token = create_refresh_token(data=token_data)
                 new_user = User(
                     username=default_username,
                     password=hashed_password,
                     nickname="Admin",
                     avatar_url="https://example.com/default_avatar.png",
                     roles=["admin"],
+                    refresh_token=refresh_token,
                 )
                 await new_user.insert()
                 logger.info(f"Created default user: '{default_username}'")
@@ -296,17 +307,6 @@ class InitializationService:
             )
 
     @classmethod
-    async def initialize_setting_database(cls):
-        """
-        Initializes the settings database with default settings.
-        """
-        try:
-            await dependence_manager.packages_update()
-            logger.info("Setting database initialized.")
-        except Exception as e:
-            logger.error(f"Failed to initialize setting database: {e}")
-
-    @classmethod
     async def check_and_initialize(cls):
         """
         Checks if initialization is needed and runs all initialization tasks.
@@ -319,4 +319,3 @@ class InitializationService:
             # Dependencies will be installed by the app container on startup.
             await cls.initialize_demo_functions()
             await cls.initialize_functions_templates()
-            await cls.initialize_setting_database()

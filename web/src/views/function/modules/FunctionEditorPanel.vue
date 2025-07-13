@@ -16,6 +16,7 @@ const props = defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
   editorConfig:editorConfigT;
+  isSaving: boolean;
 }>();
 
 const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings']);
@@ -36,17 +37,11 @@ const editorConfig = ref({
     :content-style="{ padding: '0px', display: 'flex', flexDirection: 'column' }">
     <template #header-extra>
       <div class="flex flex-row gap-2">
-        <NButton v-if="codeChanged" type="primary" size="small" @click="emit('save-code')">
+        <NButton :type="codeChanged ? 'primary' : 'default'" size="small" @click="emit('save-code')" :loading="props.isSaving" :disabled="!props.codeChanged || props.isSaving">
           <template #icon>
-            <NIcon :component="CheckmarkOutline" />
+            <NIcon :component="codeChanged ? CheckmarkOutline : SaveOutline" />
           </template>
-          {{ $t('page.function.publish') }}
-        </NButton>
-        <NButton v-else type="default" size="small" disabled>
-          <template #icon>
-            <NIcon :component="SaveOutline" />
-          </template>
-          {{ $t('page.function.published') }}
+          {{ codeChanged ? $t('page.function.publish') : $t('page.function.published') }}
         </NButton>
         <NButton type="default" size="small" @click="emit('open-history')">
           <template #icon>

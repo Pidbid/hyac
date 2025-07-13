@@ -27,8 +27,6 @@ from core.common_model import BaseResponse
 router = APIRouter()
 code_loader = CodeLoader()
 
-function_names = {}
-
 
 def get_app_id() -> str:
     """
@@ -51,16 +49,6 @@ async def get_application(app_id: str = Depends(get_app_id)) -> Application:
     if not application:
         return BaseResponse(code=404, msg="Application not found")
     return application
-
-
-async def function_names_init():
-    """
-    Dependency to load function names from the database.
-    """
-    logger.info("Loading function names from the database")
-    functions = await Function.find().to_list()
-    for func in functions:
-        function_names[func.function_id] = func.function_name
 
 
 async def get_dynamic_clients(application: Application = Depends(get_application)):
@@ -109,18 +97,37 @@ async def dynamic_handler(
 
     # Get the correctly cased app_id from the application object
     app_id = application.app_id
+    function_name = "Unknown"  # Default value
 
     pymongo_client, motor_client = clients
-    # Create a context-specific logger
-    function_name = function_names.get(func_id, "Unknown")
-    log_func = logger.bind(
-        app_id=app_id,
-        function_id=func_id,
-        function_name=function_name,
-        logtype=LogType.FUNCTION,
-    )
-    log_sys = logger.bind(app_id=app_id, function_id=func_id, logtype=LogType.SYSTEM)
+
     try:
+        # Set the app_id in the context for MinIO operations.
+        app_id_context.set(app_id)
+
+        # Pre-load all common functions for the application.
+        common_modules = await code_loader.load_all_common_functions(app_id)
+
+        # Load the endpoint function code and its metadata.
+        loaded_data = await code_loader.load_function_by_ids(app_id, func_id)
+        if not loaded_data:
+            logger.warning(f"Function not found: {app_id}/{func_id}")
+            raise HTTPException(status_code=404, detail="Function not found")
+
+        func, func_doc = loaded_data
+        function_name = func_doc.function_name  # Get the real-time function name
+
+        # Create a context-specific logger
+        log_func = logger.bind(
+            app_id=app_id,
+            function_id=func_id,
+            function_name=function_name,
+            logtype=LogType.FUNCTION,
+        )
+        log_sys = logger.bind(
+            app_id=app_id, function_id=func_id, logtype=LogType.SYSTEM
+        )
+
         sys_log_data = {
             "method": request.method,
             "url": request.url._url,
@@ -130,18 +137,6 @@ async def dynamic_handler(
             "path_params": dict(request.path_params) or {},
         }
         log_sys.info(str(sys_log_data))
-
-        # Set the app_id in the context for MinIO operations.
-        app_id_context.set(app_id)
-
-        # Pre-load all common functions for the application.
-        common_modules = await code_loader.load_all_common_functions(app_id)
-
-        # Load the endpoint function code.
-        func = await code_loader.load_function_by_ids(app_id, func_id)
-        if not func:
-            log_sys.warning(f"{app_id}/{func_id}")
-            raise HTTPException(status_code=404, detail="Function not found")
 
         handler_func = func.get("handler")
         if not handler_func:

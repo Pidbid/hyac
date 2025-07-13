@@ -16,6 +16,7 @@ class User(Document):
     password: str
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
+    refresh_token: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     roles: list[str] = Field(default_factory=list)

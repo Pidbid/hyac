@@ -19,7 +19,6 @@ from models.common_model import BaseResponse
 from models.functions_model import Function, FunctionStatus
 from models.tasks_model import Task, TaskAction
 from loguru import logger
-from core.code_loader import CodeLoader
 from core.docker_manager import docker_manager, start_app_container, stop_app_container
 from typing import List
 
@@ -28,8 +27,6 @@ router = APIRouter(
     tags=["Applications Administration"],
     responses={404: {"description": "Application not found"}},
 )
-
-code_loader = CodeLoader()
 
 
 class CreateApplicationRequest(BaseModel):

@@ -5,7 +5,7 @@
 </p>
 
 <div align="center">
-  <img src="images/logo.svg" width="150" alt="Hyac Logo">
+  <img src="images/logo.png" width="150" alt="Hyac Logo">
 </div>
 
 > [!WARNING]
@@ -20,7 +20,7 @@
 ## 🖼️ 预览
 
 <div align="center">
-  <img src="images/demo.gif" alt="Demo">
+  <img src="images/demo.png" alt="Demo">
 </div>
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

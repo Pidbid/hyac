@@ -5,7 +5,7 @@
 </p>
 
 <div align="center">
-  <img src="images/logo.svg" width="150" alt="Hyac Logo">
+  <img src="images/logo.png" width="150" alt="Hyac Logo">
 </div>
 
 > [!WARNING]

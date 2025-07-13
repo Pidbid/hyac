@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None  # JWT secret key
     MINIO_ACCESS_KEY: Optional[str] = None
     MINIO_SECRET_KEY: Optional[str] = None
+    DEFAULT_ADMIN_USER: Optional[str] = "admin"
+    DEFAULT_ADMIN_PASSWORD: Optional[str] = "admin123"
     DEV_MODE: Optional[bool] = False
     TZ: Optional[str] = "Asia/Shanghai"
     WEB_BUILD: Optional[bool] = False

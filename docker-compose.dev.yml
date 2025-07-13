@@ -15,6 +15,16 @@ services:
       - mongodb_data:/bitnami/mongodb
     networks:
       - hyac_network
+    healthcheck:
+      test: |
+        mongosh --host localhost --port 27017 \
+          --authenticationDatabase admin \
+          -u "${MONGODB_ROOT_USER}" -p "${MONGODB_ROOT_PASSWORD}" \
+          --eval "if (db.isMaster().ismaster) { quit(0); } else { quit(1); }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 15s
   minio:
     image: bitnami/minio:latest
     container_name: hyac_minio
@@ -29,6 +39,12 @@ services:
     - minio_data:/data
     networks:
     - hyac_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
   nginx:
     image: jonasal/nginx-certbot:latest
     container_name: hyac_nginx
@@ -62,14 +78,37 @@ services:
     ports:
       - 8000:8000
     depends_on:
-    - mongodb
-    - minio
+      mongodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./nginx/conf.d:/server/nginx/conf.d
     - ./server:/server
     networks:
     - hyac_network
+    healthcheck:
+      test: ["CMD", "python", "/healthcheck.py"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+  uploader:
+    image: hyac_uploader:latest
+    container_name: hyac_uploader
+    environment:
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - BUILD=${WEB_BUILD}
+    volumes:
+      - ./web:/web
+    networks:
+      - hyac_network
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: "no"
   lsp:
     image: hyac_lsp:latest
     container_name: hyac_lsp
