@@ -12,7 +12,13 @@ from captcha.image import ImageCaptcha
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.jwt_auth import create_access_token, get_current_user, verify_password
+from core.jwt_auth import (
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    verify_password,
+    verify_refresh_token_and_get_user,
+)
 from models.common_model import BaseResponse
 from models.users_model import Captcha, User
 
@@ -46,6 +52,12 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     captcha: str
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request model for refreshing a token."""
+
+    refreshToken: str
 
 
 class LoginResponse(BaseModel):
@@ -102,14 +114,22 @@ async def login_for_access_token(data: LoginRequest):
     if not user or not verify_password(data.password, user.password):
         return BaseResponse(code=107, msg="Incorrect username or password")
 
-    access_token = create_access_token(data={"sub": user.username})
+    # Create access and refresh tokens
+    token_data = {"sub": user.username}
+    access_token = create_access_token(data=token_data)
+    refresh_token = create_refresh_token(data=token_data)
+
+    # Save the refresh token to the user's record
+    user.refresh_token = refresh_token
+    await user.save()
+
     return {
         "code": 0,
         "msg": "User login successful",
         "data": {
             "token": access_token,
-            "refreshToken": "test",
-        },  # refreshToken is a placeholder
+            "refreshToken": refresh_token,
+        },
     }
 
 
@@ -252,3 +272,29 @@ async def list_users(page: int = 1, size: int = 10):
     skip = (page - 1) * size
     query = User.find_all()
     return await query.skip(skip).limit(size).to_list()
+
+
+@router.post("/refreshToken", response_model=LoginResponse)
+async def refresh_token(data: RefreshTokenRequest):
+    """
+    Refreshes an access token using a refresh token.
+    """
+    user = await verify_refresh_token_and_get_user(data.refreshToken)
+
+    # Issue a new pair of tokens
+    token_data = {"sub": user.username}
+    new_access_token = create_access_token(data=token_data)
+    new_refresh_token = create_refresh_token(data=token_data)
+
+    # Update the refresh token in the database
+    user.refresh_token = new_refresh_token
+    await user.save()
+
+    return {
+        "code": 0,
+        "msg": "Token refreshed successfully",
+        "data": {
+            "token": new_access_token,
+            "refreshToken": new_refresh_token,
+        },
+    }

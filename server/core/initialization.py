@@ -13,6 +13,7 @@ from models.applications_model import (
     ApplicationStatus,
 )
 from models.functions_model import Function, FunctionStatus
+from core.jwt_auth import create_refresh_token
 from models.users_model import User
 from models.function_template_model import FunctionTemplate, TemplateType, FunctionType
 from models.tasks_model import Task, TaskAction
@@ -122,12 +123,15 @@ class InitializationService:
 
         try:
             if not await User.find_one(User.username == default_username):
+                token_data = {"sub": default_username}
+                refresh_token = create_refresh_token(data=token_data)
                 new_user = User(
                     username=default_username,
                     password=hashed_password,
                     nickname="Admin",
                     avatar_url="https://example.com/default_avatar.png",
                     roles=["admin"],
+                    refresh_token=refresh_token,
                 )
                 await new_user.insert()
                 logger.info(f"Created default user: '{default_username}'")

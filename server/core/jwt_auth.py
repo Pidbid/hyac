@@ -13,7 +13,8 @@ from models import User, Application
 # JWT Configuration
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
+REFRESH_TOKEN_EXPIRE_DAYS = 7  # 7 days
 
 # Authentication scheme
 security = HTTPBearer()
@@ -22,13 +23,6 @@ security = HTTPBearer()
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
     Creates a new JWT access token.
-
-    Args:
-        data: The data to encode in the token (typically user identifier).
-        expires_delta: An optional timedelta object for token expiration.
-
-    Returns:
-        The encoded JWT token as a string.
     """
     to_encode = data.copy()
     if expires_delta:
@@ -37,7 +31,21 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Creates a new JWT refresh token.
+    """
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -143,6 +151,34 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         True if the passwords match, False otherwise.
     """
     return hashlib.md5(plain_password.encode("utf-8")).hexdigest() == hashed_password
+
+
+async def verify_refresh_token_and_get_user(
+    refresh_token: str,
+) -> User:
+    """
+    Verifies a refresh token and returns the associated user.
+    """
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+
+        username: Optional[str] = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token: no subject")
+
+    except PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    user = await User.find_one(User.username == username)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.refresh_token != refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+
+    return user
 
 
 # async def get_app_for_user(request: Request, current_user: User = Depends(get_current_user)):
