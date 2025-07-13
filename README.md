@@ -20,7 +20,7 @@
 ## 🖼️ 预览
 
 <div align="center">
-  <img src="images/demo.gif" alt="Demo">
+  <img src="images/demo.png" alt="Demo">
 </div>
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
