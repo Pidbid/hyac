@@ -89,7 +89,6 @@ watch(
         @select="handleSelectMixMenu"
         @toggle-sider-collapse="appStore.toggleSiderCollapse"
       >
-        <GlobalLogo :show-title="false" :style="{ height: themeStore.header.height + 'px' }" />
       </FirstLevelMenu>
       <div
         class="relative h-full transition-width-300"
