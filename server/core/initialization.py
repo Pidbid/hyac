@@ -307,17 +307,6 @@ class InitializationService:
             )
 
     @classmethod
-    async def initialize_setting_database(cls):
-        """
-        Initializes the settings database with default settings.
-        """
-        try:
-            await dependence_manager.packages_update()
-            logger.info("Setting database initialized.")
-        except Exception as e:
-            logger.error(f"Failed to initialize setting database: {e}")
-
-    @classmethod
     async def check_and_initialize(cls):
         """
         Checks if initialization is needed and runs all initialization tasks.
@@ -330,4 +319,3 @@ class InitializationService:
             # Dependencies will be installed by the app container on startup.
             await cls.initialize_demo_functions()
             await cls.initialize_functions_templates()
-            await cls.initialize_setting_database()
