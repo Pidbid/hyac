@@ -62,7 +62,7 @@ services:
     networks:
     - hyac_network
   server:
-    image: hyac_server:latest
+    image: hyac_server:beta
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -95,7 +95,7 @@ services:
       retries: 10
       start_period: 10s
   uploader:
-    image: hyac_uploader:latest
+    image: hyac_uploader:beta
     container_name: hyac_uploader
     environment:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
@@ -109,14 +109,6 @@ services:
       server:
         condition: service_healthy
     restart: "no"
-  lsp:
-    image: hyac_lsp:latest
-    container_name: hyac_lsp
-    restart: unless-stopped
-    ports:
-      - "8765:8765"
-    networks:
-      - hyac_network
 
 networks:
   hyac_network:
