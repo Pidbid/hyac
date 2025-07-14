@@ -1,3 +1,4 @@
+import uuid
 from enum import Enum
 from typing import Optional, Dict, Any
 from beanie import Document
@@ -20,7 +21,7 @@ class TaskAction(str, Enum):
 
 
 class Task(Document):
-    task_id: str = Field(..., unique=True)
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()), unique=True)
     action: TaskAction
     status: TaskStatus = TaskStatus.PENDING
     payload: Dict[str, Any] = Field(default_factory=dict)  # 存储任务所需参数，如 app_id

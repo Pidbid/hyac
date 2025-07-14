@@ -111,7 +111,6 @@ async def create_application(
 
     # Create a task to start the container
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.START_APP,
         payload={"app_id": new_app.app_id},
     )
@@ -151,7 +150,6 @@ async def delete_application(
 
     # Create a task to delete the application
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.DELETE_APP,
         payload={"app_id": app.app_id},
     )
@@ -192,7 +190,6 @@ async def start_application(
 
     # Create a task to start the application
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.START_APP,
         payload={"app_id": app.app_id},
     )
@@ -229,7 +226,6 @@ async def stop_application(
 
     # Create a task to stop the application
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.STOP_APP,
         payload={"app_id": app.app_id},
     )
@@ -263,7 +259,6 @@ async def restart_application(
 
     # Create a task to restart the application
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.RESTART_APP,
         payload={"app_id": app.app_id},
     )
@@ -323,7 +318,6 @@ async def update_application_dependencies(
 
     # Create a task to restart the application
     task = Task(
-        task_id=generate_short_id(),
         action=TaskAction.RESTART_APP,
         payload={"app_id": app.app_id},
     )
