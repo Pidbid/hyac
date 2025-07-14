@@ -14,7 +14,7 @@ def generate_nginx_configs():
     os.makedirs(conf_dir, exist_ok=True)
     logger.info(f"Ensuring Nginx conf directory exists at: {conf_dir}")
 
-    domain_name = settings.get("DOMAIN_NAME", "example.com")
+    domain_name = settings.DOMAIN_NAME
 
     # Define a dictionary to hold all Nginx configurations
     configs = {
