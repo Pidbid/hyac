@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from core.config import settings
+from core.nginx_config_generator import generate_nginx_configs
 from core.faas_code import faas_templates
 from core.minio_manager import minio_manager
 from core.utils import create_mongodb_user, generate_short_id
@@ -312,6 +313,10 @@ class InitializationService:
         Checks if initialization is needed and runs all initialization tasks.
         This is triggered if INIT_DEMO_FUNCTION is true and the database is empty or DEBUG is on.
         """
+        # Always generate Nginx configs on startup to ensure they are up-to-date.
+        # The function itself checks for existence, so it's safe to call every time.
+        generate_nginx_configs()
+
         if await cls._is_database_empty():
             await cls.initialize_console_bucket()
             await cls.initialize_default_user()
