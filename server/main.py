@@ -1,5 +1,6 @@
 # main.py
 from contextlib import asynccontextmanager
+import logging
 
 import uvicorn
 from fastapi import FastAPI
@@ -8,7 +9,7 @@ from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.runtime_status_manager import sync_runtime_status
 
-from core.database import MongoDBManager
+from core.database import mongodb_manager
 from core.logger import configure_logging
 from core.config import settings
 from routers import (
@@ -21,9 +22,10 @@ from routers import (
     users_router,
     function_templates_router,
     settings_router,
+    health_router,
+    runtime_router,
+    proxy_router,
 )
-from routers import runtime as runtime_router
-from routers import proxy as proxy_router
 from core.initialization import InitializationService
 import asyncio
 from core.docker_manager import (
@@ -33,7 +35,23 @@ from core.docker_manager import (
 )
 from core.task_worker import watch_for_tasks
 
-mongodb_manager = MongoDBManager()
+
+# Filter for health check endpoint to prevent logging
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # The message format for uvicorn access logs is a tuple.
+        # e.g. ('127.0.0.1:52995', 'GET', '/__server_health__', 'HTTP/1.1', 200)
+        if isinstance(record.args, tuple) and len(record.args) >= 3:
+            # Check if the path is the health check endpoint
+            if record.args[2] == "/__server_health__":
+                return False
+        return True
+
+
+# Add the filter to the uvicorn access logger
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+
 scheduler = AsyncIOScheduler()
 
 
@@ -108,10 +126,11 @@ app.include_router(logs_router)
 app.include_router(statistics_router)
 app.include_router(function_templates_router)
 app.include_router(settings_router)
-app.include_router(runtime_router.router)
+app.include_router(runtime_router)
+app.include_router(health_router)
 
 # The proxy router must be included last, as it's a catch-all.
-app.include_router(proxy_router.router)
+app.include_router(proxy_router)
 
 # if __name__ == "__main__":
 #     # Run the application using uvicorn server.

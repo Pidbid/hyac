@@ -84,8 +84,7 @@ services:
         condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./nginx/conf.d:/server/nginx/conf.d
-    - ./server:/server
+    - ./nginx/conf.d:/nginx/conf.d
     networks:
     - hyac_network
     healthcheck:
