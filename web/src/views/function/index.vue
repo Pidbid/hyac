@@ -84,7 +84,7 @@ const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const functionAddress = computed(() => {
   const domain = localStorage.getItem('hyac_domain');
   if (selectedFunction.value.id !== '' && domain) {
-    return `http://${applicationStore.appId}.${domain}/${selectedFunction.value.id}`;
+    return `https://${applicationStore.appId}.${domain}/${selectedFunction.value.id}`;
   }
   return '';
 });
