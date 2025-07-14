@@ -407,16 +407,23 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
     config_content = f"""server {{
-    listen 80;
-    listen [::]:80;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name {server_name};
+
+    ssl_certificate /etc/letsencrypt/live/{server_name}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{server_name}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{server_name}/chain.pem;
+    ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
     location / {{
         proxy_pass http://{container_name}:8001;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }}
@@ -458,7 +465,7 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
 async def create_web_hosting_nginx_config(app_id: str) -> bool:
     """
     Creates an Nginx server block for web hosting, pointing to a MinIO bucket,
-    with proper MIME type handling.
+    with proper MIME type handling and SPA routing.
     """
     domain_name = settings.DOMAIN_NAME or "localhost"
     server_name = f"web-{app_id.lower()}.{domain_name}"
@@ -468,32 +475,55 @@ async def create_web_hosting_nginx_config(app_id: str) -> bool:
     user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
-    # Nginx config to proxy to MinIO bucket with MIME type fix
+    # Nginx config to proxy to MinIO bucket with SPA routing and HTTPS
     config_content = f"""server {{
-    listen 80;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
     server_name {server_name};
 
+    ssl_certificate /etc/letsencrypt/live/{server_name}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{server_name}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{server_name}/chain.pem;
+    ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    set $minio_backend http://minio:9000/{bucket_name};
+
     location / {{
-        # Rewrite root requests to index.html
-        rewrite ^/$ /index.html break;
+        if ($request_uri = /) {{
+            rewrite / /index.html last;
+        }}
+        proxy_intercept_errors on;
+        proxy_pass $minio_backend$request_uri;
+        error_page 404 = /index.html;
 
         proxy_set_header Host "{bucket_name}.minio:9000";
-        proxy_pass http://minio:9000/{bucket_name};
         proxy_set_header Authorization '';
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
 
-        # Hide unnecessary headers from MinIO
         proxy_hide_header "x-amz-id-2";
         proxy_hide_header "x-amz-request-id";
         proxy_hide_header "Set-Cookie";
         proxy_ignore_headers "Set-Cookie";
-        proxy_intercept_errors on;
+        proxy_hide_header Content-Type; # For MIME type fix
         add_header Cache-Control "public, max-age=604800";
+    }}
 
-        # --- MIME Type Fix ---
-        # Hide the Content-Type from MinIO. Nginx will then use its own
-        # mime.types mapping to set the correct Content-Type based on the
-        # file extension of the request URI.
-        proxy_hide_header Content-Type;
+    location = /index.html {{
+        proxy_pass $minio_backend/index.html;
+
+        proxy_set_header Host "{bucket_name}.minio:9000";
+        proxy_set_header Authorization '';
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
     }}
 }}"""
 
