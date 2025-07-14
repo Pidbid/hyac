@@ -2,12 +2,14 @@ services:
   mongodb:
     image: bitnami/mongodb:latest
     container_name: hyac_mongodb
+    hostname: mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
       MONGODB_ROOT_USER: ${MONGODB_USERNAME}
       MONGODB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGODB_ADVERTISED_HOSTNAME: mongodb
       MONGODB_REPLICA_SET_MODE: primary
       MONGODB_REPLICA_SET_NAME: rs0
       MONGODB_REPLICA_SET_KEY: ${MONGODB_PASSWORD}
@@ -62,7 +64,7 @@ services:
     networks:
     - hyac_network
   server:
-    image: hyac_server:latest
+    image: wicos/hyac_server:latest
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -84,25 +86,25 @@ services:
         condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./nginx/conf.d:/server/nginx/conf.d
-    - ./server:/server
+    - ./nginx/conf.d:/nginx/conf.d
     networks:
     - hyac_network
     healthcheck:
-      test: ["CMD", "python", "/healthcheck.py"]
+      test: ["CMD", "python", "/server/healthcheck.py"]
       interval: 5s
       timeout: 10s
       retries: 10
       start_period: 10s
+  app:
+    image: wicos/hyac_app:latest
+    command: ["echo", "This container is for image pulling and should not be running."]
   uploader:
-    image: hyac_uploader:latest
+    image: wicos/hyac_uploader:latest
     container_name: hyac_uploader
     environment:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - BUILD=${WEB_BUILD}
-    volumes:
-      - ./web:/web
     networks:
       - hyac_network
     depends_on:

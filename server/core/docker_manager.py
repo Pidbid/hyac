@@ -254,13 +254,14 @@ class DockerManager:
             logger.error(f"Failed to list containers: {e}")
         return []
 
-    def build_image(self, path: str, tag: str) -> bool:
+    def build_image(self, path: str, tag: str, target: Optional[str] = None) -> bool:
         """
         Builds a Docker image from a Dockerfile.
 
         Args:
             path: The path to the directory containing the Dockerfile.
             tag: The tag for the image (e.g., 'my-image:latest').
+            target: The target build stage to build.
 
         Returns:
             True if successful, False otherwise.
@@ -269,8 +270,13 @@ class DockerManager:
             return False
         assert self.client is not None
         try:
-            logger.info(f"Building image '{tag}' from path '{path}'...")
-            self.client.images.build(path=path, tag=tag, rm=True)
+            build_kwargs = {"path": path, "tag": tag, "rm": True}
+            if target:
+                build_kwargs["target"] = target
+            logger.info(
+                f"Building image '{tag}' from path '{path}' (target: {target or 'default'})..."
+            )
+            self.client.images.build(**build_kwargs)
             logger.info(f"Image '{tag}' built successfully.")
             return True
         except errors.BuildError as e:
@@ -312,7 +318,10 @@ docker_manager = DockerManager()
 
 # --- FaaS Specific High-Level Functions ---
 
-APP_IMAGE_NAME = "hyac_app:latest"
+APP_IMAGE_NAME = "wicos/hyac_app:latest"  # Default production image
+if settings.DEV_MODE:
+    APP_IMAGE_NAME = "hyac_app:dev"  # Local development image
+
 # In-memory store for running app containers. A more robust solution might use Redis.
 running_apps: Dict[str, Dict[str, Any]] = {}
 
@@ -393,7 +402,7 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
     domain_name = settings.DOMAIN_NAME or "localhost"
     server_name = f"{app_id.lower()}.{domain_name}"
     config_filename = f"app-{app_id.lower()}.conf"
-    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    real_config_path = f"/nginx/conf.d/{config_filename}"
     user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
@@ -454,7 +463,7 @@ async def create_web_hosting_nginx_config(app_id: str) -> bool:
     server_name = f"web-{app_id.lower()}.{domain_name}"
     bucket_name = f"web-{app_id.lower()}"
     config_filename = f"web-{app_id.lower()}.conf"
-    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    real_config_path = f"/nginx/conf.d/{config_filename}"
     user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
@@ -524,7 +533,7 @@ async def remove_app_nginx_config(app_id: str) -> bool:
     Removes the Nginx config file and its symbolic link for an application.
     """
     config_filename = f"app-{app_id.lower()}.conf"
-    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    real_config_path = f"/nginx/conf.d/{config_filename}"
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
     # 1. Remove the symbolic link from inside the Nginx container.
@@ -556,7 +565,7 @@ async def remove_web_hosting_nginx_config(app_id: str) -> bool:
     Removes the Nginx web hosting config file and its symbolic link.
     """
     config_filename = f"web-{app_id.lower()}.conf"
-    real_config_path = f"/server/nginx/conf.d/{config_filename}"
+    real_config_path = f"/nginx/conf.d/{config_filename}"
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
     unlink_command = f"rm {symlink_path}"
@@ -584,18 +593,20 @@ async def remove_web_hosting_nginx_config(app_id: str) -> bool:
 
 async def build_app_image_if_not_exists():
     """
-    Builds the 'hyac_app' Docker image if it doesn't already exist.
+    Checks if the 'hyac_app' Docker image exists, as it should be pre-built
+    by docker-compose in the development environment.
     """
     if not docker_manager.client:
         logger.error("Docker client not initialized.")
         return
     try:
         docker_manager.client.images.get(APP_IMAGE_NAME)
-        logger.info(f"Docker image '{APP_IMAGE_NAME}' already exists.")
+        logger.info(f"Docker image '{APP_IMAGE_NAME}' found and ready to use.")
     except errors.ImageNotFound:
-        logger.warning(f"Docker image '{APP_IMAGE_NAME}' not found. Building...")
-        # Assuming the build context is the project root.
-        docker_manager.build_image(path=".", tag=APP_IMAGE_NAME)
+        logger.error(
+            f"Docker image '{APP_IMAGE_NAME}' not found. "
+            f"Please ensure it was built correctly by running 'docker-compose -f docker-compose.dev.yml build app'."
+        )
 
 
 async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
@@ -646,21 +657,47 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
     volumes = {}
     if settings.DEV_MODE:
         if settings.APP_CODE_PATH_ON_HOST:
-            volumes = {settings.APP_CODE_PATH_ON_HOST: {"bind": "/app", "mode": "rw"}}
+            # In DEV_MODE, we mount the local app code directory into the container for hot-reloading.
+            # This path should be the absolute path to the 'app' directory on the host machine.
+            volumes = {
+                settings.APP_CODE_PATH_ON_HOST: {
+                    "bind": "/app",
+                    "mode": "rw",
+                }
+            }
             logger.info(
-                f"DEV_MODE: Mounting app code from {settings.APP_CODE_PATH_ON_HOST}"
+                f"DEV_MODE: Mounting app code from '{os.path.abspath(settings.APP_CODE_PATH_ON_HOST)}' to '/app'."
             )
         else:
             logger.warning(
                 "DEV_MODE is enabled, but APP_CODE_PATH_ON_HOST is not set. "
-                "Code changes will not be reflected in the app container."
+                "Hot-reloading for the app container will not work."
             )
+
+    # --- Dynamic Network Attachment ---
+    # Find the network of the current (server) container to attach the new app container to it.
+    network_name = "hyac_network"  # Default fallback
+    try:
+        server_container = docker_manager.client.containers.get("hyac_server")
+        # Get the first network name from the list of networks
+        network_name = list(
+            server_container.attrs["NetworkSettings"]["Networks"].keys()
+        )[0]
+        logger.info(
+            f"Server container is on network '{network_name}'. Attaching app container to the same network."
+        )
+    except (errors.NotFound, KeyError, IndexError) as e:
+        logger.warning(
+            f"Could not dynamically determine server network (error: {e}). "
+            f"Falling back to default network 'hyac_network'. "
+            "This might fail if the project name in docker-compose is not 'hyac'."
+        )
 
     container = docker_manager.create_container(
         image=APP_IMAGE_NAME,
         name=container_name,
         environment=environment,
-        network="hyac_hyac_network",
+        network=network_name,
         volumes=volumes,
         restart=False,
         healthcheck=healthcheck,
@@ -700,6 +737,33 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     if not is_ready:
         logger.error(f"Container '{container_name}' did not become healthy in time.")
+        await docker_manager.stop_container(container_name)
+        await docker_manager.remove_container(container_name)
+        return None
+
+    # --- New: Network Readiness Check ---
+    # Even if healthy, wait for Docker's internal DNS to resolve the container name.
+    logger.info(f"Verifying network readiness for container '{container_name}'...")
+    network_ready = False
+    for i in range(15):  # Wait for up to 15 seconds for DNS to propagate
+        try:
+            # This runs in a thread to avoid blocking the async event loop.
+            await asyncio.to_thread(socket.gethostbyname, container_name)
+            logger.info(
+                f"Successfully resolved hostname for '{container_name}'. Network is ready."
+            )
+            network_ready = True
+            break
+        except socket.gaierror:
+            logger.warning(
+                f"DNS resolution for '{container_name}' failed. Retrying... (Attempt {i+1}/15)"
+            )
+            await asyncio.sleep(1)
+
+    if not network_ready:
+        logger.error(
+            f"Could not resolve hostname for '{container_name}' after multiple attempts. Aborting."
+        )
         await docker_manager.stop_container(container_name)
         await docker_manager.remove_container(container_name)
         return None

@@ -10,11 +10,11 @@ def generate_nginx_configs():
     Generates Nginx configuration files if they do not already exist.
     This function is designed to be run on server startup.
     """
-    conf_dir = "/server/nginx/conf.d"
+    conf_dir = "/nginx/conf.d"
     os.makedirs(conf_dir, exist_ok=True)
     logger.info(f"Ensuring Nginx conf directory exists at: {conf_dir}")
 
-    domain_name = settings.get("DOMAIN_NAME", "example.com")
+    domain_name = settings.DOMAIN_NAME
 
     # Define a dictionary to hold all Nginx configurations
     configs = {
@@ -34,32 +34,6 @@ def generate_nginx_configs():
         # WebSocket support
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-    }}
-}}
-""",
-        "lsp.conf": f"""server {{
-    listen 80;
-    listen [::]:80;
-    server_name lsp.{domain_name};
-
-    location / {{
-        proxy_pass http://lsp:8765;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-
-        # CORS configuration
-        add_header 'Access-Control-Allow-Origin' 'https://console.{domain_name}' always;
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
-        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
-        if ($request_method = 'OPTIONS') {{
-            add_header 'Access-Control-Max-Age' 1728000;
-            add_header 'Content-Type' 'text/plain; charset=utf-8';
-            add_header 'Content-Length' 0;
-            return 204;
-        }}
     }}
 }}
 """,

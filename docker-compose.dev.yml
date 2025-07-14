@@ -2,12 +2,14 @@ services:
   mongodb:
     image: bitnami/mongodb:latest
     container_name: hyac_mongodb
+    hostname: mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
       MONGODB_ROOT_USER: ${MONGODB_USERNAME}
       MONGODB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGODB_ADVERTISED_HOSTNAME: mongodb
       MONGODB_REPLICA_SET_MODE: primary
       MONGODB_REPLICA_SET_NAME: rs0
       MONGODB_REPLICA_SET_KEY: ${MONGODB_PASSWORD}
@@ -19,7 +21,7 @@ services:
       test: |
         mongosh --host localhost --port 27017 \
           --authenticationDatabase admin \
-          -u "${MONGODB_ROOT_USER}" -p "${MONGODB_ROOT_PASSWORD}" \
+          -u "${MONGODB_USERNAME}" -p "${MONGODB_PASSWORD}" \
           --eval "if (db.isMaster().ismaster) { quit(0); } else { quit(1); }"
       interval: 5s
       timeout: 10s
@@ -62,7 +64,10 @@ services:
     networks:
     - hyac_network
   server:
-    image: hyac_server:beta
+    build:
+      context: ./server
+      target: development
+    image: hyac_server:dev
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -84,18 +89,30 @@ services:
         condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./nginx/conf.d:/server/nginx/conf.d
+    - ./nginx/conf.d:/nginx/conf.d
     - ./server:/server
+    - ./app:/app
     networks:
     - hyac_network
     healthcheck:
-      test: ["CMD", "python", "/healthcheck.py"]
+      test: ["CMD", "python", "/server/healthcheck.py"]
       interval: 5s
       timeout: 10s
       retries: 10
       start_period: 10s
+  app:
+    build:
+      context: ./app
+      target: development
+    image: hyac_app:dev
+    # This service is only for building the image.
+    # It should not be started by 'docker-compose up'.
+    # The command is set to do nothing and exit.
+    command: ["echo", "Image built. This container should not be running."]
   uploader:
-    image: hyac_uploader:beta
+    build:
+      context: ./uploader
+    image: hyac_uploader:dev
     container_name: hyac_uploader
     environment:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}

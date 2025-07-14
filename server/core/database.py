@@ -54,3 +54,6 @@ class MongoDBManager:
                 Task,
             ],
         )
+
+
+mongodb_manager = MongoDBManager()

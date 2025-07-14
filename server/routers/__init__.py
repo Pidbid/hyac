@@ -7,3 +7,6 @@ from .users import router as users_router
 from .statistics import router as statistics_router
 from .function_templates import router as function_templates_router
 from .settings import router as settings_router
+from .health import router as health_router
+from .runtime import router as runtime_router
+from .proxy import router as proxy_router
