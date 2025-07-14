@@ -312,7 +312,12 @@ docker_manager = DockerManager()
 
 # --- FaaS Specific High-Level Functions ---
 
-APP_IMAGE_NAME = "hyac_app:latest"
+APP_IMAGE_NAME = ""
+if settings.DEV_MODE:
+    APP_IMAGE_NAME = "wicos/hyac_app:beta"
+    if settings.LOCAL_DEV:
+        APP_IMAGE_NAME = settings.LOCAL_DEV_APP_IMAGE
+
 # In-memory store for running app containers. A more robust solution might use Redis.
 running_apps: Dict[str, Dict[str, Any]] = {}
 

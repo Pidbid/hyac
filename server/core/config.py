@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     DEFAULT_ADMIN_USER: Optional[str] = "admin"
     DEFAULT_ADMIN_PASSWORD: Optional[str] = "admin123"
     DEV_MODE: Optional[bool] = False
+    LOCAL_DEV: Optional[bool] = False
+    LOCAL_DEV_APP_IMAGE: Optional[str] = None
     TZ: Optional[str] = "Asia/Shanghai"
     WEB_BUILD: Optional[bool] = False
     APP_CODE_PATH_ON_HOST: Optional[str] = None  # only used in dev mode
