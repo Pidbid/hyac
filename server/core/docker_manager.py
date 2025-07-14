@@ -421,7 +421,8 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
         proxy_set_header Connection "upgrade";
     }}
 }}"""
-
+    if os.path.exists(real_config_path):
+        return True
     # 1. Write the actual config file to the volume shared with the server container.
     try:
         with open(real_config_path, "w", encoding="utf-8") as f:
@@ -496,6 +497,8 @@ async def create_web_hosting_nginx_config(app_id: str) -> bool:
     }}
 }}"""
 
+    if os.path.exists(real_config_path):
+        return True
     try:
         with open(real_config_path, "w", encoding="utf-8") as f:
             f.write(config_content)
