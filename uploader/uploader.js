@@ -109,7 +109,7 @@ async function main() {
 
     const uploader = new Uploader(minioConfig);
     const bucketName = 'console';
-    const filesToUpload = ['favicon.svg', 'index.html'];
+    const filesToUpload = ['favicon.svg','favicon.ico', 'index.html'];
     const dirsToUpload = ['assets', 'monacoeditorwork'];
 
     try {
