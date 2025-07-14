@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick } from 'vue';
 import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch } from 'naive-ui';
-import { AddOutline, CloseOutline, SearchOutline, BrushOutline } from '@vicons/ionicons5';
+import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
@@ -32,6 +32,7 @@ import FunctionEditorPanel from './modules/FunctionEditorPanel.vue';
 import FunctionLogPanel from './modules/FunctionLogPanel.vue';
 import FunctionTestPanel from './modules/FunctionTestPanel.vue';
 import FunctionHistoryModal from './modules/FunctionHistoryModal.vue';
+import AiAssistantWindow from './modules/AiAssistantWindow.vue';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -79,6 +80,7 @@ const functionRequestData = ref({ page: 1, length: 50 });
 
 const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
+const showAiWindow = ref(false);
 
 // Computed
 const functionAddress = computed(() => {
@@ -329,6 +331,14 @@ const handleRollback = async (history: Api.Function.FunctionHistoryInfo) => {
       message.success($t('page.function.rollbackSuccess'));
     }
   });
+};
+
+const handleCloseAiWindow = () => {
+  showAiWindow.value = false;
+};
+
+const toggleAiWindow = () => {
+  showAiWindow.value = !showAiWindow.value;
 };
 
 const handleFunctionEditorSetting = () => {
@@ -759,6 +769,17 @@ onBeforeUnmount(() => {
     </NSplit>
 
     <FunctionHistoryModal v-model:show="showHistoryModel" :history-data="historyData" @rollback="handleRollback" />
+    <AiAssistantWindow :show="showAiWindow" @close="handleCloseAiWindow" />
+    <NButton
+      circle
+      type="primary"
+      style="position: fixed; right: 20px; bottom: 20px; z-index: 1000;"
+      @click="toggleAiWindow"
+    >
+      <template #icon>
+        <NIcon :component="SparklesOutline" />
+      </template>
+    </NButton>
   </div>
 </template>
 
