@@ -407,6 +407,8 @@ async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
     symlink_path = f"/etc/nginx/conf.d/{config_filename}"
 
     config_content = f"""server {{
+    listen 80;
+    listen [::]:80;
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name {server_name};
@@ -477,6 +479,8 @@ async def create_web_hosting_nginx_config(app_id: str) -> bool:
 
     # Nginx config to proxy to MinIO bucket with SPA routing and HTTPS
     config_content = f"""server {{
+    listen 80;
+    listen [::]:80;
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;

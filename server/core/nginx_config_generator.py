@@ -19,6 +19,8 @@ def generate_nginx_configs():
     # Define a dictionary to hold all Nginx configurations
     configs = {
         "server.conf": f"""server {{
+    listen 80;
+    listen [::]:80;
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
@@ -43,6 +45,8 @@ def generate_nginx_configs():
 }}
 """,
         "oss.conf": f"""server {{
+    listen 80;
+    listen [::]:80;
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
@@ -67,6 +71,8 @@ def generate_nginx_configs():
 }}
 """,
         "console.conf": f"""server {{
+    listen 80;
+    listen [::]:80;
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
