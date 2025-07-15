@@ -532,5 +532,12 @@ declare namespace Api {
       webhook: WebhookNotification;
       wechat: WeChatNotification;
     }
+
+    interface AIConfig {
+      provider: string;
+      model: string;
+      api_key: string;
+      base_url: string;
+    }
   }
 }

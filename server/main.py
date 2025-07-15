@@ -13,6 +13,7 @@ from core.database import mongodb_manager
 from core.logger import configure_logging
 from core.config import settings
 from routers import (
+    ai_router,
     applications_router,
     database_router,
     functions_router,
@@ -128,6 +129,7 @@ app.include_router(function_templates_router)
 app.include_router(settings_router)
 app.include_router(runtime_router)
 app.include_router(health_router)
+app.include_router(ai_router)
 
 # The proxy router must be included last, as it's a catch-all.
 app.include_router(proxy_router)

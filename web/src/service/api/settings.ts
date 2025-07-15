@@ -91,7 +91,7 @@ export function dependenceUpdate(appId: string) {
  * @param appId - 应用ID
  */
 export function dependenciesData(appId: string) {
-  return request<Api.Settings.DependenceData>({
+  return request<Api.Settings.DependenciesData>({
     url: '/settings/dependencies_data',
     method: 'post',
     data: { appId }
@@ -207,5 +207,29 @@ export function getDomain() {
   return request<string>({
     url: '/settings/domain',
     method: 'get'
+  });
+}
+
+/**
+ * 获取AI配置
+ * @param data - 请求数据
+ */
+export function fetchAiConfig(data: { appId: string }) {
+  return request<Api.Settings.AIConfig>({
+    url: '/settings/ai_config_data',
+    method: 'post',
+    data
+  });
+}
+
+/**
+ * 更新AI配置
+ * @param data - 请求数据
+ */
+export function updateAiConfig(data: { appId: string; config: Api.Settings.AIConfig }) {
+  return request<null>({
+    url: '/settings/ai_config_update',
+    method: 'post',
+    data
   });
 }

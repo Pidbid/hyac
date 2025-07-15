@@ -58,6 +58,15 @@ class NotificationConfig(BaseModel):
     wechat: WeChatNotification = Field(default_factory=WeChatNotification)
 
 
+class AIConfig(BaseModel):
+    """Represents the AI configuration for an application."""
+
+    provider: str = ""
+    model: str = ""
+    api_key: str = ""
+    base_url: str = ""
+
+
 class ApplicationStatus(str, Enum):
     """
     Enum for the status of an application.
@@ -103,6 +112,9 @@ class Application(Document):
     cors: CORSConfig = Field(default_factory=CORSConfig, description="cors config")
     notification: NotificationConfig = Field(
         default_factory=NotificationConfig, description="notification config"
+    )
+    ai_config: AIConfig = Field(
+        default_factory=AIConfig, description="AI service config"
     )
     status: ApplicationStatus = Field(
         default=ApplicationStatus.STOPPED,
