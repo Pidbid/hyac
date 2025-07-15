@@ -12,6 +12,7 @@ from models import (
     EnvironmentVariable,
     CORSConfig,
     NotificationConfig,
+    AIConfig,
 )
 from core.dependence_manager import dependence_manager
 from core.docker_manager import docker_manager
@@ -82,6 +83,15 @@ class NotificationUpdateRequest(BaseModel):
 
 class ApplicationStatusRequest(BaseModel):
     appId: str
+
+
+class AIConfigDataRequest(BaseModel):
+    appId: str
+
+
+class AIConfigUpdateRequest(BaseModel):
+    appId: str
+    config: AIConfig
 
 
 router = APIRouter(
@@ -471,3 +481,38 @@ async def get_domain(current_user: User = Depends(get_current_user)):
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not configured")
     return BaseResponse(code=0, msg="Get domain success", data=domain)
+
+
+@router.post("/ai_config_data", response_model=BaseResponse)
+async def ai_config_data(
+    data: AIConfigDataRequest,
+    current_user: User = Depends(get_current_user),
+):
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    return BaseResponse(code=0, msg="Get AI config data success", data=app.ai_config)
+
+
+@router.post("/ai_config_update", response_model=BaseResponse)
+async def ai_config_update(
+    data: AIConfigUpdateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    app.ai_config = data.config
+    await app.save()
+
+    return BaseResponse(code=0, msg="AI config updated successfully.")

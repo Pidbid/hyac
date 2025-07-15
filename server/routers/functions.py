@@ -1,11 +1,14 @@
 # routers/services/functions.py
 import math
+import httpx
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
+from urllib.parse import urlparse
 from bson import ObjectId
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Response
+from loguru import logger
+from pydantic import BaseModel, Field
 
 from core.config import settings
 from core.jwt_auth import get_current_user
@@ -15,12 +18,26 @@ from models.functions_history_model import FunctionsHistory
 from models.functions_model import Function, FunctionStatus
 from models.function_template_model import FunctionTemplate
 from models.statistics_model import FunctionMetric
+from models.users_model import User
 
 router = APIRouter(
     prefix="/function",
     tags=["Function Management"],
     responses={404: {"description": "Not found"}},
 )
+
+# A client that can make requests to other services
+http_client = httpx.AsyncClient()
+
+
+class ProxyRequest(BaseModel):
+    target_url: str = Field(..., description="The target URL to proxy the request to")
+    method: str = Field(..., description="HTTP method")
+    headers: Dict[str, str] = Field(default_factory=dict, description="Request headers")
+    query_params: Dict[str, Any] = Field(
+        default_factory=dict, description="Query parameters"
+    )
+    body: Any = Field(None, description="Request body")
 
 
 from models.functions_model import Function, FunctionStatus, FunctionType
@@ -349,3 +366,65 @@ async def function_history(
         msg="Get function histories successfully",
         data={"data": function_histories},
     )
+
+
+@router.post("/proxy_test")
+async def test_function(
+    proxy_request: ProxyRequest, current_user: User = Depends(get_current_user)
+):
+    """
+    A secure proxy for testing functions from the console.
+    It validates the target URL and ensures the user owns the application.
+    """
+    target_url = proxy_request.target_url
+    parsed_url = urlparse(target_url)
+    host = parsed_url.netloc
+
+    base_domain = settings.DOMAIN_NAME
+    if not base_domain or not host.endswith(f".{base_domain}"):
+        return BaseResponse(
+            code=307, msg="DOMAIN_NAME is not configured on the server."
+        )
+
+    # Security Check: Ensure the user owns the application
+    app_id = host.replace(f".{base_domain}", "")
+    app = await Application.find_one(
+        Application.app_id == app_id, Application.users == current_user.username
+    )
+    if not app:
+        return BaseResponse(
+            code=202,
+            msg=f"Application '{app_id}' not found or you do not have permission to access it.",
+        )
+
+    try:
+        logger.info(
+            f"User '{current_user.username}' is testing function at {target_url}"
+        )
+
+        # Forward the request
+        local_url = target_url.replace(
+            f"s://{parsed_url.netloc}", f"://hyac-app-runtime-{app_id.lower()}:8001"
+        )
+        logger.info(f"Function test target local url: {local_url}")
+        proxied_response = await http_client.request(
+            method=proxy_request.method,
+            url=local_url,
+            headers=proxy_request.headers,
+            params=proxy_request.query_params,
+            json=proxy_request.body,
+            timeout=60.0,
+        )
+
+        return BaseResponse(
+            code=0,
+            msg="function test success",
+            data={
+                "status_code": proxied_response.status_code,
+                "content": proxied_response.content,
+                "headers": dict(proxied_response.headers),
+            },
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Failed to proxy test request to {target_url}: {e}")
+        return BaseResponse(code=306, msg="Function test failed")

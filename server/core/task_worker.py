@@ -149,11 +149,67 @@ async def process_task(task: Task):
             await app.save()
 
 
+async def reconcile_running_apps():
+    """
+    Ensures that all applications marked as RUNNING in the database are
+    actually running as Docker containers on startup.
+    """
+    logger.info("Reconciling running applications state...")
+    try:
+        # 1. Get all apps that should be running from the database
+        expected_running_apps = await Application.find(
+            Application.status == ApplicationStatus.RUNNING
+        ).to_list()
+        if not expected_running_apps:
+            logger.info(
+                "No applications are expected to be running. Reconciliation complete."
+            )
+            return
+
+        # 2. Get all currently running hyac app containers from Docker
+        running_containers = docker_manager.list_containers()
+        running_app_container_names = {
+            c["name"]
+            for c in running_containers
+            if c["name"].startswith("hyac-app-runtime-")
+        }
+
+        # 3. Compare and create startup tasks for missing apps
+        apps_to_restart_count = 0
+        for app in expected_running_apps:
+            container_name = f"hyac-app-runtime-{app.app_id.lower()}"
+            if container_name not in running_app_container_names:
+                apps_to_restart_count += 1
+                logger.warning(
+                    f"App '{app.app_name}' ({app.app_id}) is marked as RUNNING but its container "
+                    f"'{container_name}' is not found. Creating a new startup task."
+                )
+                # Create a new task to start this app
+                await Task(
+                    action=TaskAction.START_APP,
+                    payload={"app_id": app.app_id},
+                    status=TaskStatus.PENDING,
+                ).insert()
+
+        if apps_to_restart_count > 0:
+            logger.info(
+                f"Created {apps_to_restart_count} startup tasks for missing apps."
+            )
+        else:
+            logger.info(
+                "All expected running applications are active. No action needed."
+            )
+
+    except Exception as e:
+        logger.error(
+            f"Error during application state reconciliation: {e}", exc_info=True
+        )
+
+
 async def process_pending_tasks():
     """
-    Processes pending tasks on startup.
-    This includes all tasks in the PENDING state, and any START_APP tasks that have FAILED,
-    to ensure that applications that should be running are started.
+    Processes pending or failed startup tasks on startup.
+    This ensures that applications that failed to start previously get a retry.
     """
     logger.info(
         "Checking for pending or failed startup tasks from previous sessions..."
@@ -163,6 +219,7 @@ async def process_pending_tasks():
             "$or": [
                 {"status": TaskStatus.PENDING},
                 {
+                    "status": TaskStatus.FAILED,
                     "action": TaskAction.START_APP,
                 },
             ]
@@ -182,7 +239,10 @@ async def process_pending_tasks():
 
 async def watch_for_tasks():
     """Watches for new tasks and processes pending tasks on startup."""
-    # First, process any tasks that were pending from a previous run.
+    # First, reconcile the state of running applications.
+    await reconcile_running_apps()
+
+    # Then, process any tasks that were pending from a previous run.
     await process_pending_tasks()
 
     logger.info("Task worker started, watching for new tasks...")

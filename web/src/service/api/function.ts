@@ -1,5 +1,4 @@
 import { request } from '../request';
-import axios from 'axios';
 
 /**
  * GetFunctionData
@@ -81,18 +80,18 @@ export function DeleteFunction(appId: string, id: string) {
 }
 
 
-export async function functionTest(url: string, method: string, headers: object, query: object = {}, body: object = {}) {
-  if (method === 'GET') {
-    return await axios.get(url, {
+export function functionTest(url: string, method: string, headers: object, query: object = {}, body: object = {}) {
+  return request({
+    url: '/function/proxy_test',
+    method: 'post',
+    data: {
+      target_url: url,
+      method,
       headers,
-      params: query
-    });
-  }
-  else if (method === 'POST') {
-    return await axios.post(url, body, {
-      headers,
-    });
-  }
+      query_params: query,
+      body
+    }
+  });
 }
 
 

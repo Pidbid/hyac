@@ -10,3 +10,4 @@ from .settings import router as settings_router
 from .health import router as health_router
 from .runtime import router as runtime_router
 from .proxy import router as proxy_router
+from .ai import router as ai_router

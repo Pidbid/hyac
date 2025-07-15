@@ -8,6 +8,7 @@
     "start": "node uploader.js"
   },
   "dependencies": {
-    "minio": "^8.0.5"
+    "minio": "^8.0.5",
+    "mime-types": "^2.1.35"
   }
 }

@@ -12,7 +12,9 @@ router = APIRouter()
 http_client = httpx.AsyncClient()
 
 
-@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+@router.api_route(
+    "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+)
 async def reverse_proxy(request: Request, path: str):
     """
     This is a catch-all route that acts as a reverse proxy for the first request to an app.
@@ -25,7 +27,10 @@ async def reverse_proxy(request: Request, path: str):
     # This router should only handle subdomain requests that haven't been matched yet.
     if not host.endswith(base_domain) or host == base_domain:
         # If it's the base domain, it means no API route was matched.
-        return Response(status_code=404, content=f"Not Found: No API route or application found for {host}/{path}")
+        return Response(
+            status_code=404,
+            content=f"Not Found: No API route or application found for {host}/{path}",
+        )
 
     # It's a request for a subdomain, i.e., a function app
     app_id = host.replace(f".{base_domain}", "")
@@ -39,17 +44,20 @@ async def reverse_proxy(request: Request, path: str):
     # Ensure the container for this app is running
     container_info = await start_app_container(app)
     if not container_info:
-        return Response(status_code=502, content=f"Failed to start execution environment for app '{app_id}'.")
+        return Response(
+            status_code=502,
+            content=f"Failed to start execution environment for app '{app_id}'.",
+        )
 
     # Proxy the current (first) request to the newly started app container
     container_name = container_info["name"]
     target_url = f"http://{container_name}:8001/{path}"
-    
+
     headers = dict(request.headers)
-    headers["host"] = host # Keep the original host for the app container
-    
+    headers["host"] = host  # Keep the original host for the app container
+
     content = await request.body()
-    
+
     try:
         logger.info(f"Proxying initial request to {target_url}")
         proxied_response = await http_client.request(
@@ -60,7 +68,7 @@ async def reverse_proxy(request: Request, path: str):
             content=content,
             timeout=60.0,
         )
-        
+
         return Response(
             content=proxied_response.content,
             status_code=proxied_response.status_code,
@@ -68,4 +76,7 @@ async def reverse_proxy(request: Request, path: str):
         )
     except httpx.RequestError as e:
         logger.error(f"Failed to proxy initial request to {target_url}: {e}")
-        return Response(status_code=502, content="Bad Gateway: Could not contact newly started service.")
+        return Response(
+            status_code=502,
+            content="Bad Gateway: Could not contact newly started service.",
+        )

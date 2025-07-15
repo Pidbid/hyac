@@ -2,6 +2,7 @@ import * as Minio from 'minio';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import mime from 'mime-types';
 
 class Uploader {
     constructor(minioConfig) {
@@ -11,8 +12,11 @@ class Uploader {
 
     async uploadFile(bucket, objectName, filePath) {
         try {
-            await this.minioClient.fPutObject(bucket, objectName, filePath, {});
-            console.log(`File ${filePath} uploaded as ${objectName} to bucket ${bucket}`);
+            const metaData = {
+                'Content-Type': mime.lookup(filePath) || 'application/octet-stream',
+            };
+            await this.minioClient.fPutObject(bucket, objectName, filePath, metaData);
+            console.log(`File ${filePath} uploaded as ${objectName} to bucket ${bucket} with Content-Type: ${metaData['Content-Type']}`);
         } catch (err) {
             console.error(`Error uploading file ${filePath}:`, err);
         }
@@ -109,7 +113,7 @@ async function main() {
 
     const uploader = new Uploader(minioConfig);
     const bucketName = 'console';
-    const filesToUpload = ['favicon.svg', 'index.html'];
+    const filesToUpload = ['favicon.svg','favicon.ico', 'index.html'];
     const dirsToUpload = ['assets', 'monacoeditorwork'];
 
     try {

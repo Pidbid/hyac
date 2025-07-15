@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useClipboard } from '@vueuse/core';
-import { NCard, NScrollbar, NSpace, NInputGroup, NInput, NButton, NIcon, NTabs, NTabPane, NText, NSelect, NButtonGroup, useMessage } from 'naive-ui';
+import { NCard, NScrollbar, NSpace, NInputGroup, NInput, NButton, NIcon, NTabs, NTabPane, NText, NSelect, NButtonGroup, useMessage, NCode } from 'naive-ui';
 import { CopyOutline, TrashBinOutline, AddOutline } from '@vicons/ionicons5';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { functionTest } from '@/service/api';
@@ -18,8 +18,10 @@ const testMethod = ref('GET');
 const testHeadersList = ref<{ key: string; value: string; disabled?: boolean }[]>([{ key: '', value: '' }]);
 const testQueryParamsList = ref<{ key: string; value: string }[]>([{ key: '', value: '' }]);
 const testJsonBody = ref('{}');
-const testResult = ref($t('page.function.clickToSend'));
-const requestResponse = ref('');
+
+const testResultStatusCode = ref<number | null>(null);
+const testResultHeaders = ref<Record<string, string> | null>(null);
+const testResultContent = ref<string>($t('page.function.clickToSend'));
 
 const handleTestRequest = async () => {
   const headers = testHeadersList.value.reduce((acc, cur) => {
@@ -47,24 +49,32 @@ const handleTestRequest = async () => {
   }
 
   try {
-    requestResponse.value = $t('page.function.requesting') + '\n';
+    testResultContent.value = $t('page.function.requesting');
     const response = await functionTest(props.functionAddress, testMethod.value, headers, query, body);
     if (response && response.data) {
-      testResult.value = JSON.stringify(response.data, null, 2);
-      requestResponse.value += `${$t('page.function.requestSuccessNoData')}: ${JSON.stringify(response.data, null, 2)}`;
+      const { status_code, headers: responseHeaders, content } = response.data;
+      testResultStatusCode.value = status_code;
+      testResultHeaders.value = responseHeaders;
+      try {
+        // Attempt to parse and format the content as JSON
+        const parsedContent = JSON.parse(content);
+        testResultContent.value = JSON.stringify(parsedContent, null, 2);
+      } catch {
+        // If it's not valid JSON, display as plain text
+        testResultContent.value = content;
+      }
     } else {
-      testResult.value = $t('page.function.requestSuccessNoData');
-      requestResponse.value += $t('page.function.requestSuccessNoData');
+      testResultStatusCode.value = null;
+      testResultHeaders.value = null;
+      testResultContent.value = $t('page.function.requestSuccessNoData');
     }
   } catch (error: any) {
+    testResultStatusCode.value = error.response?.status || null;
+    testResultHeaders.value = error.response?.headers || null;
     if (error.response) {
-      const errorText = `${$t('page.function.requestFailed')}\n${JSON.stringify(error.response.data, null, 2)}`;
-      testResult.value = errorText;
-      requestResponse.value += errorText;
+      testResultContent.value = `${$t('page.function.requestFailed')}\n${JSON.stringify(error.response.data, null, 2)}`;
     } else {
-      const errorText = `${$t('page.function.requestFailed')}\n${error.message}`;
-      testResult.value = errorText;
-      requestResponse.value += errorText;
+      testResultContent.value = `${$t('page.function.requestFailed')}\n${error.message}`;
     }
   }
 };
@@ -117,12 +127,29 @@ const handleCopyAddress = () => {
 
 const handleCopyResult = () => {
   if (isSupported.value) {
-    copy(testResult.value);
+    copy(testResultContent.value);
     message.success($t('page.function.responseCopied'));
   } else {
     message.error($t('page.function.copyFailed'));
   }
 };
+
+const clearResult = () => {
+  testResultStatusCode.value = null;
+  testResultHeaders.value = null;
+  testResultContent.value = '';
+};
+
+const statusCodeClass = computed(() => {
+  if (!testResultStatusCode.value) return '';
+  if (testResultStatusCode.value >= 200 && testResultStatusCode.value < 300) {
+    return 'text-green-500';
+  }
+  if (testResultStatusCode.value >= 400) {
+    return 'text-red-500';
+  }
+  return '';
+});
 
 watch(testMethod, (newMethod) => {
   const contentTypeHeader = { key: 'Content-Type', value: 'application/json', disabled: true };
@@ -215,15 +242,31 @@ watch(testMethod, (newMethod) => {
         <NButton type="primary" size="large" block @click="handleTestRequest">{{ $t('page.function.sendRequest') }}</NButton>
 
         <div class="min-h-0 flex flex-col flex-1">
-          <NText class="mb-2">{{ $t('page.function.response') }}</NText>
-          <NInput v-model:value="testResult" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" :rows="10" readonly class="flex-1" />
+          <div class="flex justify-between items-center mb-2">
+            <NText>{{ $t('page.function.response') }}</NText>
+            <NText v-if="testResultStatusCode" :class="statusCodeClass">
+              Status: {{ testResultStatusCode }}
+            </NText>
+          </div>
+
+          <NTabs type="card" class="flex-1 flex flex-col">
+            <NTabPane name="body" tab="Body">
+              <NInput v-model:value="testResultContent" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" readonly class="flex-1" style="height: 200px" />
+            </NTabPane>
+            <NTabPane name="headers" tab="Headers">
+              <NScrollbar style="max-height: 200px">
+                <NCode :code="JSON.stringify(testResultHeaders, null, 2)" language="json" />
+              </NScrollbar>
+            </NTabPane>
+          </NTabs>
+
           <NButtonGroup class="self-end">
             <NButton quaternary circle class="mt-2" @click="handleCopyResult">
               <template #icon>
                 <NIcon :component="CopyOutline" />
               </template>
             </NButton>
-            <NButton quaternary circle class="mt-2" @click="testResult = ''">
+            <NButton quaternary circle class="mt-2" @click="clearResult">
               <template #icon>
                 <NIcon :component="TrashBinOutline" />
               </template>

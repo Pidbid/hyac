@@ -611,7 +611,18 @@ const local: App.I18n.Schema = {
       requestMethod: '请求方法',
       requestBodyTemplate: '请求体模板',
       wechatNotifications: '微信通知',
-      notificationId: '通知ID'
+      notificationId: '通知ID',
+      ai: {
+        title: 'AI 设置',
+        provider: '提供商',
+        providerPlaceholder: '例如：openai, azure, anthropic',
+        model: '模型',
+        modelPlaceholder: '例如：gpt-4, gpt-3.5-turbo',
+        apiKey: 'API 密钥',
+        apiKeyPlaceholder: '输入您的 API 密钥',
+        endpointUrl: 'Endpoint URL',
+        endpointUrlPlaceholder: '可选，用于自定义节点'
+      }
     },
     index: {
       branchDesc: '为了方便大家开发和更新合并，我们对主分支的代码进行了精简，只保留了首页菜单，其余内容已移至示例分支进行维护。预览地址显示的是示例分支的内容。',

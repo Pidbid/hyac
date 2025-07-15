@@ -611,7 +611,18 @@ const local: App.I18n.Schema = {
       requestMethod: 'Request Method',
       requestBodyTemplate: 'Request Body Template',
       wechatNotifications: 'WeChat Notifications',
-      notificationId: 'Notification ID'
+      notificationId: 'Notification ID',
+      ai: {
+        title: 'AI Settings',
+        provider: 'Provider',
+        providerPlaceholder: 'e.g., openai, azure, anthropic',
+        model: 'Model',
+        modelPlaceholder: 'e.g., gpt-4, gpt-3.5-turbo',
+        apiKey: 'API Key',
+        apiKeyPlaceholder: 'Enter your API Key',
+        endpointUrl: 'Endpoint URL',
+        endpointUrlPlaceholder: 'Optional, for custom endpoints'
+      }
     },
     index: {
       branchDesc:

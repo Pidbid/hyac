@@ -4,6 +4,7 @@ from .applications_model import (
     EnvironmentVariable,
     CORSConfig,
     NotificationConfig,
+    AIConfig,
 )
 from .functions_model import Function
 from .function_template_model import FunctionTemplate

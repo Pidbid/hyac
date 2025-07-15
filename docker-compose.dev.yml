@@ -53,6 +53,7 @@ services:
     restart: unless-stopped
     environment:
       CERTBOT_EMAIL: ${EMAIL_ADDRESS}
+      STAGING: 1
     ports:
     - 80:80
     - 443:443

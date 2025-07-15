@@ -859,6 +859,17 @@ declare namespace App {
           requestBodyTemplate: string;
           wechatNotifications: string;
           notificationId: string;
+          ai: {
+            title: string;
+            provider: string;
+            providerPlaceholder: string;
+            model: string;
+            modelPlaceholder: string;
+            apiKey: string;
+            apiKeyPlaceholder: string;
+            endpointUrl: string;
+            endpointUrlPlaceholder: string;
+          };
         };
         index: {
           branchDesc: string;

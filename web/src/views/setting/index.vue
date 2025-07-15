@@ -7,7 +7,8 @@ import {
   ShareSocialOutline,
   NotificationsOutline,
   WarningOutline,
-  KeyOutline
+  KeyOutline,
+  HardwareChipOutline
 } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
@@ -29,6 +30,11 @@ const menuOptions = computed(() => [
     icon: () => h(NIcon, { component: KeyOutline })
   },
   {
+    label: $t('page.setting.ai.title'),
+    key: 'ai-settings',
+    icon: () => h(NIcon, { component: HardwareChipOutline })
+  },
+  {
     label: $t('page.setting.cors'),
     key: 'cors',
     icon: () => h(NIcon, { component: ShareSocialOutline })
@@ -48,6 +54,7 @@ const menuOptions = computed(() => [
 const componentMap = {
   dependencies: defineAsyncComponent(() => import('./modules/Dependencies.vue')),
   environment: defineAsyncComponent(() => import('./modules/Environment.vue')),
+  'ai-settings': defineAsyncComponent(() => import('./modules/AiSettings.vue')),
   cors: defineAsyncComponent(() => import('./modules/Cors.vue')),
   notifications: defineAsyncComponent(() => import('./modules/Notifications.vue')),
   'danger-zone': defineAsyncComponent(() => import('./modules/DangerZone.vue'))
