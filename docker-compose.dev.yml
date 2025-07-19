@@ -37,7 +37,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_SERVER_URL: "https://oss.${DOMAIN_NAME}"
+      MINIO_SCHEME: 'https'
+      MINIO_BROWSER: "off" # if you want to use minio console please modify to on
     volumes:
+    - /etc/localtime:/etc/localtime:ro
     - minio_data:/data
     networks:
     - hyac_network
@@ -53,6 +57,7 @@ services:
       - "traefik.http.routers.hyac-minio.entrypoints=websecure"
       - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
+      - "traefik.http.services.hyac-minio.loadbalancer.passhostheader=true"
   traefik:
     image: "traefik:latest"
     container_name: "hyac_traefik"
@@ -104,6 +109,7 @@ services:
       minio:
         condition: service_healthy
     volumes:
+    - /etc/localtime:/etc/localtime:ro
     - /var/run/docker.sock:/var/run/docker.sock
     - ./traefik/dynamic:/traefik/dynamic
     - ./server:/server
