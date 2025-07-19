@@ -240,7 +240,7 @@ const local: App.I18n.Schema = {
       emptyApp: 'No application, please create one first',
       createApp: 'Create Application',
       welcome: 'Hello 👋, {userName}, Welcome to the Hyac cloud development platform!',
-      welcomeDescription: 'Here, you can develop any application as a full-stack, backend,\ncloud development user, Node.js developer, independent\ndeveloper, etc., for example:',
+      welcomeDescription: 'Here, you can develop any application as a full-stack, backend,\ncloud development user, Python developer, independent\ndeveloper, etc., for example:',
       miniProgram: 'WeChat Mini Program/Public Account',
       androidOrIos: 'Android or iOS app',
       blogOrWebsite: 'Personal blog, corporate official website',

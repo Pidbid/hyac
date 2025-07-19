@@ -240,7 +240,7 @@ const local: App.I18n.Schema = {
       emptyApp: '暂无应用，请先创建应用',
       createApp: '创建应用',
       welcome: 'Hello 👋, {userName}, 欢迎来到 Hyac 云开发平台!',
-      welcomeDescription: '在这里，你可以作为全栈、后端、\n云开发用户、Node.js开发者、独立\n开发者等，开发任何应用，例如：',
+      welcomeDescription: '在这里，你可以作为全栈、后端、\n云开发用户、Python开发者、独立\n开发者等，开发任何应用，例如：',
       miniProgram: '微信小程序/公众号',
       androidOrIos: 'Android或iOS app',
       blogOrWebsite: '个人博客、企业官网',
