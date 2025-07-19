@@ -342,7 +342,7 @@ const local: App.I18n.Schema = {
       confirmRollback: '确认回退代码',
       rollbackConfirm: '确定要将当前代码回退到 {date} 的版本吗？',
       rollback: '确定回退',
-      rollbackSuccess: '代码已成功回退并保存',
+      rollbackSuccess: '代码已回退',
       editorSettings: '编辑器设置',
       fontSize: '字体大小',
       codePreview: '代码预览',

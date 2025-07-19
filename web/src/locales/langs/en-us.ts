@@ -342,7 +342,7 @@ const local: App.I18n.Schema = {
       confirmRollback: 'Confirm Rollback',
       rollbackConfirm: 'Are you sure you want to roll back the current code to the version of {date}?',
       rollback: 'Confirm Rollback',
-      rollbackSuccess: 'Code has been successfully rolled back and saved',
+      rollbackSuccess: 'Code has been successfully rolled back',
       editorSettings: 'Editor Settings',
       fontSize: 'Font Size',
       codePreview: 'Code Preview',
