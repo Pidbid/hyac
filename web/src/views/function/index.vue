@@ -324,9 +324,8 @@ const handleRollback = async (history: Api.Function.FunctionHistoryInfo) => {
     positiveText: $t('page.function.rollback'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      selectedFunction.value.code = history.new_code;
+      selectedFunction.value.code = history.old_code;
       await nextTick();
-      await handleSaveCode();
       showHistoryModel.value = false;
       message.success($t('page.function.rollbackSuccess'));
     }
