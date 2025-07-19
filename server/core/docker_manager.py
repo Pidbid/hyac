@@ -2,7 +2,6 @@
 import asyncio
 import os
 from typing import Any, Dict, List, Optional
-import time
 
 import docker
 from docker import errors
@@ -54,6 +53,7 @@ class DockerManager:
         network: Optional[str] = None,
         restart: bool = False,
         healthcheck: Optional[Dict[str, Any]] = None,
+        labels: Optional[Dict[str, str]] = None,
     ) -> Optional[containers.Container]:
         """
         Creates and returns a Docker container.
@@ -64,6 +64,7 @@ class DockerManager:
             ports: Port mappings (e.g., {'80/tcp': 8080}).
             environment: Environment variables (e.g., {'MY_VAR': 'my_value'}).
             volumes: Volume mappings (e.g., {'/host/path': {'bind': '/container/path', 'mode': 'rw'}}).
+            labels: Docker labels for the container.
 
         Returns:
             The created container object, or None if creation fails.
@@ -80,6 +81,7 @@ class DockerManager:
                 volumes=volumes,
                 network=network,
                 healthcheck=healthcheck,
+                labels=labels,
                 detach=True,
                 restart_policy=(
                     {"Name": "always", "MaximumRetryCount": 0}
@@ -335,297 +337,139 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
-async def reload_nginx(config_to_poll: Optional[str] = None) -> bool:
-    """
-    Reloads Nginx. If config_to_poll is provided, it waits for that file to exist first.
-    """
-    if not docker_manager.client:
-        return False
+def create_traefik_console_config():
+    """Generates the Traefik config for the main console service."""
+    domain_name = settings.DOMAIN_NAME
+    if not domain_name:
+        logger.warning(
+            "DOMAIN_NAME not set, skipping console Traefik config generation."
+        )
+        return
 
-    try:
-        nginx_container = docker_manager.client.containers.get("hyac_nginx")
+    config_dir = "/traefik/dynamic"
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = os.path.join(config_dir, "console.yml")
+    bucket_name = "console"
 
-        # 1. If a specific config file is given, poll for its existence.
-        if config_to_poll:
-            config_path_in_container = f"/etc/nginx/user_conf.d/{config_to_poll}"
-            file_exists = False
-            for i in range(5):  # Poll for up to 5 seconds
-                exit_code, _ = nginx_container.exec_run(
-                    f"test -f {config_path_in_container}"
-                )
-                if exit_code == 0:
-                    logger.info(
-                        f"Nginx config '{config_to_poll}' found in container (Attempt {i+1}/5)."
-                    )
-                    file_exists = True
-                    break
-                logger.info(
-                    f"Waiting for Nginx config '{config_to_poll}' to appear in container... (Attempt {i+1}/5)"
-                )
-                await asyncio.sleep(1)
+    config_content = f"""
+http:
+  routers:
+    console-router:
+      rule: "Host(`{bucket_name}.{domain_name}`)"
+      entryPoints: ["websecure"]
+      service: "console-service"
+      tls:
+        certResolver: "myresolver"
+      middlewares:
+        - "console-chain"
 
-            if not file_exists:
-                logger.error(
-                    f"Nginx config '{config_to_poll}' did not appear in container after waiting."
-                )
-                return False
+  services:
+    console-service:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9000"
 
-        # 2. Test the new configuration syntax.
-        test_exit_code, test_output = nginx_container.exec_run("nginx -t")
-        if test_exit_code != 0:
-            logger.error(
-                f"Nginx configuration test failed: {test_output.decode('utf-8')}"
-            )
-            return False
-        logger.info("Nginx configuration test successful.")
+  middlewares:
+    console-chain:
+      chain:
+        middlewares:
+          - "console-headers"
+          - "console-rewrite-root"
+          - "console-add-prefix"
+          - "console-spa"
+    console-headers:
+      headers:
+        customRequestHeaders:
+          x-amz-content-sha256: "UNSIGNED-PAYLOAD"
+          Host: "minio:9000"
+    console-rewrite-root:
+      replacePathRegex:
+        regex: "^/?$"
+        replacement: "/index.html"
+    console-add-prefix:
+      addPrefix:
+        prefix: "/{bucket_name}"
+    console-spa:
+      errors:
+        status: ["404"]
+        service: "console-service"
+        query: "/{bucket_name}/index.html"
+"""
+    with open(config_path, "w") as f:
+        f.write(config_content)
+    logger.info(f"Traefik console config created at {config_path}.")
 
-        # 3. Send SIGHUP to trigger a live reload.
-        logger.info("Sending SIGHUP signal to Nginx for a live reload...")
-        nginx_container.kill(signal="SIGHUP")
-        await asyncio.sleep(2)  # Give Nginx a moment to reload
 
-        logger.info("Nginx reloaded successfully.")
-        return True
-
-    except errors.NotFound:
-        logger.error("Nginx container 'hyac_nginx' not found.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while reloading Nginx: {e}")
-        return False
-
-
-async def create_app_nginx_config(app_id: str, container_name: str) -> bool:
-    """
-    Creates an Nginx server block and its symbolic link for a dynamic application.
-    """
-    domain_name = settings.DOMAIN_NAME or "localhost"
-    server_name = f"{app_id.lower()}.{domain_name}"
-    config_filename = f"app-{app_id.lower()}.conf"
-    real_config_path = f"/nginx/conf.d/{config_filename}"
-    user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
-    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
-
-    config_content = f"""server {{
-    listen 80;
-    listen [::]:80;
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name {server_name};
-
-    ssl_certificate /etc/letsencrypt/live/{server_name}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{server_name}/privkey.pem;
-    ssl_trusted_certificate /etc/letsencrypt/live/{server_name}/chain.pem;
-    ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-
-    location / {{
-        proxy_pass http://{container_name}:8001;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }}
-}}"""
-    if os.path.exists(real_config_path):
-        return True
-    # 1. Write the actual config file to the volume shared with the server container.
-    try:
-        with open(real_config_path, "w", encoding="utf-8") as f:
-            f.write(config_content)
-        logger.info(f"Nginx config for app '{app_id}' created at {real_config_path}.")
-    except IOError as e:
-        logger.error(f"Failed to write Nginx config for app '{app_id}': {e}")
-        return False
-
-    # 2. Manually create the symbolic link inside the Nginx container.
-    # This is necessary because the `jonasal/nginx-certbot` image only creates symlinks on startup.
-    symlink_command = f"ln -s {user_conf_path} {symlink_path}"
-    exit_code, output = await asyncio.to_thread(
-        docker_manager.exec_in_container, "hyac_nginx", symlink_command
+def create_traefik_web_config(app_id: str, domain_name: str):
+    config_dir = (
+        "/traefik/dynamic"  # This is the path accessible inside the server container
     )
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = os.path.join(config_dir, f"web-{app_id}.yml")
 
-    if exit_code == 0:
-        logger.info(
-            f"Successfully created symlink for '{config_filename}' in Nginx container."
-        )
-        return True
-    else:
-        # If the link already exists, it's not a critical error.
-        if "File exists" in output:
-            logger.warning(f"Symlink for '{config_filename}' already exists.")
-            return True
-        logger.error(
-            f"Failed to create symlink for '{config_filename}'. Exit code: {exit_code}, Output: {output}"
-        )
-        return False
-
-
-async def create_web_hosting_nginx_config(app_id: str) -> bool:
-    """
-    Creates an Nginx server block for web hosting, pointing to a MinIO bucket,
-    with proper MIME type handling and SPA routing.
-    """
-    domain_name = settings.DOMAIN_NAME or "localhost"
-    server_name = f"web-{app_id.lower()}.{domain_name}"
     bucket_name = f"web-{app_id.lower()}"
-    config_filename = f"web-{app_id.lower()}.conf"
-    real_config_path = f"/nginx/conf.d/{config_filename}"
-    user_conf_path = f"/etc/nginx/user_conf.d/{config_filename}"
-    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
+    chain_name = f"web-chain-{app_id}"
+    headers_name = f"web-headers-{app_id}"
+    rewrite_name = f"web-rewrite-{app_id}"
+    prefix_name = f"web-prefix-{app_id}"
+    spa_name = f"web-spa-{app_id}"
+    service_name = f"web-service-{app_id}"
+    router_name = f"web-router-{app_id}"
 
-    # Nginx config to proxy to MinIO bucket with SPA routing and HTTPS
-    config_content = f"""server {{
-    listen 80;
-    listen [::]:80;
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    config_content = f"""
+http:
+  routers:
+    {router_name}:
+      rule: "Host(`{bucket_name}.{domain_name}`)"
+      entryPoints: ["websecure"]
+      service: "{service_name}"
+      tls:
+        certResolver: "myresolver"
+      middlewares:
+        - "{chain_name}"
 
-    server_name {server_name};
+  services:
+    {service_name}:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9000"
 
-    ssl_certificate /etc/letsencrypt/live/{server_name}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{server_name}/privkey.pem;
-    ssl_trusted_certificate /etc/letsencrypt/live/{server_name}/chain.pem;
-    ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-
-    set $minio_backend http://minio:9000/{bucket_name};
-
-    location / {{
-        if ($request_uri = /) {{
-            rewrite / /index.html last;
-        }}
-        proxy_intercept_errors on;
-        proxy_pass $minio_backend$request_uri;
-        error_page 404 = /index.html;
-
-        proxy_set_header Host "{bucket_name}.minio:9000";
-        proxy_set_header Authorization '';
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-
-        proxy_hide_header "x-amz-id-2";
-        proxy_hide_header "x-amz-request-id";
-        proxy_hide_header "Set-Cookie";
-        proxy_ignore_headers "Set-Cookie";
-        proxy_hide_header Content-Type; # For MIME type fix
-        add_header Cache-Control "public, max-age=604800";
-    }}
-
-    location = /index.html {{
-        proxy_pass $minio_backend/index.html;
-
-        proxy_set_header Host "{bucket_name}.minio:9000";
-        proxy_set_header Authorization '';
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-    }}
-}}"""
-
-    if os.path.exists(real_config_path):
-        return True
-    try:
-        with open(real_config_path, "w", encoding="utf-8") as f:
-            f.write(config_content)
-        logger.info(
-            f"Nginx web config for app '{app_id}' created at {real_config_path}."
-        )
-    except IOError as e:
-        logger.error(f"Failed to write Nginx web config for app '{app_id}': {e}")
-        return False
-
-    symlink_command = f"ln -s {user_conf_path} {symlink_path}"
-    exit_code, output = await asyncio.to_thread(
-        docker_manager.exec_in_container, "hyac_nginx", symlink_command
-    )
-
-    if exit_code == 0:
-        logger.info(
-            f"Successfully created symlink for '{config_filename}' in Nginx container."
-        )
-        return True
-    else:
-        if "File exists" in output:
-            logger.warning(
-                f"Symlink for web config '{config_filename}' already exists."
-            )
-            return True
-        logger.error(
-            f"Failed to create symlink for web config '{config_filename}'. Exit code: {exit_code}, Output: {output}"
-        )
-        return False
+  middlewares:
+    {chain_name}:
+      chain:
+        middlewares:
+          - "{headers_name}"
+          - "{rewrite_name}"
+          - "{prefix_name}"
+          - "{spa_name}"
+    {headers_name}:
+      headers:
+        customRequestHeaders:
+          x-amz-content-sha256: "UNSIGNED-PAYLOAD"
+          Host: "minio:9000"
+    {rewrite_name}:
+      replacePathRegex:
+        regex: "^/?$"
+        replacement: "/index.html"
+    {prefix_name}:
+      addPrefix:
+        prefix: "/{bucket_name}"
+    {spa_name}:
+      errors:
+        status: ["404"]
+        service: "{service_name}"
+        query: "/{bucket_name}/index.html"
+"""
+    with open(config_path, "w") as f:
+        f.write(config_content)
+    logger.info(f"Traefik web config for app '{app_id}' created at {config_path}.")
 
 
-async def remove_app_nginx_config(app_id: str) -> bool:
-    """
-    Removes the Nginx config file and its symbolic link for an application.
-    """
-    config_filename = f"app-{app_id.lower()}.conf"
-    real_config_path = f"/nginx/conf.d/{config_filename}"
-    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
-
-    # 1. Remove the symbolic link from inside the Nginx container.
-    unlink_command = f"rm {symlink_path}"
-    exit_code, output = await asyncio.to_thread(
-        docker_manager.exec_in_container, "hyac_nginx", unlink_command
-    )
-    if exit_code != 0 and "No such file or directory" not in output:
-        logger.error(
-            f"Failed to remove symlink '{symlink_path}'. Exit code: {exit_code}, Output: {output}"
-        )
-        # Continue to attempt to delete the real file anyway.
-    else:
-        logger.info(f"Successfully removed symlink for '{config_filename}'.")
-
-    # 2. Remove the actual config file.
-    try:
-        if os.path.exists(real_config_path):
-            os.remove(real_config_path)
-            logger.info(f"Nginx config file '{real_config_path}' removed.")
-        return True
-    except IOError as e:
-        logger.error(f"Failed to remove Nginx config file '{real_config_path}': {e}")
-        return False
-
-
-async def remove_web_hosting_nginx_config(app_id: str) -> bool:
-    """
-    Removes the Nginx web hosting config file and its symbolic link.
-    """
-    config_filename = f"web-{app_id.lower()}.conf"
-    real_config_path = f"/nginx/conf.d/{config_filename}"
-    symlink_path = f"/etc/nginx/conf.d/{config_filename}"
-
-    unlink_command = f"rm {symlink_path}"
-    exit_code, output = await asyncio.to_thread(
-        docker_manager.exec_in_container, "hyac_nginx", unlink_command
-    )
-    if exit_code != 0 and "No such file or directory" not in output:
-        logger.error(
-            f"Failed to remove web symlink '{symlink_path}'. Exit code: {exit_code}, Output: {output}"
-        )
-    else:
-        logger.info(f"Successfully removed web symlink for '{config_filename}'.")
-
-    try:
-        if os.path.exists(real_config_path):
-            os.remove(real_config_path)
-            logger.info(f"Nginx web config file '{real_config_path}' removed.")
-        return True
-    except IOError as e:
-        logger.error(
-            f"Failed to remove Nginx web config file '{real_config_path}': {e}"
-        )
-        return False
+def remove_traefik_web_config(app_id: str):
+    config_path = f"/traefik/dynamic/web-{app_id}.yml"
+    if os.path.exists(config_path):
+        os.remove(config_path)
+        logger.info(f"Removed Traefik web config: {config_path}")
 
 
 async def build_app_image_if_not_exists():
@@ -654,6 +498,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         return None
 
     container_name = f"hyac-app-runtime-{app.app_id.lower()}"
+    domain_name = settings.DOMAIN_NAME or "localhost"
 
     # Check if container is already running
     if app.app_id in running_apps:
@@ -730,6 +575,15 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             "This might fail if the project name in docker-compose is not 'hyac'."
         )
 
+    # --- Traefik Labels for the runtime container ---
+    traefik_labels = {
+        "traefik.enable": "true",
+        f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
+        f"traefik.http.routers.{container_name}.entrypoints": "websecure",
+        f"traefik.http.routers.{container_name}.tls.certresolver": "myresolver",
+        f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
+    }
+
     container = docker_manager.create_container(
         image=APP_IMAGE_NAME,
         name=container_name,
@@ -738,6 +592,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         volumes=volumes,
         restart=False,
         healthcheck=healthcheck,
+        labels=traefik_labels,
     )
     if not container or not docker_manager.start_container(container_name):
         return None
@@ -810,41 +665,16 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     await create_function_templates_for_app(app.app_id)
 
-    # Create Nginx configs now that the service is confirmed to be up
-    await create_web_hosting_nginx_config(app.app_id)
-    await create_app_nginx_config(app.app_id, container_name)
+    # Create Traefik config for web hosting
+    create_traefik_web_config(app.app_id, domain_name)
 
-    # Reload Nginx to apply both configurations
-    app_config_filename = f"app-{app.app_id.lower()}.conf"
-    reload_success = False
-    for i in range(3):  # Retry up to 3 times
-        logger.info(f"Attempting to reload Nginx (Attempt {i+1}/3)...")
-        if await reload_nginx(config_to_poll=app_config_filename):
-            reload_success = True
-            break
-        logger.warning(f"Nginx reload attempt {i+1}/3 failed. Retrying in 3 seconds...")
-        await asyncio.sleep(3)
-
-    if reload_success:
-        container_info = {
-            "name": container_name,
-            "id": container.id,
-        }
-        running_apps[app.app_id] = container_info
-        logger.info(
-            f"Started container for app '{app.app_id}'. Nginx proxy configured."
-        )
-        return container_info
-    else:
-        logger.error(
-            f"Failed to reload Nginx for app '{app.app_id}' after multiple attempts. Rolling back..."
-        )
-        # Rollback: stop and remove the container, but keep the Nginx config for debugging
-        await docker_manager.stop_container(container_name)
-        await docker_manager.remove_container(container_name)
-        # We don't remove the nginx config here, to allow for debugging.
-        # It will be cleaned up when the app is properly deleted.
-        return None
+    container_info = {
+        "name": container_name,
+        "id": container.id,
+    }
+    running_apps[app.app_id] = container_info
+    logger.info(f"Started container for app '{app.app_id}'. Traefik proxy configured.")
+    return container_info
 
 
 async def stop_app_container(app_id: str):
@@ -857,13 +687,12 @@ async def stop_app_container(app_id: str):
         if await docker_manager.stop_container(container_name):
             await docker_manager.remove_container(container_name)
 
-        # Remove Nginx config and reload
-        if await remove_app_nginx_config(app_id):
-            await reload_nginx()  # Reload without polling
+        # Remove Traefik web config file
+        remove_traefik_web_config(app_id)
 
         del running_apps[app_id]
         logger.info(
-            f"Container for app '{app_id}' stopped and removed. Nginx proxy updated."
+            f"Container for app '{app_id}' stopped and removed. Traefik proxy updated."
         )
 
 
@@ -945,9 +774,8 @@ async def delete_application_background(app: Application):
             await minio_manager.remove_bucket(web_bucket_name)
             logger.info(f"Deleted MinIO bucket '{web_bucket_name}'.")
 
-        # Also remove the web hosting Nginx config
-        if await remove_web_hosting_nginx_config(app.app_id):
-            await reload_nginx()  # Reload without polling
+        # Also remove the web hosting Traefik config
+        remove_traefik_web_config(app.app_id)
 
     except Exception as e:
         logger.error(f"Error deleting MinIO buckets for app '{app.app_id}': {e}")

@@ -97,9 +97,29 @@ class MinioManager:
         assert self.client is not None
         await asyncio.to_thread(self.client.set_bucket_policy, bucket_name, policy)
 
+    async def get_bucket_policy(self, bucket_name: str) -> Optional[str]:
+        """
+        Gets the policy for a bucket. Returns None if no policy is found or an error occurs.
+        """
+        if not self._check_client():
+            return None
+        assert self.client is not None
+        try:
+            return await asyncio.to_thread(self.client.get_bucket_policy, bucket_name)
+        except S3Error as e:
+            if e.code == "NoSuchBucketPolicy":
+                logger.info(f"No policy found for bucket '{bucket_name}'.")
+            else:
+                logger.error(
+                    f"Error getting policy for bucket '{bucket_name}': {e}",
+                    exc_info=True,
+                )
+            return None
+
     async def set_bucket_to_public_read(self, bucket_name: str):
         """
-        Sets a bucket's policy to allow public read access for all objects.
+        Sets a bucket's policy to allow public read access for all objects,
+        including ListBucket for root access.
         """
         if not self._check_client():
             return
@@ -112,6 +132,12 @@ class MinioManager:
                     "Principal": {"AWS": ["*"]},
                     "Action": ["s3:GetObject"],
                     "Resource": [f"arn:aws:s3:::{bucket_name}/*"],
+                },
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:ListBucket"],
+                    "Resource": [f"arn:aws:s3:::{bucket_name}"],
                 },
             ],
         }

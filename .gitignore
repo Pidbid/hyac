@@ -20,6 +20,5 @@
 .cursor
 .roo
 
-# Nginx
-nginx/conf.d/*
-nginx/certs/*
+# Traefik
+traefik
