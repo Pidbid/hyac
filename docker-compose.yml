@@ -37,7 +37,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_SERVER_URL: "https://oss.${DOMAIN_NAME}"
+      MINIO_SCHEME: 'https'
+      MINIO_BROWSER: "off" # if you want to use minio console please modify to on
     volumes:
+    - /etc/localtime:/etc/localtime:ro
     - minio_data:/data
     networks:
     - hyac_network
@@ -53,11 +57,13 @@ services:
       - "traefik.http.routers.hyac-minio.entrypoints=websecure"
       - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
+      - "traefik.http.services.hyac-minio.loadbalancer.passhostheader=true"
   traefik:
     image: "traefik:latest"
     container_name: "hyac_traefik"
     restart: unless-stopped
     command:
+      - "--api.insecure=true"
       - "--api.dashboard=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -91,6 +97,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: "false"
+      APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
     ports:
       - 8000:8000
     depends_on:
@@ -118,6 +125,19 @@ services:
   app:
     image: wicos/hyac_app:latest
     command: ["echo", "This container is for image pulling and should not be running."]
+  uploader:
+    image: wicos/hyac_uploader:latest
+    container_name: hyac_uploader
+    environment:
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - BUILD=${WEB_BUILD}
+    networks:
+      - hyac_network
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: "no"
 
 networks:
   hyac_network:
