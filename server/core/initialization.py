@@ -1,9 +1,9 @@
 # services/initialization.py
 import json
-import logging
 import os
+from loguru import logger
 from core.config import settings
-from core.nginx_config_generator import generate_nginx_configs
+from core.docker_manager import create_traefik_console_config
 from core.faas_code import faas_templates
 from core.minio_manager import minio_manager
 from core.utils import create_mongodb_user, generate_short_id
@@ -20,8 +20,6 @@ from models.function_template_model import FunctionTemplate, TemplateType, Funct
 from models.tasks_model import Task, TaskAction
 from routers.users import hash_password
 from core.dependence_manager import dependence_manager
-
-logger = logging.getLogger(__name__)
 
 
 async def create_function_templates_for_app(app_id: str):
@@ -77,37 +75,64 @@ class InitializationService:
     async def initialize_console_bucket():
         """
         Initializes the 'console' bucket in MinIO for static website hosting
-        and sets a public read policy.
+        and ensures its public read policy is correctly set on every startup.
         """
         bucket_name = "console"
         logger.info(f"Checking and initializing MinIO bucket: '{bucket_name}'...")
         try:
-            found = await minio_manager.bucket_exists(bucket_name)
-            if not found:
+            # Ensure the bucket exists
+            if not await minio_manager.bucket_exists(bucket_name):
                 logger.info(f"Bucket '{bucket_name}' not found. Creating now...")
                 await minio_manager.make_bucket(bucket_name)
                 logger.info(f"Bucket '{bucket_name}' created successfully.")
-
-                # Define a policy to make the bucket publicly readable.
-                policy = {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Effect": "Allow",  # Explicitly allow the action.
-                            "Principal": {"AWS": ["*"]},  # Apply to all users (public).
-                            "Action": ["s3:GetObject"],  # Allow reading objects.
-                            "Resource": [
-                                f"arn:aws:s3:::{bucket_name}/*"
-                            ],  # For all objects in the bucket.
-                        },
-                    ],
-                }
-                await minio_manager.set_bucket_policy(bucket_name, json.dumps(policy))
-                logger.info(
-                    f"Successfully set public read policy for bucket '{bucket_name}'."
-                )
             else:
-                logger.info(f"Bucket '{bucket_name}' already exists. No action taken.")
+                logger.info(f"Bucket '{bucket_name}' already exists.")
+
+            # Define the required public read policy
+            public_read_policy = {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"AWS": ["*"]},
+                        "Action": ["s3:GetObject"],
+                        "Resource": [f"arn:aws:s3:::{bucket_name}/*"],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"AWS": ["*"]},
+                        "Action": ["s3:ListBucket"],
+                        "Resource": [f"arn:aws:s3:::{bucket_name}"],
+                    },
+                ],
+            }
+            policy_str = json.dumps(public_read_policy)
+
+            # Get current policy
+            current_policy_str = await minio_manager.get_bucket_policy(bucket_name)
+
+            # Compare and set if different
+            if current_policy_str:
+                try:
+                    current_policy = json.loads(current_policy_str)
+                    if current_policy == public_read_policy:
+                        logger.info(
+                            f"Public read policy for bucket '{bucket_name}' is already correctly set."
+                        )
+                        return
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Could not parse existing policy for '{bucket_name}'. Overwriting."
+                    )
+
+            logger.info(
+                f"Setting/updating public read policy for bucket '{bucket_name}'."
+            )
+            await minio_manager.set_bucket_policy(bucket_name, policy_str)
+            logger.info(
+                f"Successfully set public read policy for bucket '{bucket_name}'."
+            )
+
         except Exception as e:
             logger.error(
                 f"Error initializing console bucket '{bucket_name}': {e}", exc_info=True
@@ -313,9 +338,8 @@ class InitializationService:
         Checks if initialization is needed and runs all initialization tasks.
         This is triggered if INIT_DEMO_FUNCTION is true and the database is empty or DEBUG is on.
         """
-        # Always generate Nginx configs on startup to ensure they are up-to-date.
-        # The function itself checks for existence, so it's safe to call every time.
-        generate_nginx_configs()
+        # Generate Traefik config for the console on every startup.
+        create_traefik_console_config()
 
         if await cls._is_database_empty():
             await cls.initialize_console_bucket()

@@ -21,7 +21,7 @@ services:
       test: |
         mongosh --host localhost --port 27017 \
           --authenticationDatabase admin \
-          -u "${MONGODB_ROOT_USER}" -p "${MONGODB_ROOT_PASSWORD}" \
+          -u "${MONGODB_USERNAME}" -p "${MONGODB_PASSWORD}" \
           --eval "if (db.isMaster().ismaster) { quit(0); } else { quit(1); }"
       interval: 5s
       timeout: 10s
@@ -47,22 +47,37 @@ services:
       timeout: 10s
       retries: 10
       start_period: 10s
-  nginx:
-    image: jonasal/nginx-certbot:latest
-    container_name: hyac_nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-minio.rule=Host(`oss.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-minio.entrypoints=websecure"
+      - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
+  traefik:
+    image: "traefik:latest"
+    container_name: "hyac_traefik"
     restart: unless-stopped
-    environment:
-      CERTBOT_EMAIL: ${EMAIL_ADDRESS}
+    command:
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
-    - 80:80
-    - 443:443
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
     volumes:
-    - ./nginx/conf.d:/etc/nginx/user_conf.d:ro
-    - ./nginx/certs:/etc/letsencrypt
-    depends_on:
-    - server
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/letsencrypt:/letsencrypt"
+      - "./traefik/dynamic:/etc/traefik/dynamic"
     networks:
-    - hyac_network
+      - hyac_network
   server:
     image: wicos/hyac_server:latest
     container_name: hyac_server
@@ -75,8 +90,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       SECRET_KEY: ${SECRET_KEY}
-      DEV_MODE: ${DEV_MODE}
-      APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
+      DEV_MODE: "false"
     ports:
       - 8000:8000
     depends_on:
@@ -86,7 +100,7 @@ services:
         condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./nginx/conf.d:/nginx/conf.d
+    - ./traefik/dynamic:/traefik/dynamic
     networks:
     - hyac_network
     healthcheck:
@@ -95,22 +109,15 @@ services:
       timeout: 10s
       retries: 10
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-server.entrypoints=websecure"
+      - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
   app:
     image: wicos/hyac_app:latest
     command: ["echo", "This container is for image pulling and should not be running."]
-  uploader:
-    image: wicos/hyac_uploader:latest
-    container_name: hyac_uploader
-    environment:
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - BUILD=${WEB_BUILD}
-    networks:
-      - hyac_network
-    depends_on:
-      server:
-        condition: service_healthy
-    restart: "no"
 
 networks:
   hyac_network:

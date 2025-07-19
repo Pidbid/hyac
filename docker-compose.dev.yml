@@ -47,23 +47,38 @@ services:
       timeout: 10s
       retries: 10
       start_period: 10s
-  nginx:
-    image: jonasal/nginx-certbot:latest
-    container_name: hyac_nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-minio.rule=Host(`oss.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-minio.entrypoints=websecure"
+      - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
+  traefik:
+    image: "traefik:latest"
+    container_name: "hyac_traefik"
     restart: unless-stopped
-    environment:
-      CERTBOT_EMAIL: ${EMAIL_ADDRESS}
-      STAGING: 1
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
-    - 80:80
-    - 443:443
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
     volumes:
-    - ./nginx/conf.d:/etc/nginx/user_conf.d:ro
-    - ./nginx/certs:/etc/letsencrypt
-    depends_on:
-    - server
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/letsencrypt:/letsencrypt"
+      - "./traefik/dynamic:/etc/traefik/dynamic"
     networks:
-    - hyac_network
+      - hyac_network
   server:
     build:
       context: ./server
@@ -90,7 +105,7 @@ services:
         condition: service_healthy
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./nginx/conf.d:/nginx/conf.d
+    - ./traefik/dynamic:/traefik/dynamic
     - ./server:/server
     - ./app:/app
     networks:
@@ -101,14 +116,17 @@ services:
       timeout: 10s
       retries: 10
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-server.entrypoints=websecure"
+      - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
   app:
     build:
       context: ./app
       target: development
     image: hyac_app:dev
-    # This service is only for building the image.
-    # It should not be started by 'docker-compose up'.
-    # The command is set to do nothing and exit.
     command: ["echo", "Image built. This container should not be running."]
   uploader:
     build:
