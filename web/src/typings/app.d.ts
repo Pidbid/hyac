@@ -1003,3 +1003,9 @@ declare namespace App {
     };
   }
 }
+
+interface Window {
+  APP_CONFIG: {
+    VITE_SERVICE_BASE_URL: string;
+  };
+}

@@ -73,6 +73,7 @@ services:
       - "--providers.file.watch=true"
       - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
@@ -87,7 +88,7 @@ services:
   server:
     build:
       context: ./server
-    image: hyac_server:prod
+    image: wicos/hyac_server:dev-0.0.1
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -127,9 +128,11 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-    image: hyac_web:prod
+    image: wicos/hyac_web:dev-0.0.1
     container_name: hyac_web
     restart: unless-stopped
+    environment:
+      VITE_SERVICE_BASE_URL: "https://server.${DOMAIN_NAME}"
     networks:
       - hyac_network
     labels:
@@ -142,7 +145,7 @@ services:
   app:
     build:
       context: ./app
-    image: hyac_app:prod
+    image: wicos/hyac_app:latest
     command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
     networks:

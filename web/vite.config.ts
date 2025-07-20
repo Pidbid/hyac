@@ -101,6 +101,22 @@ export default defineConfig((configEnv) => {
           });
         },
       },
+      {
+        name: 'vite-plugin-dynamic-config',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url === '/config.js') {
+              const config = {
+                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL
+              };
+              res.setHeader('Content-Type', 'application/javascript');
+              res.end(`window.APP_CONFIG = ${JSON.stringify(config)}`);
+              return;
+            }
+            next();
+          });
+        }
+      }
     ],
     define: {
       BUILD_TIME: JSON.stringify(buildTime),
@@ -109,7 +125,7 @@ export default defineConfig((configEnv) => {
       host: "0.0.0.0",
       port: 9527,
       proxy: createViteProxy(viteEnv, enableProxy),
-      allowedHosts: ["console.dev.hyacos.top"],
+      allowedHosts: ['*'],
     },
     preview: {
       port: 9725,
