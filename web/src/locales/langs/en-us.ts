@@ -318,6 +318,11 @@ const local: App.I18n.Schema = {
       actionsColumn: 'Actions'
     },
     function: {
+      tagsGroup: {
+        all: 'All',
+        api: 'API',
+        common: 'Common'
+      },
       createFunction: 'Create Function',
       functionName: 'Function Name',
       functionNamePlaceholder: 'Please enter function name',
@@ -422,7 +427,8 @@ const local: App.I18n.Schema = {
       bodyJson: 'Body (JSON)',
       sendRequest: 'Send Request',
       response: 'Response',
-      responsePlaceholder: 'Response result'
+      responsePlaceholder: 'Response result',
+      commonFunctionTestHint: 'Common functions cannot be tested online directly. Please call them in other functions.'
     },
     log: {
       loadFunctionListFailed: 'Failed to load function list',

@@ -16,7 +16,7 @@ from router import router as dynamic_router
 from core.db_manager import db_manager
 from core.dependency_loader import install_app_dependencies
 from core.cache_watcher import watch_function_changes
-from core.env_manager import get_dynamic_envs
+from core.env_manager import get_dynamic_envs, watch_for_env_changes
 
 from models.applications_model import Application, CORSConfig
 
@@ -80,7 +80,8 @@ async def lifespan(app: FastAPI):
 
     # Start the function code cache watcher.
     asyncio.create_task(watch_function_changes())
-    # await watch_for_env_changes()
+    # Start the environment variable watcher.
+    asyncio.create_task(watch_for_env_changes())
     app_ready = True
     logger.info("Executor is now ready to accept requests.")
 

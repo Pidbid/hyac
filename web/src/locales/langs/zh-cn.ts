@@ -318,6 +318,11 @@ const local: App.I18n.Schema = {
       actionsColumn: '操作'
     },
     function: {
+      tagsGroup: {
+        all: '全部',
+        api: 'API',
+        common: '公共'
+      },
       createFunction: '创建函数',
       functionName: '函数名称',
       functionNamePlaceholder: '请输入函数名称',
@@ -422,7 +427,8 @@ const local: App.I18n.Schema = {
       bodyJson: 'Body (JSON)',
       sendRequest: '发送请求',
       response: '响应',
-      responsePlaceholder: '响应结果'
+      responsePlaceholder: '响应结果',
+      commonFunctionTestHint: '公共函数无法直接进行在线测试，请在其他函数中调用'
     },
     log: {
       loadFunctionListFailed: '加载函数列表失败',

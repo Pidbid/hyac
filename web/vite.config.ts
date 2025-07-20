@@ -8,9 +8,6 @@ import monacoEditorPlugin from "vite-plugin-monaco-editor-esm";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
 import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
-import { fileURLToPath } from "url";
-// @ts-ignore
-import path from "path";
 // @ts-ignore
 import fs from "fs";
 
@@ -104,6 +101,22 @@ export default defineConfig((configEnv) => {
           });
         },
       },
+      {
+        name: 'vite-plugin-dynamic-config',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url === '/config.js') {
+              const config = {
+                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL
+              };
+              res.setHeader('Content-Type', 'application/javascript');
+              res.end(`window.APP_CONFIG = ${JSON.stringify(config)}`);
+              return;
+            }
+            next();
+          });
+        }
+      }
     ],
     define: {
       BUILD_TIME: JSON.stringify(buildTime),
@@ -111,8 +124,8 @@ export default defineConfig((configEnv) => {
     server: {
       host: "0.0.0.0",
       port: 9527,
-      open: true,
       proxy: createViteProxy(viteEnv, enableProxy),
+      allowedHosts: ['*'],
     },
     preview: {
       port: 9725,

@@ -24,7 +24,8 @@ import {
   getEnvsData,
   addEnv,
   removeEnv,
-  getDomain
+  getDomain,
+  getFunctionTags
 } from '@/service/api';
 
 import FunctionList from './modules/FunctionList.vue';
@@ -77,6 +78,8 @@ const originalCode = ref('');
 const codeChanged = ref(false);
 const isSaving = ref(false);
 const functionRequestData = ref({ page: 1, length: 50 });
+const tags = ref<string[]>([]);
+const selectedTag = ref('all');
 
 const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
@@ -106,7 +109,25 @@ watch(() => selectedFunction.value.id, (newId, oldId) => {
 
 // Methods
 const getFunctionData = async () => {
-  const { data, error } = await GetFunctionData(applicationStore.appId, functionRequestData.value.page, functionRequestData.value.length);
+  let type: string | undefined;
+  let tag: string | undefined;
+
+  if (selectedTag.value === 'api') {
+    type = 'endpoint';
+  } else if (selectedTag.value === 'common') {
+    type = 'common';
+  } else if (selectedTag.value !== 'all') {
+    tag = selectedTag.value;
+  }
+
+  const { data, error } = await GetFunctionData(
+    applicationStore.appId,
+    functionRequestData.value.page,
+    functionRequestData.value.length,
+    type,
+    tag
+  );
+
   if (!error) {
     functions.value = data.data.map((func: Api.Function.FunctionRecord) => ({
       id: func.function_id,
@@ -118,12 +139,26 @@ const getFunctionData = async () => {
       code: func.code,
     }));
     if (functions.value.length > 0) {
-      const funcToSelect = functionStore.funcInfo || functions.value[0];
+      const funcToSelect = functionStore.funcInfo && functions.value.some(f => f.id === functionStore.funcInfo?.id)
+        ? functionStore.funcInfo
+        : functions.value[0];
       functionSelect(funcToSelect);
     } else {
-        selectedFunction.value = { id: '', name: '', type: 'endpoint', status: 'unpublished', description: '', tags: [], code: '' };
+      selectedFunction.value = { id: '', name: '', type: 'endpoint', status: 'unpublished', description: '', tags: [], code: '' };
     }
   }
+};
+
+const fetchTags = async () => {
+  const { data, error } = await getFunctionTags(applicationStore.appId);
+  if (!error) {
+    tags.value = data;
+  }
+};
+
+const handleTagSelect = (tag: string) => {
+  selectedTag.value = tag;
+  getFunctionData();
 };
 
 const functionSelect = (func: Api.Function.FunctionInfo) => {
@@ -276,7 +311,7 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
             codeChanged.value = false;
           }
         }
-        logStore.logs = [];
+        logStore.unsubscribe();
       }
     }
   });
@@ -714,6 +749,7 @@ onMounted(async () => {
   if (!error) {
     localStorage.setItem('hyac_domain', domain);
   }
+  await fetchTags();
   await getFunctionData();
   logStore.connect();
   if (selectedFunction.value.id) {
@@ -731,10 +767,10 @@ onBeforeUnmount(() => {
   <div class="h-full flex w-full">
     <NSplit class="h-full" :size="0.1" :min="0.1" :max="0.6">
             <template #1>
-        <FunctionList :functions="functions" :selected-function-id="selectedFunction.id"
-          @create-function="handleCreateFunction" @select-function="functionSelect"
+        <FunctionList :functions="functions" :selected-function-id="selectedFunction.id" :tags="tags"
+          :selected-tag="selectedTag" @create-function="handleCreateFunction" @select-function="functionSelect"
           @delete-function="handleDeleteFunction" @open-env-settings="handleEnvSetting(true)"
-          @open-dependency-manager="handleDependence(true)" />
+          @open-dependency-manager="handleDependence(true)" @select-tag="handleTagSelect" />
       </template>
       <template #2>
         <div v-if="functions.length > 0" class="w-full h-full">
@@ -751,7 +787,11 @@ onBeforeUnmount(() => {
               </NSplit>
             </template>
             <template #2>
-              <FunctionTestPanel :function-address="functionAddress" />
+              <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
+              <div v-else class="h-full w-full flex items-center justify-center">
+                <NEmpty :description="$t('page.function.commonFunctionTestHint')">
+                </NEmpty>
+              </div>
             </template>
           </NSplit>
         </div>

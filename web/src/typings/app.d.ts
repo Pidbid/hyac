@@ -565,6 +565,11 @@ declare namespace App {
           actionsColumn: string;
         };
         function: {
+          tagsGroup: {
+            all: string;
+            api: string;
+            common: string;
+          };
           createFunction: string;
           functionName: string;
           functionNamePlaceholder: string;
@@ -670,6 +675,7 @@ declare namespace App {
           sendRequest: string;
           response: string;
           responsePlaceholder: string;
+          commonFunctionTestHint: string;
         };
         log: {
           loadFunctionListFailed: string;
@@ -996,4 +1002,10 @@ declare namespace App {
       result: T;
     };
   }
+}
+
+interface Window {
+  APP_CONFIG: {
+    VITE_SERVICE_BASE_URL: string;
+  };
 }

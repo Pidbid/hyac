@@ -85,7 +85,9 @@ services:
     networks:
       - hyac_network
   server:
-    image: wicos/hyac_server:latest
+    build:
+      context: ./server
+    image: wicos/hyac_server:dev-0.0.1
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -98,14 +100,13 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: "false"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
-    ports:
-      - 8000:8000
     depends_on:
       mongodb:
         condition: service_healthy
       minio:
         condition: service_healthy
     volumes:
+    - /etc/localtime:/etc/localtime:ro
     - /var/run/docker.sock:/var/run/docker.sock
     - ./traefik/dynamic:/traefik/dynamic
     networks:
@@ -122,22 +123,32 @@ services:
       - "traefik.http.routers.hyac-server.entrypoints=websecure"
       - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
-  app:
-    image: wicos/hyac_app:latest
-    command: ["echo", "This container is for image pulling and should not be running."]
-  uploader:
-    image: wicos/hyac_uploader:latest
-    container_name: hyac_uploader
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: wicos/hyac_web:dev-0.0.1
+    container_name: hyac_web
+    restart: unless-stopped
     environment:
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - BUILD=${WEB_BUILD}
+      VITE_SERVICE_BASE_URL: "https://server.${DOMAIN_NAME}"
     networks:
       - hyac_network
-    depends_on:
-      server:
-        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-web.rule=Host(`console.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-web.entrypoints=websecure"
+      - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-web.loadbalancer.server.port=80"
+      - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
+  app:
+    build:
+      context: ./app
+    image: wicos/hyac_app:latest
+    command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
+    networks:
+      - hyac_network
 
 networks:
   hyac_network:
