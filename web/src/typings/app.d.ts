@@ -565,6 +565,11 @@ declare namespace App {
           actionsColumn: string;
         };
         function: {
+          tagsGroup: {
+            all: string;
+            api: string;
+            common: string;
+          };
           createFunction: string;
           functionName: string;
           functionNamePlaceholder: string;

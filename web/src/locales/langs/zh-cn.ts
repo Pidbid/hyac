@@ -318,6 +318,11 @@ const local: App.I18n.Schema = {
       actionsColumn: '操作'
     },
     function: {
+      tagsGroup: {
+        all: '全部',
+        api: 'API',
+        common: '公共'
+      },
       createFunction: '创建函数',
       functionName: '函数名称',
       functionNamePlaceholder: '请输入函数名称',

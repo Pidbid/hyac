@@ -318,6 +318,11 @@ const local: App.I18n.Schema = {
       actionsColumn: 'Actions'
     },
     function: {
+      tagsGroup: {
+        all: 'All',
+        api: 'API',
+        common: 'Common'
+      },
       createFunction: 'Create Function',
       functionName: 'Function Name',
       functionNamePlaceholder: 'Please enter function name',

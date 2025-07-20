@@ -6,15 +6,19 @@ import { request } from '../request';
  * @param appId
  * @param page
  * @param length
+ * @param type
+ * @param tag
  */
-export function GetFunctionData(appId: string, page: number, length: number) {
+export function GetFunctionData(appId: string, page: number, length: number, type?: string, tag?: string) {
   return request<Api.Function.GetFunctionData>({
     url: '/function/data',
     method: 'post',
     data: {
       appId,
       page,
-      length
+      length,
+      ...(type && { type }),
+      ...(tag && { tag })
     }
   });
 }
@@ -107,6 +111,21 @@ export function FunctionHistory(appId: string, id: string) {
     data: {
       appId,
       id
+    }
+  });
+}
+
+/**
+ * Get function tags
+ *
+ * @param appId
+ */
+export function getFunctionTags(appId: string) {
+  return request<string[]>({
+    url: '/function/tags',
+    method: 'post',
+    data: {
+      appId
     }
   });
 }

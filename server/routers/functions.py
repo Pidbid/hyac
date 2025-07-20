@@ -74,6 +74,8 @@ class FunctionDataRequestModel(BaseModel):
     appId: str
     page: int = 1
     length: int = 10
+    type: Optional[str] = None
+    tag: Optional[str] = None
 
 
 class FunctionUpdateCodeModel(BaseModel):
@@ -219,12 +221,16 @@ async def list_functions(
         return BaseResponse(code=404, msg="Application not found")
 
     # Build the query based on user authentication.
+    query_conditions = {"app_id": app.app_id}
     if not current_user:
-        query = Function.find(
-            Function.app_id == app.app_id, Function.requires_auth == False
-        )
-    else:
-        query = Function.find(Function.app_id == app.app_id)
+        query_conditions["requires_auth"] = False
+
+    if data.type:
+        query_conditions["function_type"] = data.type
+    if data.tag:
+        query_conditions["tags"] = data.tag
+
+    query = Function.find(query_conditions)
 
     total_count = await query.count()
     items = await query.skip((data.page - 1) * data.length).limit(data.length).to_list()
@@ -372,6 +378,34 @@ async def function_history(
         msg="Get function histories successfully",
         data={"data": function_histories},
     )
+
+
+class TagsRequestModel(BaseModel):
+    appId: str
+
+
+@router.post("/tags", response_model=BaseResponse)
+async def get_tags(data: TagsRequestModel, current_user=Depends(get_current_user)):
+    """
+    Get all unique tags for a given application.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        return BaseResponse(code=404, msg="Application not found")
+
+    pipeline = [
+        {"$match": {"app_id": data.appId}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags"}},
+        {"$project": {"tag": "$_id", "_id": 0}},
+    ]
+
+    tags_cursor = Function.aggregate(pipeline)
+    tags = [doc["tag"] for doc in await tags_cursor.to_list(length=None)]
+
+    return BaseResponse(code=0, msg="success", data=tags)
 
 
 @router.post("/proxy_test")
