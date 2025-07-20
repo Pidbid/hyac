@@ -73,7 +73,6 @@ services:
       - "--providers.file.watch=true"
       - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
