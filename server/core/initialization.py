@@ -338,11 +338,12 @@ class InitializationService:
         Checks if initialization is needed and runs all initialization tasks.
         This is triggered if INIT_DEMO_FUNCTION is true and the database is empty or DEBUG is on.
         """
-        # Generate Traefik config for the console on every startup.
-        create_traefik_console_config()
+        # Deprecated: Front-end is now served by Nginx, not MinIO.
+        # create_traefik_console_config()
 
         if await cls._is_database_empty():
-            await cls.initialize_console_bucket()
+            # Deprecated: Front-end is now served by Nginx, not MinIO.
+            # await cls.initialize_console_bucket()
             await cls.initialize_default_user()
             await cls.initialize_demo_application()
             # Dependencies will be installed by the app container on startup.

@@ -1,0 +1,18 @@
+# Use the official Node.js 20 image as a parent image
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm@10.11.0
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy all source code first to handle pnpm workspace correctly
+COPY . .
+
+# Install dependencies using --shamefully-hoist to avoid symlink issues in some Docker environments
+RUN pnpm install
+
+# The command to start the Vite dev server
+# The --host flag is important to expose the server to the Docker network
+CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "9527"]

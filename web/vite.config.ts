@@ -8,9 +8,6 @@ import monacoEditorPlugin from "vite-plugin-monaco-editor-esm";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
 import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
-import { fileURLToPath } from "url";
-// @ts-ignore
-import path from "path";
 // @ts-ignore
 import fs from "fs";
 
@@ -111,8 +108,8 @@ export default defineConfig((configEnv) => {
     server: {
       host: "0.0.0.0",
       port: 9527,
-      open: true,
       proxy: createViteProxy(viteEnv, enableProxy),
+      allowedHosts: ["console.dev.hyacos.top"],
     },
     preview: {
       port: 9725,
