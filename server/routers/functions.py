@@ -1,5 +1,6 @@
 # routers/services/functions.py
 import math
+import re
 import httpx
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -140,8 +141,13 @@ async def create_function(
     if await Function.find_one(
         Function.function_name == data.name, Function.app_id == app.app_id
     ):
-        raise HTTPException(
-            status_code=409, detail="Function with this name already exists"
+        return BaseResponse(code=309, msg="Function with this name already exists")
+
+    # Check if the common function name contains Chinese characters.
+    if data.type == FunctionType.COMMON and re.search(r"[\u4e00-\u9fa5]", data.name):
+        return BaseResponse(
+            code=308,
+            msg="Common function name can only be in English.",
         )
 
     code = ""
