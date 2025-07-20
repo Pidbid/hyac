@@ -422,7 +422,8 @@ const local: App.I18n.Schema = {
       bodyJson: 'Body (JSON)',
       sendRequest: '发送请求',
       response: '响应',
-      responsePlaceholder: '响应结果'
+      responsePlaceholder: '响应结果',
+      commonFunctionTestHint: '公共函数无法直接进行在线测试，请在其他函数中调用'
     },
     log: {
       loadFunctionListFailed: '加载函数列表失败',

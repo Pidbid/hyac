@@ -670,6 +670,7 @@ declare namespace App {
           sendRequest: string;
           response: string;
           responsePlaceholder: string;
+          commonFunctionTestHint: string;
         };
         log: {
           loadFunctionListFailed: string;

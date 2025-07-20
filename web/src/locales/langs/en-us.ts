@@ -422,7 +422,8 @@ const local: App.I18n.Schema = {
       bodyJson: 'Body (JSON)',
       sendRequest: 'Send Request',
       response: 'Response',
-      responsePlaceholder: 'Response result'
+      responsePlaceholder: 'Response result',
+      commonFunctionTestHint: 'Common functions cannot be tested online directly. Please call them in other functions.'
     },
     log: {
       loadFunctionListFailed: 'Failed to load function list',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NIcon, NCard, NList, NListItem, NThing, NTag, NEmpty, NTooltip, NScrollbar } from 'naive-ui';
-import { AddOutline, TrashSharp, CubeOutline, BrushOutline, HammerOutline } from '@vicons/ionicons5';
+import { AddOutline, TrashSharp, CubeOutline, BrushOutline, HammerOutline, ShareSocialOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
 defineProps<{
@@ -50,7 +50,18 @@ const emit = defineEmits(['create-function', 'select-function', 'delete-function
       <NList v-if="functions.length > 0" hoverable clickable>
         <NListItem v-for="func in functions" :key="func.id" @click="emit('select-function', func)"
           :class="{ 'selected-function-item': selectedFunctionId === func.id }">
-          <NThing :title="func.name">
+          <NThing>
+            <template #header>
+              <div class="flex items-center">
+                <span>{{ func.name }}</span>
+                <NTooltip v-if="func.type === 'common'" trigger="hover">
+                  <template #trigger>
+                    <NIcon :component="ShareSocialOutline" class="ml-2" />
+                  </template>
+                  {{ $t('page.function.commonFunction') }}
+                </NTooltip>
+              </div>
+            </template>
             <template #header-extra>
               <NTag size="small" type="error" :bordered="false" @click.stop="emit('delete-function', func)">
                 <template #icon>

@@ -276,7 +276,7 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
             codeChanged.value = false;
           }
         }
-        logStore.logs = [];
+        logStore.unsubscribe();
       }
     }
   });
@@ -751,7 +751,11 @@ onBeforeUnmount(() => {
               </NSplit>
             </template>
             <template #2>
-              <FunctionTestPanel :function-address="functionAddress" />
+              <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
+              <div v-else class="h-full w-full flex items-center justify-center">
+                <NEmpty :description="$t('page.function.commonFunctionTestHint')">
+                </NEmpty>
+              </div>
             </template>
           </NSplit>
         </div>
