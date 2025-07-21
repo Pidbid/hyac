@@ -320,9 +320,37 @@ docker_manager = DockerManager()
 
 # --- FaaS Specific High-Level Functions ---
 
-APP_IMAGE_NAME = "wicos/hyac_app:latest"  # Default production image
-if settings.DEV_MODE:
-    APP_IMAGE_NAME = "hyac_app:dev"  # Local development image
+
+def _get_server_image_tag() -> str:
+    """
+    Retrieves the image tag of the running 'hyac_server' container.
+    Falls back to 'latest' if the tag cannot be determined.
+    """
+    try:
+        client = docker.from_env()
+        server_container = client.containers.get("hyac_server")
+        image_name = server_container.image.tags[0]
+        # e.g., 'wicos/hyac_server:dev-0.0.1' -> 'dev-0.0.1'
+        tag = image_name.split(":")[-1]
+        logger.info(f"Successfully determined server image tag: {tag}")
+        return tag
+    except (errors.NotFound, IndexError, errors.DockerException) as e:
+        logger.warning(
+            f"Could not determine server image tag, falling back to 'latest'. Reason: {e}"
+        )
+        return "latest"
+
+
+def get_app_image_name() -> str:
+    """
+    Determines the appropriate image name for the 'hyac_app' container.
+    """
+    if settings.DEV_MODE:
+        return "hyac_app:dev"  # Use local dev image
+
+    tag = _get_server_image_tag()
+    return f"wicos/hyac_app:{tag}"
+
 
 # In-memory store for running app containers. A more robust solution might use Redis.
 running_apps: Dict[str, Dict[str, Any]] = {}
@@ -480,13 +508,14 @@ async def build_app_image_if_not_exists():
     if not docker_manager.client:
         logger.error("Docker client not initialized.")
         return
+    app_image_name = get_app_image_name()
     try:
-        docker_manager.client.images.get(APP_IMAGE_NAME)
-        logger.info(f"Docker image '{APP_IMAGE_NAME}' found and ready to use.")
+        docker_manager.client.images.get(app_image_name)
+        logger.info(f"Docker image '{app_image_name}' found and ready to use.")
     except errors.ImageNotFound:
         logger.error(
-            f"Docker image '{APP_IMAGE_NAME}' not found. "
-            f"Please ensure it was built correctly by running 'docker-compose -f docker-compose.dev.yml build app'."
+            f"Docker image '{app_image_name}' not found. "
+            f"Please ensure it was built correctly, e.g., by running 'docker-compose build app'."
         )
 
 
@@ -584,8 +613,9 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
     }
 
+    app_image_name = get_app_image_name()
     container = docker_manager.create_container(
-        image=APP_IMAGE_NAME,
+        image=app_image_name,
         name=container_name,
         environment=environment,
         network=network_name,
