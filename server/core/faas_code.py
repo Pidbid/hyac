@@ -147,6 +147,84 @@ async def handler(context, request, x: int = 10, y: int = 3):
     }
 """
 
+# --- Template for an Endpoint with Storage Operations ---
+endpoint_template_storage = """from loguru import logger
+from fastapi.responses import StreamingResponse
+
+# Note: The 'context' object provides access to 'minio_open'.
+# You don't need to import it directly from 'app.core.faas_minio'.
+# The FaaS environment injects it into the context.
+
+async def handler(context, request, action: str = "read_write"):
+    \"\"\"
+    An example demonstrating file operations with MinIO.
+    - action='read_write': Shows how to write and then read a file.
+    - action='stream': Shows how to stream a large file as a response.
+    \"\"\"
+    
+    file_path = "demo/my_test_file.txt"
+    
+    if action == "read_write":
+        logger.info("--- MinIO Read/Write Demo ---")
+        
+        # 1. Write to a file (buffered)
+        content_to_write = "Hello from Hyac FaaS! This is a test."
+        try:
+            with context.minio_open(file_path, "w", encoding="utf-8") as f:
+                f.write(content_to_write)
+            logger.info(f"Successfully wrote to '{file_path}'")
+        except Exception as e:
+            logger.error(f"Error writing to file: {e}")
+            return {"status": "error", "operation": "write", "details": str(e)}
+
+        # 2. Read from the file (buffered)
+        read_content = ""
+        try:
+            with context.minio_open(file_path, "r", encoding="utf-8") as f:
+                read_content = f.read()
+            logger.info(f"Successfully read from '{file_path}'")
+        except Exception as e:
+            logger.error(f"Error reading file: {e}")
+            return {"status": "error", "operation": "read", "details": str(e)}
+            
+        return {
+            "status": "success",
+            "operation": "read_write",
+            "file_path": file_path,
+            "content_written": content_to_write,
+            "content_read": read_content
+        }
+
+    elif action == "stream":
+        logger.info("--- MinIO Streaming Demo ---")
+        
+        # For demonstration, first ensure a file exists to be streamed.
+        large_content = "This is a line in a large file.\\n" * 500
+        with context.minio_open(file_path, "w") as f:
+            f.write(large_content)
+        logger.info(f"Created a sample large file for streaming at '{file_path}'")
+
+        # Generator function to stream the file in chunks
+        def file_streamer(path: str, chunk_size: int = 8192):
+            try:
+                # Use streaming=True for efficient, chunked reading
+                with context.minio_open(path, "rb", streaming=True) as f:
+                    while True:
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
+                        yield chunk
+            except Exception as e:
+                logger.error(f"Streaming failed: {e}")
+
+        # Return a FastAPI StreamingResponse
+        # The FaaS runner must be able to handle this response type.
+        return StreamingResponse(file_streamer(file_path), media_type="text/plain")
+
+    else:
+        return {"status": "error", "message": "Invalid action specified. Use 'read_write' or 'stream'."}
+"""
+
 faas_templates = {
     "common": [
         {
@@ -170,6 +248,11 @@ faas_templates = {
             "name": "Calling a Common Function Example",
             "code": endpoint_template_common_call,
             "description": "Default endpoint template with calling a common function",
+        },
+        {
+            "name": "Storage Example (MinIO)",
+            "code": endpoint_template_storage,
+            "description": "Demonstrates buffered and streaming I/O with MinIO.",
         },
     ],
 }

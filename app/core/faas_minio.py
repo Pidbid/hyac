@@ -2,7 +2,7 @@
 import io
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import BinaryIO, Iterator, TextIO, Union
+from typing import BinaryIO, Iterator, TextIO, Union, cast
 
 from loguru import logger
 from minio.error import S3Error
@@ -15,7 +15,10 @@ app_id_context: ContextVar[str] = ContextVar("app_id_context")
 
 @contextmanager
 def minio_open(
-    file_path: str, mode: str = "r", encoding: str = "utf-8"
+    file_path: str,
+    mode: str = "r",
+    encoding: str = "utf-8",
+    streaming: bool = False,
 ) -> Iterator[Union[TextIO, BinaryIO]]:
     """
     A context manager to read from and write to MinIO objects as if they were local files.
@@ -25,9 +28,10 @@ def minio_open(
         file_path: The full path to the MinIO object, formatted as 'bucket_name/object_name'.
         mode: The file mode, similar to the built-in open() function.
         encoding: The encoding to use in text mode.
+        streaming: If True and in read-only mode, streams the file. Otherwise, buffers it.
 
     Yields:
-        A file-like object (StringIO or BytesIO) for interaction.
+        A file-like object for interaction.
     """
     if not minio_manager.client:
         raise IOError("MinIO client is not initialized.")
@@ -49,6 +53,43 @@ def minio_open(
     mode_exclusive = "x" in mode
     mode_update = "+" in mode
     mode_binary = "b" in mode
+
+    # --- Streaming Read Logic (if requested) ---
+    is_simple_read = mode_read and not (
+        mode_write or mode_append or mode_exclusive or mode_update
+    )
+
+    if is_simple_read and streaming:
+        response = None
+        try:
+            response = minio_manager.client.get_object(bucket_name, object_name)
+            stream: Union[TextIO, BinaryIO]
+            if mode_binary:
+                stream = cast(BinaryIO, response)
+            else:
+                # The response object is file-like and can be wrapped by TextIOWrapper.
+                # We cast it to satisfy the type checker.
+                stream = io.TextIOWrapper(cast(BinaryIO, response), encoding=encoding)
+
+            try:
+                yield stream
+            finally:
+                stream.close()
+
+        except S3Error as e:
+            if e.code == "NoSuchKey":
+                raise FileNotFoundError(f"File '{file_path}' not found.") from e
+            logger.error(f"MinIO streaming read failed for '{file_path}': {e}")
+            raise IOError(f"Could not access MinIO object '{file_path}'.") from e
+        except Exception as e:
+            logger.error(f"MinIO streaming read failed for '{file_path}': {e}")
+            raise IOError(f"Could not access MinIO object '{file_path}'.") from e
+        finally:
+            if response:
+                response.release_conn()
+        return  # We are done, exit the context manager.
+
+    # --- Buffered Read/Write Logic (Default behavior) ---
 
     # Validate mode combinations.
     if sum([mode_read, mode_write, mode_append, mode_exclusive]) > 1:
