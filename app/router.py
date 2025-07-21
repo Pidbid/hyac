@@ -207,7 +207,7 @@ async def dynamic_handler(
     except Exception as e:
         status = CallStatus.ERROR
         error_info = {"type": "Exception", "detail": str(e)}
-        log_sys.error("Unhandled exception in dynamic_handler: {}", e, exc_info=True)
+        logger.error("Unhandled exception in dynamic_handler: {}", e, exc_info=True)
         # For other unhandled exceptions, return a generic error.
         return {"code": 1, "msg": str(e), "data": None}
     finally:
