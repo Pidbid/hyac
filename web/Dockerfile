@@ -21,6 +21,9 @@ RUN pnpm build
 # This is the final, lightweight Nginx stage.
 FROM nginx:alpine
 
+# If you need
+# RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
+
 # Install gettext for envsubst
 RUN apk add --no-cache gettext
 
