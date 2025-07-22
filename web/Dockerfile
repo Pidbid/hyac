@@ -7,6 +7,11 @@ WORKDIR /app
 
 # Copy all source code and project files
 COPY . .
+# If needed, please uncomment.
+# RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
+
+# Install git, as some dependencies may require it
+RUN apk add --no-cache git
 
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
@@ -21,7 +26,7 @@ RUN pnpm build
 # This is the final, lightweight Nginx stage.
 FROM nginx:alpine
 
-# If you need
+# If needed, please uncomment.
 # RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
 
 # Install gettext for envsubst
@@ -36,6 +41,9 @@ COPY --from=builder /app/nginx.conf /etc/nginx/conf.d/default.conf
 # Copy the config template and entrypoint script
 COPY --from=builder /app/public/config.js.template /usr/share/nginx/html/config.js.template
 COPY --from=builder /app/entrypoint.sh /entrypoint.sh
+
+# Fix CRLF line endings to LF for Linux compatibility
+RUN sed -i 's/\r$//' /entrypoint.sh
 
 # Make the entrypoint script executable
 RUN chmod +x /entrypoint.sh
