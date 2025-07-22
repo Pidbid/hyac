@@ -557,7 +557,12 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     # Define the healthcheck for the app container
     healthcheck = {
-        "test": ["CMD", "curl", "-f", "http://localhost:8001/__runtime_health__"],
+        "test": [
+            "CMD",
+            "python",
+            "-c",
+            "import httpx; httpx.get('http://localhost:8001/__runtime_health__').raise_for_status()",
+        ],
         "interval": 10 * 1000000000,  # 10 seconds
         "timeout": 5 * 1000000000,  # 5 seconds
         "retries": 5,
