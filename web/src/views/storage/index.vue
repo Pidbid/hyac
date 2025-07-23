@@ -16,7 +16,8 @@ import {
   NDescriptions,
   NDescriptionsItem,
   NTag,
-  NEmpty
+  NEmpty,
+  type DataTableColumns
 } from 'naive-ui';
 import {
   FolderOutline,
@@ -30,7 +31,7 @@ import {
   CodeSlashOutline,
   ChevronForwardOutline
 } from '@vicons/ionicons5';
-import { listObjects, getDownloadUrl, uploadFile, deleteFile, deleteFolder, createFolder } from "@/service/api";
+import { listObjects, getDownloadUrl, uploadFile, deleteFile, deleteFiles, deleteFolder, createFolder } from "@/service/api";
 import { useApplicationStore } from '@/store/modules/application';
 
 const { t } = useI18n();
@@ -48,6 +49,7 @@ const files = ref<any[]>([]);
 
 // 选中的文件或文件夹
 const selectedFile = ref<any>(null);
+const checkedRowKeys = ref<(string | number)[]>([]);
 const previewUrl = ref<string | null>(null);
 const previewContent = ref<any>(null);
 const previewType = ref<'image' | 'video' | 'json' | 'other' | null>(null);
@@ -238,6 +240,7 @@ const handleRowClick = async (row: any, rowIndex: number) => {
     breadcrumbPath.value.push({ key: row.name, name: row.name, isFolder: true });
     await handleDataInit(); // 重新获取数据
     selectedFile.value = null; // 进入文件夹后清空文件选中状态
+    checkedRowKeys.value = [];
     previewUrl.value = null;
     previewContent.value = null;
     previewType.value = null;
@@ -252,6 +255,7 @@ const handleBreadcrumbClick = (path: any, index: number) => {
   breadcrumbPath.value = breadcrumbPath.value.slice(0, index + 1);
   handleDataInit(); // 重新获取数据
   selectedFile.value = null;
+  checkedRowKeys.value = [];
   previewUrl.value = null;
   previewContent.value = null;
   previewType.value = null;
@@ -292,6 +296,41 @@ const handleDeleteFile = (row: any) => {
           previewContent.value = null;
           previewType.value = null;
         }
+      } catch (err: any) {
+        message.destroyAll();
+        message.error(t('page.storage.deleteError', { message: err.message }));
+      }
+    }
+  });
+};
+
+const handleDeleteSelected = () => {
+  dialog.warning({
+    title: t('page.storage.confirmDelete'),
+    content: t('page.storage.deleteSelectedConfirm', { count: checkedRowKeys.value.length }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      message.loading(t('page.storage.deleting'), { duration: 0 });
+      try {
+        const { error } = await deleteFiles(applicationStore.appId, checkedRowKeys.value as string[]);
+        message.destroyAll();
+
+        if (error) {
+          message.error(t('page.storage.deleteFailed', { message: error.message }));
+          return;
+        }
+
+        message.success(t('page.storage.deleteSuccessPlural', { count: checkedRowKeys.value.length }));
+        await handleDataInit();
+
+        if (selectedFile.value && checkedRowKeys.value.includes(selectedFile.value.name)) {
+          selectedFile.value = null;
+          previewUrl.value = null;
+          previewContent.value = null;
+          previewType.value = null;
+        }
+        checkedRowKeys.value = [];
       } catch (err: any) {
         message.destroyAll();
         message.error(t('page.storage.deleteError', { message: err.message }));
@@ -352,7 +391,13 @@ const getFileIcon = (fileName: string) => {
   }
 };
 
-const createColumns = () => [
+const createColumns = (): DataTableColumns<any> => [
+  {
+    type: 'selection',
+    disabled(row: any) {
+      return row.type === 'folder';
+    }
+  },
   {
     key: 'icon',
     title: '',
@@ -441,6 +486,7 @@ const rowProps = (row: any) => {
 const handleBakToRootPath = async() =>{
   breadcrumbPath.value = [];
   await handleDataInit();
+  checkedRowKeys.value = [];
 }
 
 // --- 生命周期钩子 ---
@@ -468,6 +514,12 @@ onBeforeUnmount(() => {
         </NBreadcrumbItem>
       </NBreadcrumb>
       <NSpace>
+        <NButton v-if="checkedRowKeys.length > 0" size="small" type="error" @click="handleDeleteSelected">
+          <template #icon>
+            <NIcon :component="TrashOutline" />
+          </template>
+          {{ t('common.delete') }} ({{ checkedRowKeys.length }})
+        </NButton>
         <NButton size="small" @click="handleCreateFolder">
           <template #icon>
             <NIcon :component="FolderOpenOutline" />
@@ -489,7 +541,7 @@ onBeforeUnmount(() => {
       <NCard ref="tableContainerRef" class="flex-1 rounded-lg shadow-md" :bordered="false"
         :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }">
         <NDataTable :columns="columns" :data="files" :pagination="pagination" :bordered="false" :single-line="false"
-          :row-props="rowProps" :row-key="(row: any) => row.name" />
+          :row-props="rowProps" :row-key="(row: any) => row.name" v-model:checked-row-keys="checkedRowKeys" />
       </NCard>
       <!-- 右侧: 详情区域 -->
       <NCard :title="t('page.storage.detail')" class="w-80 rounded-lg shadow-md" :bordered="false"

@@ -752,6 +752,9 @@ declare namespace App {
           downloadFailed: string;
           name: string;
           actions: string;
+          deleteSelectedConfirm: string;
+          someDeletesFailed: string;
+          deleteSuccessPlural: string;
         };
         setting: {
           dependencies: string;

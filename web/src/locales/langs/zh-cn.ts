@@ -504,7 +504,10 @@ const local: App.I18n.Schema = {
       downloadStarted: '开始下载: {name}',
       downloadFailed: '下载失败: {message}',
       name: '名称',
-      actions: '操作'
+      actions: '操作',
+      deleteSelectedConfirm: '确定要删除选中的 {count} 个文件吗？',
+      someDeletesFailed: '有 {count} 个文件删除失败',
+      deleteSuccessPlural: '成功删除 {count} 个文件'
     },
     setting: {
       dependencies: '依赖管理',

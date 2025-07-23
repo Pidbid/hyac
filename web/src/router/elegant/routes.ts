@@ -150,7 +150,6 @@ export const generatedRoutes: GeneratedRoute[] = [
       icon: 'router-goods',
       localIcon: 'router-goods',
       order: 3,
-      keepAlive: true
     }
   }
 ];

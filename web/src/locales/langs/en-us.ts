@@ -504,7 +504,10 @@ const local: App.I18n.Schema = {
       downloadStarted: 'Download started: {name}',
       downloadFailed: 'Download failed: {message}',
       name: 'Name',
-      actions: 'Actions'
+      actions: 'Actions',
+      deleteSelectedConfirm: 'Are you sure you want to delete the selected {count} files?',
+      someDeletesFailed: '{count} files failed to delete',
+      deleteSuccessPlural: 'Successfully deleted {count} files'
     },
     setting: {
       dependencies: 'Dependencies',
