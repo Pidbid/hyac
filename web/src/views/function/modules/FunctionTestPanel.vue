@@ -249,12 +249,12 @@ watch(testMethod, (newMethod) => {
             </NText>
           </div>
 
-          <NTabs type="card" class="flex-1 flex flex-col">
-            <NTabPane name="body" tab="Body">
-              <NInput v-model:value="testResultContent" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" readonly class="flex-1" style="height: 200px" />
+          <NTabs type="card" class="flex-1 flex flex-col" :content-style="{ flex: 1, minHeight: 0 }">
+            <NTabPane name="body" tab="Body" class="flex-1 flex flex-col">
+              <NInput v-model:value="testResultContent" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" readonly class="flex-1" style="min-height: 200px" :input-props="{ style: { height: '100%' } }" resizable />
             </NTabPane>
-            <NTabPane name="headers" tab="Headers">
-              <NScrollbar style="max-height: 200px">
+            <NTabPane name="headers" tab="Headers" class="flex-1 flex flex-col">
+              <NScrollbar class="flex-1">
                 <NCode :code="JSON.stringify(testResultHeaders, null, 2)" language="json" />
               </NScrollbar>
             </NTabPane>
