@@ -9,7 +9,8 @@ const local: App.I18n.Schema = {
   common: {
     action: {
       _self: 'Action',
-      select: 'Select'
+      select: 'Select',
+      edit: 'Edit'
     },
     add: 'Add',
     addSuccess: 'Add Success',
@@ -26,6 +27,8 @@ const local: App.I18n.Schema = {
     deleteSuccess: 'Delete Success',
     confirmDelete: 'Are you sure you want to delete?',
     edit: 'Edit',
+    editSuccess:'Edit Success',
+    editFailed:'Edit Failed',
     warning: 'Warning',
     error: 'Error',
     index: 'Index',

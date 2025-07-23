@@ -308,6 +308,7 @@ declare namespace App {
         action: {
           _self: string;
           select: string;
+          edit: string;
         };
         add: string;
         addSuccess: string;
@@ -324,6 +325,8 @@ declare namespace App {
         deleteSuccess: string;
         confirmDelete: string;
         edit: string;
+        editSuccess: string;
+        editFailed: string;
         warning: string;
         error: string;
         index: string;

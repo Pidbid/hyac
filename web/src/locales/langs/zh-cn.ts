@@ -9,7 +9,8 @@ const local: App.I18n.Schema = {
   common: {
     action: {
       _self: '操作',
-      select: '选择'
+      select: '选择',
+      edit: '编辑'
     },
     add: '新增',
     addSuccess: '添加成功',
@@ -26,6 +27,8 @@ const local: App.I18n.Schema = {
     deleteSuccess: '删除成功',
     confirmDelete: '确认删除吗？',
     edit: '编辑',
+    editSuccess: '编辑成功',
+    editFailed: '编辑失败',
     warning: '警告',
     error: '错误',
     index: '序号',

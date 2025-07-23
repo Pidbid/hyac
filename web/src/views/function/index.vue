@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick } from 'vue';
-import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch } from 'naive-ui';
-import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline } from '@vicons/ionicons5';
+import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch, NSpace } from 'naive-ui';
+import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline, LinkOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
@@ -485,6 +485,59 @@ const handleEditMeta = () => {
 };
 
 
+const handleEditDependence = (dep: Api.Settings.Dependency) => {
+  const editPackageName = ref(dep.name);
+  const editPackageVersion = ref(dep.version);
+  const editVersionOptions = ref<any[]>([]);
+  const editVersionLoading = ref(true);
+
+  const fetchVersions = async () => {
+    const appId = applicationStore.appId;
+    const { data, error } = await packageInfo(appId, editPackageName.value);
+    if (!error && data?.versions) {
+      editVersionOptions.value = data.versions.map((v: string) => ({ label: v, value: v }));
+    } else {
+      message.error($t('page.function.getPackageInfoFailed'));
+    }
+    editVersionLoading.value = false;
+  };
+
+  fetchVersions();
+
+  const d = dialog.info({
+    title: `${$t('common.action.edit')} - ${dep.name}`,
+    content: () =>
+      h(NForm, { labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
+        default: () => [
+          h(NFormItem, { label: $t('page.function.version') }, {
+            default: () => h(NSelect, {
+              value: editPackageVersion.value,
+              options: editVersionOptions.value,
+              loading: editVersionLoading.value,
+              onUpdateValue: value => {
+                editPackageVersion.value = value;
+              }
+            })
+          })
+        ]
+      }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const appId = applicationStore.appId;
+      if (appId && editPackageName.value) {
+        const { error } = await packageAdd(appId, editPackageName.value, editPackageVersion.value);
+        if (!error) {
+          message.success($t('common.editSuccess'));
+          await handleDependence(false);
+        } else {
+          message.error($t('common.editFailed'));
+        }
+      }
+    }
+  });
+}
+
 const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
   dialog.warning({
     title: $t('page.function.confirmDeleteDependence'),
@@ -629,10 +682,27 @@ const handleDependence = async (showDialog: boolean = true) => {
             default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
               default: () => commonDependencies.value.length > 0 ? h(NList, { hoverable: true, clickable: true, bordered: true }, {
                 default: () => commonDependencies.value.map((dep) => h(NListItem, {}, {
-                  default: () => h(NThing, { title: dep.name, description: dep.version }, {
-                    "header-extra": () => h(NButton, { quaternary: true, circle: true, type: 'error', onClick: () => handleDeleteDependence(dep) }, {
-                      default: () => h(NIcon, { component: CloseOutline, size: 22 })
-                    })
+                  default: () => h(NThing, { description: dep.version }, {
+                    header: () => h(NSpace, { align: 'center' }, () => [
+                      h('span', dep.name),
+                      h(
+                        'a',
+                        {
+                          href: `https://pypi.org/project/${dep.name}`,
+                          target: '_blank',
+                          class: 'text-gray-400 hover:text-primary flex items-center'
+                        },
+                        h(NIcon, { component: LinkOutline, size: 22 })
+                      )
+                    ]),
+                    "header-extra": () => h(NButtonGroup, {}, () => [
+                      h(NButton, { quaternary: true, circle: true, type: 'primary', onClick: () => handleEditDependence(dep) }, {
+                        default: () => h(NIcon, { component: BrushOutline, size: 18 })
+                      }),
+                      h(NButton, { quaternary: true, circle: true, type: 'error', onClick: () => handleDeleteDependence(dep) }, {
+                        default: () => h(NIcon, { component: CloseOutline, size: 22 })
+                      })
+                    ])
                   })
                 }))
               }) : h(NEmpty, { description: $t('page.function.noDependence'), class: "h-full flex items-center justify-center" })

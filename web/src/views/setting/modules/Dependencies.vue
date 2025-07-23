@@ -16,7 +16,7 @@ import {
   useDialog,
   NInputGroup
 } from 'naive-ui';
-import { AddOutline, CubeOutline, TrashOutline, SearchOutline } from '@vicons/ionicons5';
+import { AddOutline, CubeOutline, TrashOutline, SearchOutline, BrushOutline, LinkOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
 import { dependenciesData, packageAdd, packageRemove, dependenceSearch, packageInfo } from '@/service/api/settings';
@@ -70,8 +70,17 @@ const userColumns = [
     key: 'name',
     render(row: any) {
       return h('div', { class: 'flex items-center' }, [
-        h(NIcon, { component: CubeOutline, class: 'mr-2 text-gray-500' }),
-        h('span', row.name)
+        h(NIcon, { component: CubeOutline, size: 20, class: 'mr-2 text-gray-500' }),
+        h('span', row.name),
+        h(
+          'a',
+          {
+            href: `https://pypi.org/project/${row.name}`,
+            target: '_blank',
+            class: 'ml-2 text-gray-400 hover:text-primary flex items-center'
+          },
+          h(NIcon, { component: LinkOutline, size: 22 })
+        )
       ]);
     }
   },
@@ -82,19 +91,32 @@ const userColumns = [
   {
     title: $t('common.action._self'),
     key: 'actions',
-    width: 100,
+    width: 150,
     render(row: any) {
-      return h(
-        NButton,
-        {
-          strong: true,
-          tertiary: true,
-          circle: true,
-          type: 'error',
-          onClick: () => handleDelete(row)
-        },
-        { default: () => h(NIcon, { component: TrashOutline }) }
-      );
+      return h(NSpace, {}, () => [
+        h(
+          NButton,
+          {
+            strong: true,
+            tertiary: true,
+            circle: true,
+            type: 'primary',
+            onClick: () => handleEdit(row)
+          },
+          { default: () => h(NIcon, { component: BrushOutline }) }
+        ),
+        h(
+          NButton,
+          {
+            strong: true,
+            tertiary: true,
+            circle: true,
+            type: 'error',
+            onClick: () => handleDelete(row)
+          },
+          { default: () => h(NIcon, { component: TrashOutline }) }
+        )
+      ]);
     }
   }
 ];
@@ -142,7 +164,7 @@ async function handleSearch(query: string) {
   const appId = applicationStore.appInfo.appId;
   const { data } = await dependenceSearch(appId, query);
   if (data) {
-    searchResults.value = data.map((item: string) => ({ label: item, value: item }));
+    searchResults.value = data.map((item: Api.Settings.PackageInfo) => ({ label: item.name, value: item.name }));
   }
   searchLoading.value = false;
 }
@@ -187,6 +209,56 @@ async function handleAddPackage() {
       message.error($t('common.addFailed'));
     }
   }
+}
+
+function handleEdit(row: Api.Settings.Dependency) {
+  const editPackageName = ref(row.name);
+  const editPackageVersion = ref(row.version);
+  const editVersionOptions = ref<any[]>([]);
+  const editVersionLoading = ref(true);
+
+  const fetchVersions = async () => {
+    const appId = applicationStore.appInfo.appId;
+    const { data, error } = await packageInfo(appId, editPackageName.value);
+    if (!error && data?.versions) {
+      editVersionOptions.value = data.versions.map((v: string) => ({ label: v, value: v }));
+    } else {
+      message.error($t('page.function.getPackageInfoFailed'));
+    }
+    editVersionLoading.value = false;
+  };
+
+  fetchVersions();
+
+  dialog.info({
+    title: `${$t('common.action.edit')} - ${row.name}`,
+    content: () =>
+      h(NSpace, { vertical: true, class: 'pt-4' }, () => [
+        h(NSelect, {
+          value: editPackageVersion.value,
+          options: editVersionOptions.value,
+          loading: editVersionLoading.value,
+          onUpdateValue: value => {
+            editPackageVersion.value = value;
+          }
+        })
+      ]),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const appId = applicationStore.appInfo.appId;
+      if (appId && editPackageName.value) {
+        const { error } = await packageAdd(appId, editPackageName.value, editPackageVersion.value);
+        if (!error) {
+          message.success($t('common.editSuccess'));
+          fetchData();
+          promptRestart();
+        } else {
+          message.error($t('common.editFailed'));
+        }
+      }
+    }
+  });
 }
 
 function handleDelete(row: Api.Settings.Dependency) {
