@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { h } from 'vue';
-import { NCard, NButton, NSpace, useDialog, useMessage, NText, NDivider } from 'naive-ui';
+import { h, ref } from 'vue';
+import { NCard, NButton, NSpace, useDialog, useMessage, NText, NInput } from 'naive-ui';
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
 import { restartApp, stopApp, deleteApp } from '@/service/api/app';
@@ -52,6 +52,7 @@ const handleStop = () => {
 };
 
 const handleDelete = () => {
+  const inputValue = ref('');
   dialog.error({
     title: $t('page.setting.confirmDeleteApp'),
     content: () =>
@@ -60,17 +61,25 @@ const handleDelete = () => {
         h('p', $t('page.setting.deleteAppConfirm2')),
         h('p', [
           $t('page.setting.deleteAppConfirm3'),
-          h(NText, { type: 'error', strong: true }, ` ${applicationStore.appInfo.appName} `),
+          h(NText, { type: 'error', strong: true }, ` ${applicationStore.appInfo.appId} `),
           $t('page.setting.deleteAppConfirm4')
-        ])
+        ]),
+        h(NInput, {
+          value: inputValue.value,
+          onInput: (e: any) => (inputValue.value = e.target.value),
+          placeholder: $t('page.setting.deleteAppInputPlaceholder')
+        })
       ]),
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
+      if (inputValue.value !== applicationStore.appInfo.appId) {
+        message.error($t('page.setting.incorrectAppId'));
+        return;
+      }
       const { error } = await deleteApp(applicationStore.appInfo.appId);
       if (!error) {
         message.success($t('page.setting.deleteInitiated'));
-        // Redirect to home page after deletion
         router.push({ name: 'home' });
       } else {
         message.error($t('page.setting.deleteFailed'));

@@ -808,6 +808,8 @@ declare namespace App {
           deleteAppConfirm2: string;
           deleteAppConfirm3: string;
           deleteAppConfirm4: string;
+          deleteAppInputPlaceholder: string;
+          incorrectAppId: string;
           deleteInitiated: string;
           deleteFailed: string;
           general: string;
