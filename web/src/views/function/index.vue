@@ -13,6 +13,7 @@ import {
   CreateFunction,
   GetFunctionData,
   UpdateFunctionCode,
+  UpdateFunctionMeta,
   DeleteFunction,
   FunctionHistory,
   getFunctionTemplates,
@@ -410,6 +411,73 @@ const handleFunctionEditorSetting = () => {
   });
 };
 
+const handleEditMeta = () => {
+  const formRef = ref<any>(null);
+  const localEditData = reactive({
+    name: selectedFunction.value.name,
+    description: selectedFunction.value.description,
+    tags: selectedFunction.value.tags
+  });
+
+  const rules = {
+    name: { required: true, message: $t('page.function.functionNamePlaceholder'), trigger: 'blur' }
+  };
+
+  const d = dialog.info({
+    title: $t('page.function.editFunction'),
+    content: () => h(NForm, { ref: formRef, model: localEditData, rules: rules, labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
+      default: () => [
+        h(NFormItem, { label: $t('page.function.functionName'), path: 'name' }, {
+          default: () => h(NInput, {
+            placeholder: $t('page.function.functionNamePlaceholder'),
+            value: localEditData.name,
+            onUpdateValue: (value) => localEditData.name = value
+          })
+        }),
+        h(NFormItem, { label: $t('page.function.functionDescription') }, {
+          default: () => h(NInput, {
+            type: 'textarea',
+            placeholder: $t('page.function.functionDescriptionPlaceholder'),
+            value: localEditData.description,
+            onUpdateValue: (value) => localEditData.description = value
+          })
+        }),
+        h(NFormItem, { label: $t('page.function.tags') }, {
+          default: () => h(NInput, {
+            placeholder: $t('page.function.tagsPlaceholder'),
+            value: localEditData.tags.join(','),
+            onUpdateValue: (value) => localEditData.tags = value.split(',').map(tag => tag.trim())
+          })
+        }),
+      ]
+    }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await UpdateFunctionMeta(
+            applicationStore.appId,
+            selectedFunction.value.id,
+            localEditData.name,
+            localEditData.description,
+            localEditData.tags
+          );
+          if (!error) {
+            message.success($t('page.function.updateSuccess'));
+            selectedFunction.value.name = localEditData.name;
+            selectedFunction.value.description = localEditData.description;
+            selectedFunction.value.tags = localEditData.tags;
+            await fetchTags();
+          } else {
+            message.error($t('page.function.updateFailed'));
+          }
+        }
+      });
+    }
+  });
+};
+
 
 const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
   dialog.warning({
@@ -779,7 +847,7 @@ onBeforeUnmount(() => {
               <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
                   <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" :is-saving="isSaving" @save-code="handleSaveCode" :editor-config="editorConfig"
-                    @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
+                    @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" @edit-meta="handleEditMeta" />
                 </template>
                 <template #2>
                   <FunctionLogPanel :logs="logStore.logs" />

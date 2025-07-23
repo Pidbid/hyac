@@ -43,6 +43,29 @@ export function UpdateFunctionCode(appId: string, id: string, code: string) {
 }
 
 /**
+ * UpdateFunctionMeta
+ *
+ * @param appId
+ * @param id
+ * @param name
+ * @param description
+ * @param tags
+ */
+export function UpdateFunctionMeta(appId: string, id: string, name: string, description: string, tags: string[]) {
+  return request<Api.Function.GetFunctionData>({
+    url: '/function/update_meta',
+    method: 'post',
+    data: {
+      appId,
+      id,
+      name,
+      description,
+      tags
+    }
+  });
+}
+
+/**
  * CreateFunction
  *
  * @param appId

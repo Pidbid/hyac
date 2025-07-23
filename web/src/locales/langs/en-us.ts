@@ -315,7 +315,8 @@ const local: App.I18n.Schema = {
       emptyDescription: 'Select a document to edit or create a new one',
       idColumn: 'ID',
       contentColumn: 'Content',
-      actionsColumn: 'Actions'
+      actionsColumn: 'Actions',
+      noCollections: 'No collections, go and create one'
     },
     function: {
       tagsGroup: {
@@ -324,6 +325,7 @@ const local: App.I18n.Schema = {
         common: 'Common'
       },
       createFunction: 'Create Function',
+      editFunction: 'Edit Function',
       functionName: 'Function Name',
       functionNamePlaceholder: 'Please enter function name',
       functionType: 'Function Type',

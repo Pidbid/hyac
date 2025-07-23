@@ -315,7 +315,8 @@ const local: App.I18n.Schema = {
       emptyDescription: '选择一个文档进行编辑或创建新文档',
       idColumn: 'ID',
       contentColumn: '内容',
-      actionsColumn: '操作'
+      actionsColumn: '操作',
+      noCollections: '暂无集合，快去创建一个吧'
     },
     function: {
       tagsGroup: {
@@ -324,6 +325,7 @@ const local: App.I18n.Schema = {
         common: '公共'
       },
       createFunction: '创建函数',
+      editFunction: '编辑函数',
       functionName: '函数名称',
       functionNamePlaceholder: '请输入函数名称',
       functionType: '函数类型',

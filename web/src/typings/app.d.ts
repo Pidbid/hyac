@@ -563,6 +563,7 @@ declare namespace App {
           idColumn: string;
           contentColumn: string;
           actionsColumn: string;
+          noCollections: string;
         };
         function: {
           tagsGroup: {
@@ -571,6 +572,7 @@ declare namespace App {
             common: string;
           };
           createFunction: string;
+          editFunction: string;
           functionName: string;
           functionNamePlaceholder: string;
           functionType: string;
