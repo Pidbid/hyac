@@ -5,7 +5,7 @@ import { TerminalOutline, EaselOutline, ReaderOutline } from '@vicons/ionicons5'
 import { $t } from '@/locales';
 
 const props = defineProps<{
-  logs: Api.Function.FunctionLogsInfo[];
+  logs: readonly Api.Function.FunctionLogsInfo[];
 }>();
 
 const logFilter = ref<Api.Function.LogType | 'all'>('all');
@@ -64,8 +64,8 @@ const filteredLogs = computed(() => {
     <NScrollbar class="h-full">
       <NFlex v-for="log in filteredLogs" :key="log._id">
         <div class="color-info">{{ log.timestamp }}</div>
-        <div v-if="log.logtype === 'function'" class="`color-${log.level}`">{{ log.level }}</div>
-        <div v-if="log.logtype === 'system'" class="`color-${log.level}`">{{ log.level }}(system)</div>
+        <div v-if="log.logtype === 'function'" :class="`color-${log.level}`">{{ log.level }}</div>
+        <div v-if="log.logtype === 'system'" :class="`color-${log.level}`">{{ log.level }}(system)</div>
         <div v-if="log.logtype === 'function'" class="color-blue">{{ log.message }}</div>
         <div v-if="log.logtype === 'system'" class="color-black">{{ log.message }}</div>
       </NFlex>

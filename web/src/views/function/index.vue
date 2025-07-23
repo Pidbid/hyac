@@ -468,6 +468,12 @@ const handleEditMeta = () => {
             selectedFunction.value.name = localEditData.name;
             selectedFunction.value.description = localEditData.description;
             selectedFunction.value.tags = localEditData.tags;
+            const index = functions.value.findIndex(f => f.id === selectedFunction.value.id);
+            if (index !== -1) {
+              functions.value[index].name = localEditData.name;
+              functions.value[index].description = localEditData.description;
+              functions.value[index].tags = localEditData.tags;
+            }
             await fetchTags();
           } else {
             message.error($t('page.function.updateFailed'));
@@ -820,9 +826,6 @@ onMounted(async () => {
   await fetchTags();
   await getFunctionData();
   logStore.connect();
-  if (selectedFunction.value.id) {
-    logStore.subscribe(selectedFunction.value.id);
-  }
 });
 
 onBeforeUnmount(() => {

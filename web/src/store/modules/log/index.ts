@@ -19,7 +19,6 @@ export const useLogStore = defineStore('log-store', () => {
       ws.value.send(messageStr);
     } else {
       messageQueue.value.push(messageStr);
-      connect(); // 如果未连接，则尝试连接
     }
   }
 
@@ -45,7 +44,11 @@ export const useLogStore = defineStore('log-store', () => {
 
     logs.value = [];
 
-    const wsUrl = `ws://localhost:9527/proxy-default/logs/websocket_logs/${applicationStore.appId}?token=${token}`;
+    const baseUrl = import.meta.env.VITE_SERVICE_BASE_URL;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    // Extract host from baseUrl, removing http/https protocol and any trailing slash
+    const host = baseUrl.replace(/^(http|https):\/\//, '').replace(/\/$/, '');
+    const wsUrl = `${wsProtocol}://${host}/logs/websocket_logs/${applicationStore.appId}?token=${token}`;
     ws.value = new WebSocket(wsUrl);
 
     ws.value.onopen = () => {
@@ -99,11 +102,19 @@ export const useLogStore = defineStore('log-store', () => {
   }
 
   function subscribe(funcId: string) {
-    if (currentFuncId.value === funcId && isConnected.value) {
+    // If we are already subscribed to this function, do nothing.
+    if (currentFuncId.value === funcId) {
       return;
     }
+
+    // If we were subscribed to a different function, unsubscribe from it first.
+    if (currentFuncId.value) {
+      _sendMessage({ type: 'unsubscribe' });
+    }
+
+    // Now, subscribe to the new function.
     currentFuncId.value = funcId;
-    logs.value = [];
+    logs.value = []; // Clear logs for the new function
     _sendMessage({ type: 'subscribe', funcId });
   }
 
