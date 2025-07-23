@@ -17,6 +17,7 @@ import {
   NDescriptionsItem,
   NTag,
   NEmpty,
+  NSplit,
   type DataTableColumns
 } from 'naive-ui';
 import {
@@ -29,7 +30,8 @@ import {
   ImageOutline,
   VideocamOutline,
   CodeSlashOutline,
-  ChevronForwardOutline
+  ChevronForwardOutline,
+  MusicalNotesOutline
 } from '@vicons/ionicons5';
 import { listObjects, getDownloadUrl, uploadFile, deleteFile, deleteFiles, deleteFolder, createFolder } from "@/service/api";
 import { useApplicationStore } from '@/store/modules/application';
@@ -52,7 +54,7 @@ const selectedFile = ref<any>(null);
 const checkedRowKeys = ref<(string | number)[]>([]);
 const previewUrl = ref<string | null>(null);
 const previewContent = ref<any>(null);
-const previewType = ref<'image' | 'video' | 'json' | 'other' | null>(null);
+const previewType = ref<'image' | 'video' | 'json' | 'other' | 'audio' | null>(null);
 
 
 // 表格高度计算
@@ -117,6 +119,9 @@ const getFileTypeForPreview = (fileName: string) => {
   }
   if (['mp4', 'mov', 'avi', 'wmv', 'webm'].includes(extension)) {
     return 'video';
+  }
+  if (['mp3', 'wav', 'ogg'].includes(extension)) {
+    return 'audio';
   }
   if (extension === 'json') {
     return 'json';
@@ -379,6 +384,10 @@ const getFileIcon = (fileName: string) => {
     case 'wmv':
     case 'webm':
       return VideocamOutline;
+    case 'mp3':
+    case 'wav':
+    case 'ogg':
+      return MusicalNotesOutline;
     case 'py':
     case 'js':
     case 'ts':
@@ -536,67 +545,78 @@ onBeforeUnmount(() => {
     </header>
 
     <!-- 主内容区: 左侧列表 + 右侧详情 -->
-    <div class="flex-1 flex gap-4 min-h-0">
-      <!-- 左侧: 文件列表 -->
-      <NCard ref="tableContainerRef" class="flex-1 rounded-lg shadow-md" :bordered="false"
-        :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }">
-        <NDataTable :columns="columns" :data="files" :pagination="pagination" :bordered="false" :single-line="false"
-          :row-props="rowProps" :row-key="(row: any) => row.name" v-model:checked-row-keys="checkedRowKeys" />
-      </NCard>
-      <!-- 右侧: 详情区域 -->
-      <NCard :title="t('page.storage.detail')" class="w-80 rounded-lg shadow-md" :bordered="false"
-        :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
-        <div v-if="selectedFile" class="h-full flex flex-col gap-4">
-          <!-- Preview Area -->
-          <div class="preview-area flex-shrink-0">
-            <!-- Image Preview -->
-            <div v-if="previewType === 'image' && previewUrl" class="flex-center">
-              <img :src="previewUrl" alt="Image Preview" class="max-w-full max-h-48 object-contain">
-            </div>
-            <!-- Video Preview -->
-            <div v-else-if="previewType === 'video' && previewUrl" class="flex-center">
-              <video :src="previewUrl" controls class="max-w-full max-h-48"></video>
-            </div>
-            <!-- JSON Preview -->
-            <div v-else-if="previewType === 'json' && previewContent !== null">
-              <jsonEditor v-model="previewContent" :height="200" />
-            </div>
-          </div>
-
-          <!-- Details Area -->
-          <div class="details-area flex-grow">
-            <NSpace vertical :size="16">
-              <div class="text-center">
-                <NIcon v-if="!previewType || previewType === 'other'" :component="getFileIcon(selectedFile.name)"
-                  size="48" :color="selectedFile.type === 'folder' ? '#ffca28' : '#607d8b'" />
-                <div class="font-bold mt-2 break-all">{{ selectedFile.name }}</div>
+    <NSplit class="flex-1 min-h-0" :default-size="0.85" resizable>
+      <template #1>
+        <!-- 左侧: 文件列表 -->
+        <NCard ref="tableContainerRef" class="h-full rounded-lg shadow-md" :bordered="false"
+          :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }">
+          <NDataTable :columns="columns" :data="files" :pagination="pagination" :bordered="false" :single-line="false"
+            :row-props="rowProps" :row-key="(row: any) => row.name" v-model:checked-row-keys="checkedRowKeys" />
+        </NCard>
+      </template>
+      <template #2>
+        <!-- 右侧: 详情区域 -->
+        <NCard :title="t('page.storage.detail')" class="h-full rounded-lg shadow-md" :bordered="false"
+          :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
+          <div v-if="selectedFile" class="h-full flex flex-col gap-4">
+            <!-- Preview Area -->
+            <div class="preview-area flex-shrink-0">
+              <!-- Image Preview -->
+              <div v-if="previewType === 'image' && previewUrl" class="flex-center">
+                <img :src="previewUrl" alt="Image Preview" class="max-w-full max-h-48 object-contain">
               </div>
-              <NDescriptions label-placement="left" :column="1" bordered size="small">
-                <NDescriptionsItem :label="t('page.storage.type')">
-                  <NTag size="small" :type="selectedFile.type === 'folder' ? 'info' : 'success'">
-                    {{ selectedFile.type === 'folder' ? t('page.storage.folder') : t('page.storage.file') }}
-                  </NTag>
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('page.storage.size')">{{ selectedFile.size }}</NDescriptionsItem>
-                <NDescriptionsItem :label="t('page.storage.modifiedDate')">{{ selectedFile.modified }}</NDescriptionsItem>
-              </NDescriptions>
-              <NButton type="primary" block @click="handleDownloadFile(selectedFile)"
-                v-if="selectedFile.type === 'file'">
-                <template #icon>
-                  <NIcon :component="CloudDownloadOutline" />
-                </template>
-                {{ t('page.storage.download') }}
-              </NButton>
-            </NSpace>
+              <!-- Media Player Preview -->
+              <div v-else-if="(previewType === 'video' || previewType === 'audio') && previewUrl">
+                <div :key="previewUrl">
+                  <!-- Video Player -->
+                  <div v-if="previewType === 'video'">
+                    <video :src="previewUrl" controls class="max-w-full max-h-48"></video>
+                  </div>
+                  <!-- Native Audio Player -->
+                  <audio v-else-if="previewType === 'audio'" :src="previewUrl" controls class="w-full"></audio>
+                </div>
+              </div>
+              <!-- JSON Preview -->
+              <div v-else-if="previewType === 'json' && previewContent !== null">
+                <jsonEditor v-model="previewContent" :height="200" />
+              </div>
+            </div>
+
+            <!-- Details Area -->
+            <div class="details-area flex-grow">
+              <NSpace vertical :size="16">
+                <div class="text-center">
+                  <NIcon v-if="!previewType || previewType === 'other'" :component="getFileIcon(selectedFile.name)"
+                    size="48" :color="selectedFile.type === 'folder' ? '#ffca28' : '#607d8b'" />
+                  <div class="font-bold mt-2 break-all">{{ selectedFile.name }}</div>
+                </div>
+                <NDescriptions label-placement="left" :column="1" bordered size="small">
+                  <NDescriptionsItem :label="t('page.storage.type')">
+                    <NTag size="small" :type="selectedFile.type === 'folder' ? 'info' : 'success'">
+                      {{ selectedFile.type === 'folder' ? t('page.storage.folder') : t('page.storage.file') }}
+                    </NTag>
+                  </NDescriptionsItem>
+                  <NDescriptionsItem :label="t('page.storage.size')">{{ selectedFile.size }}</NDescriptionsItem>
+                  <NDescriptionsItem :label="t('page.storage.modifiedDate')">{{ selectedFile.modified }}</NDescriptionsItem>
+                </NDescriptions>
+                <NButton type="primary" block @click="handleDownloadFile(selectedFile)"
+                  v-if="selectedFile.type === 'file'">
+                  <template #icon>
+                    <NIcon :component="CloudDownloadOutline" />
+                  </template>
+                  {{ t('page.storage.download') }}
+                </NButton>
+              </NSpace>
+            </div>
           </div>
-        </div>
-        <NEmpty v-else :description="t('page.storage.selectFileOrFolder')" class="h-full flex-center">
-          <template #icon>
-            <NIcon :component="ChevronForwardOutline" />
-          </template>
-        </NEmpty>
-      </NCard>
-    </div>
+          <NEmpty v-else :description="t('page.storage.selectFileOrFolder')" class="h-full flex-center">
+            <template #icon>
+              <NIcon :component="ChevronForwardOutline" />
+            </template>
+          </NEmpty>
+        </NCard>
+      </template>
+    </NSplit>
   </div>
 </template>
 
