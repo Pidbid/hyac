@@ -292,6 +292,42 @@ class MinioManager:
             logger.error(f"Failed to delete object '{object_name}': {e}")
             return False
 
+    async def delete_objects(
+        self, bucket_name: str, object_names: List[str]
+    ) -> tuple[int, list[str]]:
+        """
+        Deletes multiple objects from a bucket.
+        Returns the number of successfully deleted objects and a list of errors.
+        """
+        if not self._check_client():
+            return 0, ["MinIO client not initialized"]
+        assert self.client is not None
+
+        from minio.deleteobjects import DeleteObject
+
+        delete_object_list = [DeleteObject(name) for name in object_names]
+        try:
+            errors_iterator = await asyncio.to_thread(
+                self.client.remove_objects, bucket_name, delete_object_list
+            )
+            errors = []
+            for error in errors_iterator:
+                errors.append(f"Error deleting object {error.name}: {error}")
+
+            deleted_count = len(object_names) - len(errors)
+            if errors:
+                logger.error(
+                    f"Failed to delete some objects from bucket '{bucket_name}': {errors}"
+                )
+            else:
+                logger.info(
+                    f"Successfully deleted {deleted_count} objects from bucket '{bucket_name}'."
+                )
+            return deleted_count, errors
+        except S3Error as e:
+            logger.error(f"An S3 error occurred during bulk deletion: {e}")
+            return 0, [str(e)]
+
     async def get_download_url(
         self, bucket_name: str, object_name: str, expires_in_seconds: int = 3600
     ) -> Optional[str]:

@@ -29,9 +29,11 @@ const model: FormModel = reactive({
 
 interface CaptchaModel {
   image: string;
+  loading: boolean;
 }
 const captcha: CaptchaModel = reactive({
-  image: ''
+  image: '',
+  loading: true
 });
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
@@ -63,10 +65,12 @@ interface Account {
 }
 
 async function fetchCaptchaImage() {
+  captcha.loading = true;
   const { data, error } = await fetchCaptcha();
   if (!error) {
     captcha.image = data;
   }
+  captcha.loading = false;
 }
 
 onMounted(async () => {
@@ -89,7 +93,10 @@ onMounted(async () => {
           <NInput v-model:value="model.captcha" :placeholder="$t('page.login.common.captchaPlaceholder')" />
         </NGi>
         <NGi>
-          <NImage :src="captcha.image" :width="200" :height="20" :preview-disabled="true" @click="fetchCaptchaImage"></NImage>
+          <NSpin :show="captcha.loading">
+            <NImage :src="captcha.image" :width="200" :height="20" :preview-disabled="true" @click="fetchCaptchaImage">
+            </NImage>
+          </NSpin>
         </NGi>
       </NGrid>
     </NFormItem>

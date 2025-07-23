@@ -42,6 +42,19 @@ export function deleteFile(appId: string, objectName: string) {
 }
 
 /**
+ * Deletes multiple files from a bucket.
+ * @param appId - The application ID (bucket name).
+ * @param objectNames - A list of object names to delete.
+ */
+export function deleteFiles(appId: string, objectNames: string[]) {
+  return request<Api.Base.SuccessResponse>({
+    url: '/storage/delete_files',
+    method: 'post',
+    data: { appId, object_names: objectNames }
+  });
+}
+
+/**
  * List objects (files and folders) in a bucket/prefix.
  * @param appId - The application ID (bucket name).
  * @param prefix - The prefix to filter objects (optional).

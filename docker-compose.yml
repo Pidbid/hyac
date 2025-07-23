@@ -87,7 +87,7 @@ services:
   server:
     build:
       context: ./server
-    image: wicos/hyac_server:dev-0.0.1
+    image: wicos/hyac_server:${SERVER_IMAGE_TAG:-latest}
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -127,7 +127,7 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-    image: wicos/hyac_web:dev-0.0.1
+    image: wicos/hyac_web:${WEB_IMAGE_TAG:-latest}
     container_name: hyac_web
     restart: unless-stopped
     environment:
@@ -144,7 +144,7 @@ services:
   app:
     build:
       context: ./app
-    image: wicos/hyac_app:latest
+    image: wicos/hyac_app:${APP_IMAGE_TAG:-latest}
     command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
     networks:

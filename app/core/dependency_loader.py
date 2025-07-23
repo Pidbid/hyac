@@ -7,7 +7,7 @@ import os
 
 from loguru import logger
 
-from models.applications_model import Application
+from models.applications_model import Application, Dependency
 
 
 class DependencyLoader:
@@ -16,7 +16,7 @@ class DependencyLoader:
     """
 
     @staticmethod
-    async def install_dependencies(dependencies: List[dict]):
+    async def install_dependencies(dependencies: List[Dependency]):
         """
         Dynamically installs Python packages using uv.
 
@@ -26,8 +26,8 @@ class DependencyLoader:
                           e.g., [{'name': 'package_name', 'version': '1.0.0'}]
         """
         for p in dependencies:
-            package = p["name"]
-            version = p["version"]
+            package = p.name
+            version = p.version
             # Check if the module is already loaded.
             if package in sys.modules:
                 logger.info(

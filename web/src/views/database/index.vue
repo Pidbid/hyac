@@ -357,7 +357,7 @@ onMounted(async () => {
               </template>
             </NButton>
           </template>
-          <NScrollbar class="h-full">
+          <NScrollbar v-if="collections.length > 0" class="h-full">
             <NList hoverable clickable>
               <NListItem v-for="collection in collections" :key="collection"
                 :class="{ 'selected-collection-item': selectedCollection === collection }"
@@ -383,6 +383,15 @@ onMounted(async () => {
               </NListItem>
             </NList>
           </NScrollbar>
+          <div v-else class="h-full flex flex-col items-center justify-center">
+            <NEmpty :description="$t('page.database.noCollections')">
+              <template #extra>
+                <NButton size="small" type="primary" @click="handleCreateCollection">
+                  {{ $t('page.database.createCollection') }}
+                </NButton>
+              </template>
+            </NEmpty>
+          </div>
         </NCard>
       </template>
       <template #2>

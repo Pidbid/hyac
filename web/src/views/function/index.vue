@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick } from 'vue';
-import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch } from 'naive-ui';
-import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline } from '@vicons/ionicons5';
+import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch, NSpace } from 'naive-ui';
+import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline, LinkOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
@@ -13,6 +13,7 @@ import {
   CreateFunction,
   GetFunctionData,
   UpdateFunctionCode,
+  UpdateFunctionMeta,
   DeleteFunction,
   FunctionHistory,
   getFunctionTemplates,
@@ -49,7 +50,7 @@ const packageSelectInput = ref({
   name: "",
   version: ""
 })
-const packageResult = ref<string[]>([])
+const packageResult = ref<Api.Settings.PackageInfo[]>([])
 let addDependenceDialogRef: any = null;
 const commonDependencies = ref<Api.Settings.Dependency[]>([]);
 const systemDependencies = ref<Api.Settings.Dependency[]>([]);
@@ -410,6 +411,132 @@ const handleFunctionEditorSetting = () => {
   });
 };
 
+const handleEditMeta = () => {
+  const formRef = ref<any>(null);
+  const localEditData = reactive({
+    name: selectedFunction.value.name,
+    description: selectedFunction.value.description,
+    tags: selectedFunction.value.tags
+  });
+
+  const rules = {
+    name: { required: true, message: $t('page.function.functionNamePlaceholder'), trigger: 'blur' }
+  };
+
+  const d = dialog.info({
+    title: $t('page.function.editFunction'),
+    content: () => h(NForm, { ref: formRef, model: localEditData, rules: rules, labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
+      default: () => [
+        h(NFormItem, { label: $t('page.function.functionName'), path: 'name' }, {
+          default: () => h(NInput, {
+            placeholder: $t('page.function.functionNamePlaceholder'),
+            value: localEditData.name,
+            onUpdateValue: (value) => localEditData.name = value
+          })
+        }),
+        h(NFormItem, { label: $t('page.function.functionDescription') }, {
+          default: () => h(NInput, {
+            type: 'textarea',
+            placeholder: $t('page.function.functionDescriptionPlaceholder'),
+            value: localEditData.description,
+            onUpdateValue: (value) => localEditData.description = value
+          })
+        }),
+        h(NFormItem, { label: $t('page.function.tags') }, {
+          default: () => h(NInput, {
+            placeholder: $t('page.function.tagsPlaceholder'),
+            value: localEditData.tags.join(','),
+            onUpdateValue: (value) => localEditData.tags = value.split(',').map(tag => tag.trim())
+          })
+        }),
+      ]
+    }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: () => {
+      formRef.value?.validate(async (errors: any) => {
+        if (!errors) {
+          const { error } = await UpdateFunctionMeta(
+            applicationStore.appId,
+            selectedFunction.value.id,
+            localEditData.name,
+            localEditData.description,
+            localEditData.tags
+          );
+          if (!error) {
+            message.success($t('page.function.updateSuccess'));
+            selectedFunction.value.name = localEditData.name;
+            selectedFunction.value.description = localEditData.description;
+            selectedFunction.value.tags = localEditData.tags;
+            const index = functions.value.findIndex(f => f.id === selectedFunction.value.id);
+            if (index !== -1) {
+              functions.value[index].name = localEditData.name;
+              functions.value[index].description = localEditData.description;
+              functions.value[index].tags = localEditData.tags;
+            }
+            await fetchTags();
+          } else {
+            message.error($t('page.function.updateFailed'));
+          }
+        }
+      });
+    }
+  });
+};
+
+
+const handleEditDependence = (dep: Api.Settings.Dependency) => {
+  const editPackageName = ref(dep.name);
+  const editPackageVersion = ref(dep.version);
+  const editVersionOptions = ref<any[]>([]);
+  const editVersionLoading = ref(true);
+
+  const fetchVersions = async () => {
+    const appId = applicationStore.appId;
+    const { data, error } = await packageInfo(appId, editPackageName.value);
+    if (!error && data?.versions) {
+      editVersionOptions.value = data.versions.map((v: string) => ({ label: v, value: v }));
+    } else {
+      message.error($t('page.function.getPackageInfoFailed'));
+    }
+    editVersionLoading.value = false;
+  };
+
+  fetchVersions();
+
+  const d = dialog.info({
+    title: `${$t('common.action.edit')} - ${dep.name}`,
+    content: () =>
+      h(NForm, { labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
+        default: () => [
+          h(NFormItem, { label: $t('page.function.version') }, {
+            default: () => h(NSelect, {
+              value: editPackageVersion.value,
+              options: editVersionOptions.value,
+              loading: editVersionLoading.value,
+              onUpdateValue: value => {
+                editPackageVersion.value = value;
+              }
+            })
+          })
+        ]
+      }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const appId = applicationStore.appId;
+      if (appId && editPackageName.value) {
+        const { error } = await packageAdd(appId, editPackageName.value, editPackageVersion.value);
+        if (!error) {
+          message.success($t('common.editSuccess'));
+          await handleDependence(false);
+        } else {
+          message.error($t('common.editFailed'));
+        }
+      }
+    }
+  });
+}
 
 const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
   dialog.warning({
@@ -475,7 +602,7 @@ const handlePackageSearch = (query: string) => {
   searchTimeout = window.setTimeout(async () => {
     const { data, error } = await dependenceSearch(applicationStore.appId, query, false);
     if (!error) {
-      packageResult.value = data;
+      packageResult.value = data || [];
     }
     isDependenceLoading.value = false;
   }, 500); // 500ms debounce
@@ -555,10 +682,27 @@ const handleDependence = async (showDialog: boolean = true) => {
             default: () => h(NScrollbar, { style: 'max-height: 450px' }, {
               default: () => commonDependencies.value.length > 0 ? h(NList, { hoverable: true, clickable: true, bordered: true }, {
                 default: () => commonDependencies.value.map((dep) => h(NListItem, {}, {
-                  default: () => h(NThing, { title: dep.name, description: dep.version }, {
-                    "header-extra": () => h(NButton, { quaternary: true, circle: true, type: 'error', onClick: () => handleDeleteDependence(dep) }, {
-                      default: () => h(NIcon, { component: CloseOutline, size: 22 })
-                    })
+                  default: () => h(NThing, { description: dep.version }, {
+                    header: () => h(NSpace, { align: 'center' }, () => [
+                      h('span', dep.name),
+                      h(
+                        'a',
+                        {
+                          href: `https://pypi.org/project/${dep.name}`,
+                          target: '_blank',
+                          class: 'text-gray-400 hover:text-primary flex items-center'
+                        },
+                        h(NIcon, { component: LinkOutline, size: 22 })
+                      )
+                    ]),
+                    "header-extra": () => h(NButtonGroup, {}, () => [
+                      h(NButton, { quaternary: true, circle: true, type: 'primary', onClick: () => handleEditDependence(dep) }, {
+                        default: () => h(NIcon, { component: BrushOutline, size: 18 })
+                      }),
+                      h(NButton, { quaternary: true, circle: true, type: 'error', onClick: () => handleDeleteDependence(dep) }, {
+                        default: () => h(NIcon, { component: CloseOutline, size: 22 })
+                      })
+                    ])
                   })
                 }))
               }) : h(NEmpty, { description: $t('page.function.noDependence'), class: "h-full flex items-center justify-center" })
@@ -587,7 +731,24 @@ const handleDependence = async (showDialog: boolean = true) => {
               }, {
                 suffix: () => h(NIcon, { component: SearchOutline })
               }),
-              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('common.action._self'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
+              h(NDataTable, {
+                columns: [
+                  { title: $t('page.function.dependenceName'), key: "name" },
+                  { title: $t('page.function.tags'), key: "author" },
+                  { title: $t('page.function.functionDescription'), key: "description", ellipsis: { tooltip: true } },
+                  {
+                    title: $t('common.action._self'),
+                    key: 'operation',
+                    width: 100,
+                    render: (row: Api.Settings.PackageInfo) => {
+                      return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) })
+                    }
+                  }
+                ],
+                data: packageResult.value,
+                class: 'mt-2',
+                maxHeight: '400px'
+              })
             ]
           })
         ]
@@ -752,9 +913,6 @@ onMounted(async () => {
   await fetchTags();
   await getFunctionData();
   logStore.connect();
-  if (selectedFunction.value.id) {
-    logStore.subscribe(selectedFunction.value.id);
-  }
 });
 
 onBeforeUnmount(() => {
@@ -779,7 +937,7 @@ onBeforeUnmount(() => {
               <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
                   <FunctionEditorPanel :func="selectedFunction" :code-changed="codeChanged" :is-saving="isSaving" @save-code="handleSaveCode" :editor-config="editorConfig"
-                    @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" />
+                    @open-history="handleOpenHistory" @update:code="selectedFunction.code = $event" @open-editor-settings="handleFunctionEditorSetting" @edit-meta="handleEditMeta" />
                 </template>
                 <template #2>
                   <FunctionLogPanel :logs="logStore.logs" />

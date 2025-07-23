@@ -9,7 +9,8 @@ const local: App.I18n.Schema = {
   common: {
     action: {
       _self: 'Action',
-      select: 'Select'
+      select: 'Select',
+      edit: 'Edit'
     },
     add: 'Add',
     addSuccess: 'Add Success',
@@ -26,6 +27,8 @@ const local: App.I18n.Schema = {
     deleteSuccess: 'Delete Success',
     confirmDelete: 'Are you sure you want to delete?',
     edit: 'Edit',
+    editSuccess:'Edit Success',
+    editFailed:'Edit Failed',
     warning: 'Warning',
     error: 'Error',
     index: 'Index',
@@ -315,7 +318,8 @@ const local: App.I18n.Schema = {
       emptyDescription: 'Select a document to edit or create a new one',
       idColumn: 'ID',
       contentColumn: 'Content',
-      actionsColumn: 'Actions'
+      actionsColumn: 'Actions',
+      noCollections: 'No collections, go and create one'
     },
     function: {
       tagsGroup: {
@@ -324,6 +328,7 @@ const local: App.I18n.Schema = {
         common: 'Common'
       },
       createFunction: 'Create Function',
+      editFunction: 'Edit Function',
       functionName: 'Function Name',
       functionNamePlaceholder: 'Please enter function name',
       functionType: 'Function Type',
@@ -452,6 +457,7 @@ const local: App.I18n.Schema = {
       warning: 'Warning',
       error: 'Error',
       debug: 'Debug',
+      critical: 'Critical',
       logContent: 'Log',
       source: 'Source'
     },
@@ -498,7 +504,10 @@ const local: App.I18n.Schema = {
       downloadStarted: 'Download started: {name}',
       downloadFailed: 'Download failed: {message}',
       name: 'Name',
-      actions: 'Actions'
+      actions: 'Actions',
+      deleteSelectedConfirm: 'Are you sure you want to delete the selected {count} files?',
+      someDeletesFailed: '{count} files failed to delete',
+      deleteSuccessPlural: 'Successfully deleted {count} files'
     },
     setting: {
       dependencies: 'Dependencies',
@@ -556,8 +565,10 @@ const local: App.I18n.Schema = {
       deleteAppDesc: 'This action is irreversible and will permanently delete the application and all its data.',
       deleteAppConfirm1: 'This is an irreversible action.',
       deleteAppConfirm2: 'All related data, including functions, logs, and storage buckets, will be permanently deleted.',
-      deleteAppConfirm3: 'Please type the application name',
+      deleteAppConfirm3: 'Please type the application ID',
       deleteAppConfirm4: 'to confirm.',
+      deleteAppInputPlaceholder: 'Please type the application ID',
+      incorrectAppId: 'The entered application ID is incorrect',
       deleteInitiated: 'Delete task has been successfully initiated',
       deleteFailed: 'Failed to initiate delete task',
       general: 'General Settings',

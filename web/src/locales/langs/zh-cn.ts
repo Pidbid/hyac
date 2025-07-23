@@ -9,7 +9,8 @@ const local: App.I18n.Schema = {
   common: {
     action: {
       _self: '操作',
-      select: '选择'
+      select: '选择',
+      edit: '编辑'
     },
     add: '新增',
     addSuccess: '添加成功',
@@ -26,6 +27,8 @@ const local: App.I18n.Schema = {
     deleteSuccess: '删除成功',
     confirmDelete: '确认删除吗？',
     edit: '编辑',
+    editSuccess: '编辑成功',
+    editFailed: '编辑失败',
     warning: '警告',
     error: '错误',
     index: '序号',
@@ -315,7 +318,8 @@ const local: App.I18n.Schema = {
       emptyDescription: '选择一个文档进行编辑或创建新文档',
       idColumn: 'ID',
       contentColumn: '内容',
-      actionsColumn: '操作'
+      actionsColumn: '操作',
+      noCollections: '暂无集合，快去创建一个吧'
     },
     function: {
       tagsGroup: {
@@ -324,6 +328,7 @@ const local: App.I18n.Schema = {
         common: '公共'
       },
       createFunction: '创建函数',
+      editFunction: '编辑函数',
       functionName: '函数名称',
       functionNamePlaceholder: '请输入函数名称',
       functionType: '函数类型',
@@ -452,6 +457,7 @@ const local: App.I18n.Schema = {
       warning: '警告',
       error: '错误',
       debug: '调试',
+      critical: '致命',
       logContent: '日志',
       source: '来源'
     },
@@ -498,7 +504,10 @@ const local: App.I18n.Schema = {
       downloadStarted: '开始下载: {name}',
       downloadFailed: '下载失败: {message}',
       name: '名称',
-      actions: '操作'
+      actions: '操作',
+      deleteSelectedConfirm: '确定要删除选中的 {count} 个文件吗？',
+      someDeletesFailed: '有 {count} 个文件删除失败',
+      deleteSuccessPlural: '成功删除 {count} 个文件'
     },
     setting: {
       dependencies: '依赖管理',
@@ -556,8 +565,10 @@ const local: App.I18n.Schema = {
       deleteAppDesc: '此操作不可逆，将永久删除应用及其所有数据。',
       deleteAppConfirm1: '这是一个不可逆转的操作。',
       deleteAppConfirm2: '所有相关数据，包括函数、日志和存储桶都将被永久删除。',
-      deleteAppConfirm3: '请输入应用名称',
+      deleteAppConfirm3: '请输入应用 ID',
       deleteAppConfirm4: '以确认删除。',
+      deleteAppInputPlaceholder: '请输入应用 ID',
+      incorrectAppId: '输入的应用 ID 不正确',
       deleteInitiated: '删除任务已成功发起',
       deleteFailed: '发起删除任务失败',
       general: '通用设置',

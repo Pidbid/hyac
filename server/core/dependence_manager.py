@@ -27,10 +27,10 @@ class DependenceManager:
             return None
         return None
 
-    async def package_search(self, name: str) -> list[str]:
+    async def package_search(self, name: str) -> list[dict]:
         """
-        Suggests package names by checking for existence of common variations.
-        This is not a real search, but a validation/suggestion mechanism.
+        Suggests package names by checking for existence of common variations
+        and fetches their details.
         """
         if not name:
             return []
@@ -44,11 +44,20 @@ class DependenceManager:
             candidates.add(name.replace("_", "-"))
 
         # Asynchronously check for the existence of all candidates
-        tasks = [self._check_package_exists(candidate) for candidate in candidates]
-        results = await asyncio.gather(*tasks)
+        check_tasks = [
+            self._check_package_exists(candidate) for candidate in candidates
+        ]
+        valid_names = await asyncio.gather(*check_tasks)
 
-        # Return a list of valid, non-None package names
-        return sorted([res for res in results if res])
+        # Filter out None results and duplicates
+        unique_valid_names = sorted(list(set(res for res in valid_names if res)))
+
+        # Asynchronously fetch detailed info for each valid package name
+        info_tasks = [self.package_info(pkg_name) for pkg_name in unique_valid_names]
+        results = await asyncio.gather(*info_tasks)
+
+        # Return a list of valid, non-empty package info dictionaries
+        return [res for res in results if res]
 
     async def package_info(self, name: str) -> dict:
         """Fetches detailed information for a single package."""

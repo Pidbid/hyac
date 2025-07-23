@@ -25,7 +25,9 @@ class LogWatcherManager:
 
     async def subscribe(self, app_id: str, func_id: str, websocket: WebSocket):
         """Subscribe a websocket to a specific function's logs."""
-        self._subscribers[app_id][func_id].append(websocket)
+        # Prevent duplicate subscriptions for the same websocket
+        if websocket not in self._subscribers[app_id][func_id]:
+            self._subscribers[app_id][func_id].append(websocket)
         logger.info(
             f"WebSocket {websocket.client} subscribed to logs for app '{app_id}', func '{func_id}'"
         )

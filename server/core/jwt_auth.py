@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import ExpiredSignatureError, PyJWTError
 
 from core.config import settings
+from core.exceptions import APIException
 from models import User, Application
 
 # JWT Configuration
@@ -62,20 +63,11 @@ async def get_current_user(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
-            raise HTTPException(
-                status_code=200,
-                detail={"code": 103, "msg": "Invalid authentication credentials"},
-            )
+            raise APIException(code=103, msg="Invalid authentication credentials")
     except ExpiredSignatureError:
-        raise HTTPException(
-            status_code=200,
-            detail={"code": 109, "msg": "Token has expired"},
-        )
+        raise APIException(code=109, msg="Token has expired")
     except PyJWTError:
-        raise HTTPException(
-            status_code=200,
-            detail={"code": 103, "msg": "Invalid authentication credentials"},
-        )
+        raise APIException(code=103, msg="Invalid authentication credentials")
 
     user = await User.find_one(User.username == username)
     if user is None:

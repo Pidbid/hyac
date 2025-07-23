@@ -6,8 +6,8 @@ import { request } from '../request';
  * @param name - 依赖名称
  * @param forceUpdate - 是否强制更新
  */
-export function dependenceSearch(appId: string, name: string, forceUpdate: boolean = false) {
-  return request<string[]>({
+export function dependenceSearch(appId: string, name:string, forceUpdate: boolean = false) {
+  return request<Api.Settings.PackageInfo[]>({
     url: '/settings/dependence_search',
     method: 'post',
     data: {

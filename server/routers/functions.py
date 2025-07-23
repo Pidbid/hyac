@@ -86,6 +86,16 @@ class FunctionUpdateCodeModel(BaseModel):
     code: str
 
 
+class UpdateFunctionMetaRequest(BaseModel):
+    """Request model for updating a function's metadata."""
+
+    appId: str
+    id: str
+    name: str
+    description: str
+    tags: list[str]
+
+
 class DeleteFunctionRequest(BaseModel):
     """Request model for deleting a function."""
 
@@ -296,6 +306,41 @@ async def update_function_code(
     # No need to invalidate here as the 'server' and 'app' caches are separate.
 
     return BaseResponse(code=0, msg="Function code updated successfully", data={})
+
+
+@router.post("/update_meta", response_model=BaseResponse)
+async def update_function_meta(
+    data: UpdateFunctionMetaRequest, current_user=Depends(get_current_user)
+):
+    """
+    Updates the metadata of a specific function.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    func = await Function.find_one(
+        Function.function_id == data.id,
+        Function.app_id == app.app_id,
+        Function.users == current_user.username,
+    )
+    if not func:
+        raise HTTPException(
+            status_code=404, detail="Function not found or permission denied"
+        )
+
+    # Update metadata
+    func.function_name = data.name
+    func.description = data.description
+    func.tags = data.tags
+    func.update_timestamp()
+    await func.save()
+
+    return BaseResponse(code=0, msg="Function metadata updated successfully", data={})
 
 
 @router.post("/delete", response_model=BaseResponse)

@@ -308,6 +308,7 @@ declare namespace App {
         action: {
           _self: string;
           select: string;
+          edit: string;
         };
         add: string;
         addSuccess: string;
@@ -324,6 +325,8 @@ declare namespace App {
         deleteSuccess: string;
         confirmDelete: string;
         edit: string;
+        editSuccess: string;
+        editFailed: string;
         warning: string;
         error: string;
         index: string;
@@ -563,6 +566,7 @@ declare namespace App {
           idColumn: string;
           contentColumn: string;
           actionsColumn: string;
+          noCollections: string;
         };
         function: {
           tagsGroup: {
@@ -571,6 +575,7 @@ declare namespace App {
             common: string;
           };
           createFunction: string;
+          editFunction: string;
           functionName: string;
           functionNamePlaceholder: string;
           functionType: string;
@@ -699,6 +704,7 @@ declare namespace App {
           warning: string;
           error: string;
           debug: string;
+          critical: string;
           logContent: string;
           source: string;
         };
@@ -746,6 +752,9 @@ declare namespace App {
           downloadFailed: string;
           name: string;
           actions: string;
+          deleteSelectedConfirm: string;
+          someDeletesFailed: string;
+          deleteSuccessPlural: string;
         };
         setting: {
           dependencies: string;
@@ -805,6 +814,8 @@ declare namespace App {
           deleteAppConfirm2: string;
           deleteAppConfirm3: string;
           deleteAppConfirm4: string;
+          deleteAppInputPlaceholder: string;
+          incorrectAppId: string;
           deleteInitiated: string;
           deleteFailed: string;
           general: string;

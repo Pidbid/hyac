@@ -149,8 +149,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.storage',
       icon: 'router-goods',
       localIcon: 'router-goods',
-      order: 3,
-      keepAlive: true
+      order: 3
     }
   }
 ];

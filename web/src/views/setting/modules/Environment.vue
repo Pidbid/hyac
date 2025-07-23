@@ -20,7 +20,6 @@ import { AddOutline, KeyOutline, TrashOutline, EyeOutline, EyeOffOutline } from 
 import { $t } from '@/locales';
 import { useApplicationStore } from '@/store/modules/application';
 import { getEnvsData, addEnv, removeEnv } from '@/service/api/settings';
-import { restartApp } from '@/service/api/app';
 
 defineOptions({
   name: 'EnvironmentSettings'
@@ -159,7 +158,6 @@ async function handleSave() {
       message.success($t('common.saveSuccess'));
       showAddModal.value = false;
       fetchData();
-      promptRestart();
     } else {
       message.error($t('common.saveFailed'));
     }
@@ -179,7 +177,6 @@ function handleDelete(row: Api.Settings.EnvInfo) {
         if (!error) {
           message.success($t('common.deleteSuccess'));
           fetchData();
-          promptRestart();
         } else {
           message.error($t('common.deleteFailed'));
         }
@@ -188,29 +185,6 @@ function handleDelete(row: Api.Settings.EnvInfo) {
   });
 }
 
-function promptRestart() {
-  dialog.info({
-    title: $t('page.setting.restartRequired'),
-    content: $t('page.setting.envChangeRestartPrompt'),
-    positiveText: $t('page.setting.restartNow'),
-    negativeText: $t('common.cancel'),
-    onPositiveClick: async () => {
-      const d = dialog.info({
-        title: $t('page.setting.restarting'),
-        content: $t('page.setting.restartingTip'),
-        closable: false
-      });
-      const appId = applicationStore.appInfo.appId;
-      const { error } = await restartApp(appId);
-      d.destroy();
-      if (!error) {
-        message.success($t('page.setting.restartInitiated'));
-      } else {
-        message.error($t('page.setting.restartFailed'));
-      }
-    }
-  });
-}
 
 onMounted(fetchData);
 </script>

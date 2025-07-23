@@ -1,7 +1,7 @@
 # routers/services/storage.py
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -49,6 +49,13 @@ class ListObjectsRequest(BaseModel):
     prefix: Optional[str] = "/"
 
 
+class DeleteFilesRequest(BaseModel):
+    """Request model for deleting multiple files."""
+
+    appId: str
+    object_names: List[str]
+
+
 @router.post("/create_folder", response_model=BaseResponse)
 async def create_folder(
     data: FolderRequest, current_user: User = Depends(get_current_user)
@@ -87,6 +94,42 @@ async def delete_file(
     if not success:
         return BaseResponse(code=500, msg="Failed to delete file")
     return BaseResponse(code=0, msg=f"File '{data.object_name}' deleted successfully.")
+
+
+@router.post("/delete_files", response_model=BaseResponse)
+async def delete_files(
+    data: DeleteFilesRequest, current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes multiple files from the application's storage bucket.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        return BaseResponse(code=404, msg="Application not found")
+
+    deleted_count, errors = await minio_manager.delete_objects(
+        data.appId.lower(), data.object_names
+    )
+    if errors:
+        # Even if some files failed to delete, we consider the operation partially successful
+        # and report the errors.
+        error_details = "; ".join(errors)
+        return BaseResponse(
+            code=500,
+            msg=f"Deleted {deleted_count} files, but some errors occurred: {error_details}",
+            data={"deleted_count": deleted_count, "errors": errors},
+        )
+
+    if deleted_count == 0 and len(data.object_names) > 0:
+        return BaseResponse(code=404, msg="None of the specified files were found.")
+
+    return BaseResponse(
+        code=0,
+        msg=f"Successfully deleted {deleted_count} files.",
+        data={"deleted_count": deleted_count},
+    )
 
 
 @router.post("/delete_folder", response_model=BaseResponse)

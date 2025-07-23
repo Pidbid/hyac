@@ -5,7 +5,14 @@ from loguru import logger
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from starlette.websockets import WebSocketState
 from pydantic import BaseModel
 
 from core.jwt_auth import get_current_user, get_current_user_for_websocket
@@ -192,6 +199,10 @@ async def websocket_logs(
                     )
                     continue
 
+                # Do nothing if already subscribed to the same function
+                if current_function_id == func_id:
+                    continue
+
                 # Verify function exists
                 func = await Function.find_one(
                     Function.function_id == func_id, Function.app_id == app.app_id
@@ -202,19 +213,21 @@ async def websocket_logs(
                     )
                     continue
 
-                # If switching from an existing subscription, unsubscribe first
-                if current_function_id and current_function_id != func_id:
+                # If there's an active subscription, unsubscribe from it first.
+                if current_function_id:
                     await log_watcher.unsubscribe(
                         app_id, current_function_id, websocket
                     )
                     logger.info(
-                        f"Client switched subscription from {app_id}/{current_function_id} to {app_id}/{func_id}"
+                        f"Client switched subscription: Unsubscribed from {app_id}/{current_function_id}"
                     )
 
-                # Subscribe to the new function if not already subscribed
-                if current_function_id != func_id:
-                    current_function_id = func_id
-                    await log_watcher.subscribe(app_id, current_function_id, websocket)
+                # Subscribe to the new function
+                current_function_id = func_id
+                await log_watcher.subscribe(app_id, current_function_id, websocket)
+                logger.info(
+                    f"Client switched subscription: Subscribed to {app_id}/{current_function_id}"
+                )
 
             elif msg_type == "unsubscribe":
                 if current_function_id:
@@ -233,9 +246,9 @@ async def websocket_logs(
     finally:
         if current_function_id:
             await log_watcher.unsubscribe(app_id, current_function_id, websocket)
-        if websocket.client_state.value != 2:  # WebSocketState.DISCONNECTED
+        if websocket.client_state != WebSocketState.DISCONNECTED:
             try:
                 await websocket.close(code=1000)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Error closing websocket for {app_id}: {e}")
         logger.info(f"Websocket connection closed for app {app_id}.")
