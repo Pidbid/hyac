@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 import logging
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+from core.exceptions import APIException
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.runtime_status_manager import sync_runtime_status
 
@@ -107,6 +109,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(APIException)
+async def api_exception_handler(request: Request, exc: APIException):
+    """
+    Global exception handler for APIException.
+    Returns a JSON response with the error code and message.
+    """
+    return JSONResponse(
+        status_code=200,
+        content={"code": exc.code, "msg": exc.msg},
+    )
+
 
 # Add CORS middleware to allow cross-origin requests.
 app.add_middleware(
