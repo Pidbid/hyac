@@ -50,7 +50,7 @@ const packageSelectInput = ref({
   name: "",
   version: ""
 })
-const packageResult = ref<string[]>([])
+const packageResult = ref<Api.Settings.PackageInfo[]>([])
 let addDependenceDialogRef: any = null;
 const commonDependencies = ref<Api.Settings.Dependency[]>([]);
 const systemDependencies = ref<Api.Settings.Dependency[]>([]);
@@ -549,7 +549,7 @@ const handlePackageSearch = (query: string) => {
   searchTimeout = window.setTimeout(async () => {
     const { data, error } = await dependenceSearch(applicationStore.appId, query, false);
     if (!error) {
-      packageResult.value = data;
+      packageResult.value = data || [];
     }
     isDependenceLoading.value = false;
   }, 500); // 500ms debounce
@@ -661,7 +661,24 @@ const handleDependence = async (showDialog: boolean = true) => {
               }, {
                 suffix: () => h(NIcon, { component: SearchOutline })
               }),
-              h(NDataTable, { columns: [{ title: $t('page.function.dependenceName'), key: "name" }, { title: $t('common.action._self'), key: 'operation', width: 100, ellipsis: true, render: (row) => { return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) }) } }], data: packageResult.value.map(r => ({ name: r })), class: 'mt-2', maxHeight: '400px' })
+              h(NDataTable, {
+                columns: [
+                  { title: $t('page.function.dependenceName'), key: "name" },
+                  { title: $t('page.function.tags'), key: "author" },
+                  { title: $t('page.function.functionDescription'), key: "description", ellipsis: { tooltip: true } },
+                  {
+                    title: $t('common.action._self'),
+                    key: 'operation',
+                    width: 100,
+                    render: (row: Api.Settings.PackageInfo) => {
+                      return h(NButton, { type: "primary", size: "small", onClick: () => handleAddDependence(row) }, { default: () => h(NIcon, { component: AddOutline }) })
+                    }
+                  }
+                ],
+                data: packageResult.value,
+                class: 'mt-2',
+                maxHeight: '400px'
+              })
             ]
           })
         ]
