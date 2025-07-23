@@ -701,6 +701,7 @@ declare namespace App {
           warning: string;
           error: string;
           debug: string;
+          critical: string;
           logContent: string;
           source: string;
         };

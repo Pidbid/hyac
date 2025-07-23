@@ -454,6 +454,7 @@ const local: App.I18n.Schema = {
       warning: '警告',
       error: '错误',
       debug: '调试',
+      critical: '致命',
       logContent: '日志',
       source: '来源'
     },

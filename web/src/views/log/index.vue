@@ -62,10 +62,11 @@ const pagination = reactive({
 });
 
 const levelOptions = computed(() => [
-  { label: t('page.log.info'), value: 'info' },
-  { label: t('page.log.warning'), value: 'warning' },
-  { label: t('page.log.error'), value: 'error' },
-  { label: t('page.log.debug'), value: 'debug' },
+  { label: t('page.log.debug'), value: 'DEBUG' },
+  { label: t('page.log.info'), value: 'INFO' },
+  { label: t('page.log.warning'), value: 'WARNING' },
+  { label: t('page.log.error'), value: 'ERROR' },
+  { label: t('page.log.critical'), value: 'CRITICAL' },
 ]);
 
 const logTypeOptions = computed(() => [
@@ -137,6 +138,7 @@ const levelConfig: Record<string, { type: 'info' | 'warning' | 'error' | 'defaul
   info: { type: 'info', icon: InformationCircleOutline },
   warning: { type: 'warning', icon: WarningOutline },
   error: { type: 'error', icon: CloseCircleOutline },
+  critical: { type: 'error', icon: CloseCircleOutline },
   debug: { type: 'default', icon: BugOutline },
 };
 

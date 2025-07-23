@@ -454,6 +454,7 @@ const local: App.I18n.Schema = {
       warning: 'Warning',
       error: 'Error',
       debug: 'Debug',
+      critical: 'Critical',
       logContent: 'Log',
       source: 'Source'
     },
