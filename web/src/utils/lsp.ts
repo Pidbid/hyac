@@ -1,43 +1,102 @@
 // lsp-client.ts
-import { WebSocketMessageReader } from "vscode-ws-jsonrpc";
-import {
-  CloseAction,
-  ErrorAction,
-  MessageTransports,
-} from "vscode-languageclient/browser.js";
-import { WebSocketMessageWriter } from "vscode-ws-jsonrpc";
-import { toSocket } from "vscode-ws-jsonrpc";
-import { MonacoLanguageClient } from "monaco-languageclient";
+import { ref, type Ref } from 'vue';
+import { MonacoLanguageClient } from 'monaco-languageclient';
+import { toSocket, WebSocketMessageReader, WebSocketMessageWriter } from 'vscode-ws-jsonrpc';
+import ReconnectingWebSocket from 'reconnecting-websocket';
+import { CloseAction, ErrorAction, type MessageTransports } from 'vscode-languageclient/browser.js';
 
-export const initWebSocketAndStartClient = (): WebSocket => {
-  const url = "ws://lsp.hyacos.top";
-  const webSocket = new WebSocket(url);
-  webSocket.onopen = () => {
-    // creating messageTransport
-    const socket = toSocket(webSocket);
-    const reader = new WebSocketMessageReader(socket);
-    const writer = new WebSocketMessageWriter(socket);
-    // creating language client
-    const languageClient = new MonacoLanguageClient({
-      name: "Sample Language Client",
+// --- State ---
+let languageClient: MonacoLanguageClient | null = null;
+let socket: ReconnectingWebSocket | null = null;
+export const lspStatus: Ref<'disconnected' | 'connecting' | 'connected' | 'error'> = ref('disconnected');
+
+/**
+ * Connects to a Language Server Protocol (LSP) service via WebSocket.
+ * @param url The WebSocket URL of the LSP server.
+ * @param language The language ID (e.g., 'python') for the document selector.
+ */
+export function connectToLsp(url: string, language: string) {
+  // Prevent multiple connections to the same URL
+  if ((socket || lspStatus.value === 'connecting' || lspStatus.value === 'connected') && socket?.url === url) {
+    console.warn('LSP client is already connected or connecting to the same URL.');
+    return;
+  }
+  // If URL is different, disconnect first
+  if (socket) {
+    disconnectFromLsp();
+  }
+
+  lspStatus.value = 'connecting';
+  socket = new ReconnectingWebSocket(url);
+
+  socket.onopen = () => {
+    console.log(`LSP WebSocket connection opened for ${language}.`);
+    lspStatus.value = 'connected';
+    const socketAdapter = toSocket(socket as any);
+    const reader = new WebSocketMessageReader(socketAdapter);
+    const writer = new WebSocketMessageWriter(socketAdapter);
+    const messageTransports: MessageTransports = { reader, writer };
+
+    languageClient = new MonacoLanguageClient({
+      name: `${language.charAt(0).toUpperCase() + language.slice(1)} Language Client`,
       clientOptions: {
-        // use a language id as a document selector
-        documentSelector: ["python", "json"],
-        // disable the default error handler
+        documentSelector: [language],
         errorHandler: {
-          error: () => ({ action: ErrorAction.Continue }),
-          closed: () => ({ action: CloseAction.Restart }),
-        },
+          error: () => {
+            lspStatus.value = 'error';
+            return { action: ErrorAction.Continue };
+          },
+          closed: () => {
+            lspStatus.value = 'disconnected';
+            return { action: CloseAction.DoNotRestart };
+          }
+        }
       },
-      // create a language client connection from the JSON RPC connection on demand
-      messageTransports: {
-        reader: reader,
-        writer: writer,
-        detached: true,
-      },
+      messageTransports
     });
+
     languageClient.start();
-    // reader.onClose(() => languageClient.stop());
+
+    reader.onClose(() => {
+      languageClient?.stop().catch(() => console.error('Failed to stop language client on close.'));
+      if (lspStatus.value !== 'disconnected') {
+        lspStatus.value = 'disconnected';
+      }
+    });
   };
-  return webSocket;
-};
+
+  socket.onerror = (error: any) => {
+    console.error('LSP WebSocket error:', error);
+    lspStatus.value = 'error';
+    socket?.close(); // Ensure socket is closed on error
+  };
+
+  socket.onclose = (event: any) => {
+    console.log('LSP WebSocket connection closed:', event);
+    if (lspStatus.value !== 'disconnected') {
+      lspStatus.value = 'disconnected';
+    }
+  };
+}
+
+/**
+ * Disconnects from the LSP service and cleans up resources.
+ */
+export function disconnectFromLsp() {
+  if (languageClient && languageClient.isRunning()) {
+    languageClient.stop().catch(() => console.error('Failed to stop language client.'));
+  }
+  if (socket) {
+    // Remove listeners to prevent reconnection attempts after explicit disconnection
+    socket.onopen = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    socket.close();
+  }
+  languageClient = null;
+  socket = null;
+  if (lspStatus.value !== 'disconnected') {
+    lspStatus.value = 'disconnected';
+  }
+  console.log('LSP client disconnected.');
+}
