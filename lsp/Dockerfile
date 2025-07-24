@@ -8,7 +8,7 @@ WORKDIR /app
 # COPY requirements.txt .
 
 # 安装依赖
-RUN pip install black python-lsp-server[websockets] python-lsp-black
+RUN pip install websockets==10.4 python-lsp-server python-lsp-black black
 
 # 复制应用代码
 # COPY main.py .
