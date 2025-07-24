@@ -73,7 +73,6 @@ services:
       - "--providers.file.watch=true"
       - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
@@ -148,6 +147,22 @@ services:
       - "traefik.http.routers.hyac-web.entrypoints=websecure"
       - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-web.loadbalancer.server.port=9527"
+      - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
+  lsp:
+    build:
+      context: ./lsp
+      dockerfile: Dockerfile
+    image: wicos/hyac_lsp:${WEB_IMAGE_TAG:-latest}
+    container_name: hyac_lsp
+    restart: unless-stopped
+    networks:
+      - hyac_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hyac-web.rule=Host(`lsp.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-web.entrypoints=websecure"
+      - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
+      - "traefik.http.services.hyac-web.loadbalancer.server.port=8765"
       - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
   app:
     build:
