@@ -84,6 +84,7 @@ export default defineConfig((configEnv) => {
               for (const base of possibleBases) {
                 const filePath = path.join(base, resourcePath);
                 if (fs.existsSync(filePath)) {
+                  res.setHeader("Content-Type", "application/json");
                   fs.createReadStream(filePath).pipe(res);
                   return;
                 }

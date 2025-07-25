@@ -78,3 +78,22 @@ export function convertDomain(originalDomain: string, protocol: string, prefix: 
     const convertedDomain = `${protocol}://${prefix}.${domainParts}`;
     return convertedDomain;
 }
+
+/**
+ * 获取后端服务的 Base URL。
+ * 在生产环境中，它会从 window.APP_CONFIG 读取（由 Docker entrypoint 注入）。
+ * 在开发环境中，它会回退到 Vite 的 import.meta.env。
+ * @returns 后端服务的 URL
+ */
+export function getServiceBaseUrl(): string {
+  // 生产环境：window.APP_CONFIG 存在且 VITE_SERVICE_BASE_URL 有效
+  if (
+    (window as any).APP_CONFIG &&
+    (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL &&
+    (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL !== '${VITE_SERVICE_BASE_URL}'
+  ) {
+    return (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL;
+  }
+  // 开发环境或备用方案
+  return import.meta.env.VITE_SERVICE_BASE_URL;
+}

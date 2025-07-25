@@ -9,7 +9,7 @@ import { monaco, initMonaco } from '@/utils/monaco';
 import { MonacoLanguageClient } from 'monaco-languageclient';
 import { toSocket, WebSocketMessageReader, WebSocketMessageWriter } from 'vscode-ws-jsonrpc';
 import ReconnectingWebSocket from 'reconnecting-websocket';
-import { convertDomain } from "@/utils/common"
+import { convertDomain, getServiceBaseUrl } from "@/utils/common"
 
 interface Props {
   modelValue: string;
@@ -181,7 +181,7 @@ const lspUrl = computed(() => {
   // if (import.meta.env.DEV) {
   //   return 'ws://localhost:8765';
   // }
-  const baseUrl = import.meta.env.VITE_SERVICE_BASE_URL;
+  const baseUrl = getServiceBaseUrl();
   return convertDomain(baseUrl, "wss", "lsp")
 });
 
