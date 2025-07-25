@@ -22,9 +22,9 @@ interface FormModel {
 }
 
 const model: FormModel = reactive({
-  username: 'admin',
-  password: 'admin123',
-  captcha: ""
+  username: '',
+  password: '',
+  captcha: ''
 });
 
 interface CaptchaModel {
@@ -113,9 +113,9 @@ onMounted(async () => {
     <NSpace vertical :size="24">
       <div class="flex-y-center justify-between">
         <NCheckbox>{{ $t('page.login.pwdLogin.rememberMe') }}</NCheckbox>
-        <NButton quaternary @click="toggleLoginModule('reset-pwd')">
+        <!-- <NButton quaternary @click="toggleLoginModule('reset-pwd')">
           {{ $t('page.login.pwdLogin.forgetPassword') }}
-        </NButton>
+        </NButton> -->
       </div>
       <NButton type="primary" size="large" round block :loading="authStore.loginLoading" @click="handleSubmit">
         {{ $t('common.confirm') }}

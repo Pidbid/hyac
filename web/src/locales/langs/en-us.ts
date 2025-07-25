@@ -510,6 +510,10 @@ const local: App.I18n.Schema = {
       deleteSuccessPlural: 'Successfully deleted {count} files'
     },
     setting: {
+      group: {
+        system: 'System Settings',
+        application: 'Application Settings'
+      },
       dependencies: 'Dependencies',
       dependenciesTipTitle: 'Dependency Management Guide',
       dependenciesTipContent: 'Dependencies managed here will be available to all functions within this application. A restart is required for changes to take effect.',
@@ -610,10 +614,24 @@ const local: App.I18n.Schema = {
       managePermissions: 'Manage Permissions',
       smtpConfig: 'SMTP Configuration',
       smtpConfigPlaceholder: 'Enter SMTP configuration (JSON format)',
-      webhookConfig: 'Webhook Configuration',
-      webhookConfigPlaceholder: 'Enter Webhook URL',
-      cors: 'CORS',
-      allowOrigins: 'Allow Origins',
+          webhookConfig: 'Webhook Configuration',
+          webhookConfigPlaceholder: 'Enter Webhook URL',
+          cors: 'CORS',
+          allowOrigins: 'Allow Origins',
+          userProfile: {
+            title: 'User Profile',
+            username: 'Username',
+            usernamePlaceholder: 'Enter new username (leave blank for no change)',
+            usernameHelp: '4-16 characters, supports Chinese, English, numbers, underscores, and hyphens',
+            password: 'New Password',
+            passwordPlaceholder: 'Enter new password (leave blank for no change)',
+            passwordHelp: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol",
+            confirmPassword: 'Confirm New Password',
+            confirmPasswordPlaceholder: 'Enter the new password again',
+            passwordsDoNotMatch: 'The two passwords do not match',
+            noChanges: 'You have not entered anything to modify',
+            confirmUpdate: 'Are you sure you want to update your profile? This action will require you to log in again.'
+          },
       allowCredentials: 'Allow Credentials',
       allowMethods: 'Allow Methods',
       allowHeaders: 'Allow Headers',
@@ -727,7 +745,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: 'Please enter password',
-      invalid: '6-18 characters, including letters, numbers, and underscores'
+      invalid: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol"
     },
     confirmPwd: {
       required: 'Please enter password again',

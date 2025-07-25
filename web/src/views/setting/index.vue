@@ -9,7 +9,8 @@ import {
   WarningOutline,
   KeyOutline,
   HardwareChipOutline,
-  CloudUploadOutline
+  CloudUploadOutline,
+  PersonCircleOutline
 } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
@@ -21,39 +22,58 @@ const activeKey = ref('dependencies');
 
 const menuOptions = computed(() => [
   {
-    label: $t('page.setting.dependencies'),
-    key: 'dependencies',
-    icon: () => h(NIcon, { component: CodeSlashOutline })
+    label: $t('page.setting.group.application'),
+    key: 'application-settings',
+    type: 'group',
+    children: [
+      {
+        label: $t('page.setting.dependencies'),
+        key: 'dependencies',
+        icon: () => h(NIcon, { component: CodeSlashOutline })
+      },
+      {
+        label: $t('page.setting.environmentVariables'),
+        key: 'environment',
+        icon: () => h(NIcon, { component: KeyOutline })
+      },
+      {
+        label: $t('page.setting.cors'),
+        key: 'cors',
+        icon: () => h(NIcon, { component: ShareSocialOutline })
+      },
+      {
+        label: $t('page.setting.dangerZone'),
+        key: 'danger-zone',
+        icon: () => h(NIcon, { component: WarningOutline })
+      }
+    ]
   },
   {
-    label: $t('page.setting.environmentVariables'),
-    key: 'environment',
-    icon: () => h(NIcon, { component: KeyOutline })
-  },
-  {
-    label: $t('page.setting.ai.title'),
-    key: 'ai-settings',
-    icon: () => h(NIcon, { component: HardwareChipOutline })
-  },
-  {
-    label: $t('page.setting.cors'),
-    key: 'cors',
-    icon: () => h(NIcon, { component: ShareSocialOutline })
-  },
-  {
-    label: $t('page.setting.notifications'),
-    key: 'notifications',
-    icon: () => h(NIcon, { component: NotificationsOutline })
-  },
-  {
-    label: $t('page.setting.dangerZone'),
-    key: 'danger-zone',
-    icon: () => h(NIcon, { component: WarningOutline })
-  },
-  {
-    label: $t('page.setting.systemUpdate.title'),
-    key: 'system-update',
-    icon: () => h(NIcon, { component: CloudUploadOutline })
+    label: $t('page.setting.group.system'),
+    key: 'system-settings',
+    type: 'group',
+    children: [
+      {
+        label: $t('page.setting.userProfile.title'),
+        key: 'user-profile',
+        icon: () => h(NIcon, { component: PersonCircleOutline })
+      },
+      {
+        label: $t('page.setting.ai.title'),
+        key: 'ai-settings',
+        icon: () => h(NIcon, { component: HardwareChipOutline })
+      },
+      {
+        label: $t('page.setting.notifications'),
+        key: 'notifications',
+        icon: () => h(NIcon, { component: NotificationsOutline })
+      },
+      {
+        label: $t('page.setting.systemUpdate.title'),
+        key: 'system-update',
+        icon: () => h(NIcon, { component: CloudUploadOutline })
+      }
+    ]
   }
 ]);
 
@@ -64,7 +84,8 @@ const componentMap = {
   cors: defineAsyncComponent(() => import('./modules/Cors.vue')),
   notifications: defineAsyncComponent(() => import('./modules/Notifications.vue')),
   'danger-zone': defineAsyncComponent(() => import('./modules/DangerZone.vue')),
-  'system-update': defineAsyncComponent(() => import('./modules/SystemUpdate.vue'))
+  'system-update': defineAsyncComponent(() => import('./modules/SystemUpdate.vue')),
+  'user-profile': defineAsyncComponent(() => import('./modules/UserProfile.vue'))
 };
 
 const currentComponent = computed(() => {

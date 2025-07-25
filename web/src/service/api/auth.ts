@@ -55,3 +55,16 @@ export function fetchCustomBackendError(code: string, msg: string) {
 export function fetchCaptcha() {
   return request({ url: '/users/captcha', method: 'get' });
 }
+
+/**
+ * Update current user info
+ * @param username - new username
+ * @param password - new password
+ */
+export function fetchUpdateMe(data: Partial<Api.Auth.UpdateMePayload>) {
+  return request({
+    url: '/users/me',
+    method: 'post',
+    data
+  });
+}

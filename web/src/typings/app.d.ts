@@ -757,6 +757,10 @@ declare namespace App {
           deleteSuccessPlural: string;
         };
         setting: {
+          group: {
+            system: string;
+            application: string;
+          };
           dependencies: string;
           dependenciesTipTitle: string;
           dependenciesTipContent: string;
@@ -926,14 +930,28 @@ declare namespace App {
             manualUpdateTab: string;
             confirmUpdateTitle: string;
             confirmUpdateContent: string;
-            changelogTab: string;
-            loadingChangelogs: string;
-            changelogError: string;
-            changelogErrorContent: string;
-          };
+          changelogTab: string;
+          loadingChangelogs: string;
+          changelogError: string;
+          changelogErrorContent: string;
         };
-        index: {
-          branchDesc: string;
+              userProfile: {
+                title: string;
+                username: string;
+                usernamePlaceholder: string;
+                usernameHelp: string;
+                password: string;
+                passwordPlaceholder: string;
+                passwordHelp: string;
+                confirmPassword: string;
+                confirmPasswordPlaceholder: string;
+                passwordsDoNotMatch: string;
+                noChanges: string;
+                confirmUpdate: string;
+              };
+      };
+      index: {
+        branchDesc: string;
           greeting: string;
           weatherDesc: string;
           projectCount: string;

@@ -510,6 +510,10 @@ const local: App.I18n.Schema = {
       deleteSuccessPlural: '成功删除 {count} 个文件'
     },
     setting: {
+      group: {
+        system: '系统设置',
+        application: '应用设置'
+      },
       dependencies: '依赖管理',
       dependenciesTipTitle: '依赖管理说明',
       dependenciesTipContent: '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
@@ -610,10 +614,24 @@ const local: App.I18n.Schema = {
       managePermissions: '管理权限',
       smtpConfig: 'SMTP 配置',
       smtpConfigPlaceholder: '请输入 SMTP 配置 (JSON 格式)',
-      webhookConfig: 'Webhook 配置',
-      webhookConfigPlaceholder: '请输入 Webhook URL',
-      cors: 'CORS',
-      allowOrigins: '允许的源',
+          webhookConfig: 'Webhook 配置',
+          webhookConfigPlaceholder: '请输入 Webhook URL',
+          cors: '跨域设置',
+          allowOrigins: '允许的源',
+          userProfile: {
+            title: '个人中心',
+            username: '用户名',
+            usernamePlaceholder: '输入新的用户名（留空则不修改）',
+            usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
+            password: '新密码',
+            passwordPlaceholder: '输入新的密码（留空则不修改）',
+            passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
+            confirmPassword: '确认新密码',
+            confirmPasswordPlaceholder: '再次输入新密码',
+            passwordsDoNotMatch: '两次输入的密码不一致',
+            noChanges: '您没有输入任何要修改的内容',
+            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。'
+          },
       allowCredentials: '允许凭证',
       allowMethods: '允许的方法',
       allowHeaders: '允许的头',
@@ -726,7 +744,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: '请输入密码',
-      invalid: '密码格式不正确，6-18位字符，包含字母、数字、下划线'
+      invalid: "密码格式不正确，6-18位字符，支持字母、数字、下划线和{'@'}符号"
     },
     confirmPwd: {
       required: '请输入确认密码',

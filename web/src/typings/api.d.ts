@@ -76,6 +76,11 @@ declare namespace Api {
       roles: string[];
       buttons: string[];
     }
+
+    interface UpdateMePayload {
+      username?: string;
+      password?: string;
+    }
   }
 
   /**
