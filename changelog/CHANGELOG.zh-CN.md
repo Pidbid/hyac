@@ -5,6 +5,20 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+
+## [dev-0.0.4] - 2025-07-25
+
+### 新增
+- web python lsp 基础服务（当前存在已知bug：首次加载不高亮，以及无法提示 context 等）
+
+### 修复
+- lsp 服务的包依赖
+
+### 重构
+- 删除基于pyright的lsp文件
+- 删除一些无用的 console 函数编辑器
+
+
 ## [dev-0.0.3] - 2025-07-23
 
 ### 新增
