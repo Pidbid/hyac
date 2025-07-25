@@ -147,7 +147,12 @@ docker-compose up -d
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Pidbid/Hyac&type=Date)](https://star-history.com/#Pidbid/Hyac&Date)
 
-## 🗺️ Roadmap
+## 📜 Changelog
+
+- [简体中文](./changelog/CHANGELOG.zh-CN.md)
+- [English](./changelog/CHANGELOG.md)
+
+## ️ Roadmap
 
 We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform. Community contributions and suggestions are welcome!
 
