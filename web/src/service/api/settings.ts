@@ -117,7 +117,7 @@ export function getEnvsData(appId: string) {
  * @param value - The value of the environment variable.
  */
 export function addEnv(appId: string, key: string, value: string) {
-  return request<null>({
+  return request<Api.Base.SuccessResponse>({
     url: '/settings/env_add',
     method: 'post',
     data: { appId, key, value }
@@ -130,7 +130,7 @@ export function addEnv(appId: string, key: string, value: string) {
  * @param key - The key of the environment variable to remove.
  */
 export function removeEnv(appId: string, key: string) {
-  return request<null>({
+  return request<Api.Base.SuccessResponse>({
     url: '/settings/env_remove',
     method: 'post',
     data: { appId, key }
@@ -155,7 +155,7 @@ export function corsData(data: { appId: string }) {
  * @param config - CORS配置
  */
 export function corsUpdate(data: { appId: string; config: Api.Settings.CorsConfig }) {
-  return request<null>({
+  return request<Api.Base.SuccessResponse>({
     url: '/settings/cors_update',
     method: 'post',
     data
@@ -179,7 +179,7 @@ export function notificationData(data: { appId: string }) {
  * @param data - 请求数据
  */
 export function notificationUpdate(data: { appId: string; config: Api.Settings.NotificationConfig }) {
-  return request<null>({
+  return request<Api.Base.SuccessResponse>({
     url: '/settings/notification_update',
     method: 'post',
     data
@@ -191,7 +191,7 @@ export function notificationUpdate(data: { appId: string; config: Api.Settings.N
  * @param data - 请求数据
  */
 export function applicationStatus(appId: string) {
-  return request<null>({
+  return request<Api.Settings.ApplicationStatus>({
     url: '/settings/application_status',
     method: 'post',
     data:{
@@ -227,9 +227,45 @@ export function fetchAiConfig(data: { appId: string }) {
  * @param data - 请求数据
  */
 export function updateAiConfig(data: { appId: string; config: Api.Settings.AIConfig }) {
-  return request<null>({
+  return request<Api.Base.SuccessResponse>({
     url: '/settings/ai_config_update',
     method: 'post',
     data
   });
+}
+
+/**
+ * Check for system updates.
+ * @returns
+ */
+export function fetchCheckForUpdates(params?: { proxy?: string }) {
+  return request<Api.Settings.UpdateStatus>({
+    method:"post",
+    url:"/settings/system/check_update",
+    data: params
+  })
+}
+
+/**
+ * Trigger system update.
+ * @returns
+ */
+export function fetchUpdateSystem(tags?: Api.Settings.ManualUpdateTags) {
+  return request<Api.Base.SuccessResponse>({
+    method:"post",
+    url:"/settings/system/update",
+    data: tags
+  })
+}
+
+/**
+ * Fetch system changelogs.
+ * @returns
+ */
+export function fetchChangelogs(params?: { proxy?: string }) {
+  return request<Api.Settings.ChangelogData>({
+    method: "post",
+    url: "/settings/system/changelogs",
+    data: params
+  })
 }

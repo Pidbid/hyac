@@ -2,7 +2,7 @@
 import json
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from loguru import logger
 from docker import errors
 from models import (
@@ -18,6 +18,8 @@ from core.dependence_manager import dependence_manager
 from core.docker_manager import docker_manager
 from core.jwt_auth import get_current_user
 from core.config import settings
+from core.update_manager import update_manager
+from core.exceptions import APIException
 
 
 class DependenceSearchRequest(BaseModel):
@@ -516,3 +518,67 @@ async def ai_config_update(
     await app.save()
 
     return BaseResponse(code=0, msg="AI config updated successfully.")
+
+
+class UpdateCheckRequest(BaseModel):
+    proxy: str | None = None
+
+
+@router.post("/system/check_update", response_model=BaseResponse)
+async def check_for_updates(
+    request: UpdateCheckRequest, current_user: User = Depends(get_current_user)
+):
+    """
+    Checks for system updates by comparing local version with the latest GitHub release.
+    """
+    if "admin" not in current_user.roles:
+        raise APIException(code=104, msg="Only superusers can perform this action")
+    update_status = await update_manager.check_for_updates(proxy=request.proxy)
+    if not update_status.get("latest_version_info") and update_status.get("message"):
+        return BaseResponse(code=1, msg=update_status["message"], data=update_status)
+    return BaseResponse(code=0, msg="Update check complete", data=update_status)
+
+
+@router.post("/system/changelogs", response_model=BaseResponse)
+async def get_changelogs(
+    request: UpdateCheckRequest, current_user: User = Depends(get_current_user)
+):
+    """
+    Fetches all system changelogs from GitHub releases.
+    """
+    if "admin" not in current_user.roles:
+        raise APIException(code=104, msg="Only superusers can perform this action")
+    changelogs = await update_manager.get_changelogs(proxy=request.proxy)
+    if changelogs is None:
+        return BaseResponse(code=1, msg="Failed to fetch changelogs", data=[])
+    return BaseResponse(code=0, msg="Changelogs fetched successfully", data=changelogs)
+
+
+class ManualUpdateTags(BaseModel):
+    server: str = ""
+    app: str = ""
+    lsp: str = ""
+    web: str = ""
+
+
+@router.post("/system/update", status_code=202, response_model=BaseResponse)
+async def update_system(
+    tags: ManualUpdateTags,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Triggers a system update. Can be a general update or a manual update with specific tags.
+    """
+    return BaseResponse(
+        code=1,
+        msg="This is a testing feature, currently in development, and is not usable for now.",
+    )
+    if "admin" not in current_user.roles:
+        raise APIException(code=104, msg="Only superusers can perform this action")
+
+    tags_dict = tags.model_dump()
+    background_tasks.add_task(update_manager.run_update_script, tags=tags_dict)
+    return BaseResponse(
+        code=0, msg="System update initiated. This may take a few minutes."
+    )

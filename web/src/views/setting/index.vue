@@ -8,7 +8,8 @@ import {
   NotificationsOutline,
   WarningOutline,
   KeyOutline,
-  HardwareChipOutline
+  HardwareChipOutline,
+  CloudUploadOutline
 } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
@@ -48,6 +49,11 @@ const menuOptions = computed(() => [
     label: $t('page.setting.dangerZone'),
     key: 'danger-zone',
     icon: () => h(NIcon, { component: WarningOutline })
+  },
+  {
+    label: $t('page.setting.systemUpdate.title'),
+    key: 'system-update',
+    icon: () => h(NIcon, { component: CloudUploadOutline })
   }
 ]);
 
@@ -57,7 +63,8 @@ const componentMap = {
   'ai-settings': defineAsyncComponent(() => import('./modules/AiSettings.vue')),
   cors: defineAsyncComponent(() => import('./modules/Cors.vue')),
   notifications: defineAsyncComponent(() => import('./modules/Notifications.vue')),
-  'danger-zone': defineAsyncComponent(() => import('./modules/DangerZone.vue'))
+  'danger-zone': defineAsyncComponent(() => import('./modules/DangerZone.vue')),
+  'system-update': defineAsyncComponent(() => import('./modules/SystemUpdate.vue'))
 };
 
 const currentComponent = computed(() => {
