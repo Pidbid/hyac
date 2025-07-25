@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref } from 'vue';
 import { NCard, NButton, NIcon } from 'naive-ui';
 import { CheckmarkOutline, SaveOutline, InformationCircleOutline, BrushOutline, CreateOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
@@ -28,7 +28,6 @@ const editorConfig = ref({
   minimap: true,
   theme: 'github-light'
 });
-
 
 </script>
 
@@ -70,7 +69,7 @@ const editorConfig = ref({
     </template>
     <div class="flex-1 min-h-0">
       <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)"
-        :language="props.editorConfig.language" :font-size="props.editorConfig.fontSize" :minimap="props.editorConfig.minimap" :theme="props.editorConfig.theme" />
+        :language="editorConfig.language" :font-size="editorConfig.fontSize" :minimap="editorConfig.minimap" :theme="editorConfig.theme" />
     </div>
   </NCard>
 </template>

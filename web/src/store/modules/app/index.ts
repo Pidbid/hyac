@@ -2,6 +2,7 @@ import { effectScope, nextTick, onScopeDispose, ref, watch } from 'vue';
 import { breakpointsTailwind, useBreakpoints, useEventListener, useTitle } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { useBoolean } from '@sa/hooks';
+import { fetchGetSystemSetting } from '@/service/api';
 import { router } from '@/router';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
@@ -28,8 +29,10 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
     toggle: toggleMixSiderFixed
   } = useBoolean(localStg.get('mixSiderFixed') === 'Y');
 
-  /** Is mobile layout */
-  const isMobile = breakpoints.smaller('sm');
+  const isDemoMode = ref(false);
+
+   /** Is mobile layout */
+   const isMobile = breakpoints.smaller('sm');
 
   /**
    * Reload page
@@ -82,6 +85,13 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
 
   function init() {
     setDayjsLocale(locale.value);
+  }
+
+  async function updateDemoMode() {
+    const { data } = await fetchGetSystemSetting();
+    if (data) {
+      isDemoMode.value = data.demo_mode;
+    }
   }
 
   // watch store
@@ -164,6 +174,8 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
     toggleSiderCollapse,
     mixSiderFixed,
     setMixSiderFixed,
-    toggleMixSiderFixed
+    toggleMixSiderFixed,
+    isDemoMode,
+    updateDemoMode
   };
 });

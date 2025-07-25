@@ -51,6 +51,9 @@ async function handleSubmit() {
   await validate();
   const success = await authStore.login(model.username, model.password, model.captcha);
   if (!success) {
+    model.username = '';
+    model.password = '';
+    model.captcha = '';
     await fetchCaptchaImage();
   }
 }
@@ -93,19 +96,26 @@ onMounted(async () => {
           <NInput v-model:value="model.captcha" :placeholder="$t('page.login.common.captchaPlaceholder')" />
         </NGi>
         <NGi>
-          <NSpin :show="captcha.loading">
-            <NImage :src="captcha.image" :width="200" :height="20" :preview-disabled="true" @click="fetchCaptchaImage">
-            </NImage>
-          </NSpin>
+          <div v-if="captcha.loading" class="flex-center h-full bg-gray-100/40">
+            <NSpin :show="true" />
+          </div>
+          <NImage
+            v-else
+            :src="captcha.image"
+            :width="200"
+            :height="40"
+            :preview-disabled="true"
+            @click="fetchCaptchaImage"
+          />
         </NGi>
       </NGrid>
     </NFormItem>
     <NSpace vertical :size="24">
       <div class="flex-y-center justify-between">
         <NCheckbox>{{ $t('page.login.pwdLogin.rememberMe') }}</NCheckbox>
-        <NButton quaternary @click="toggleLoginModule('reset-pwd')">
+        <!-- <NButton quaternary @click="toggleLoginModule('reset-pwd')">
           {{ $t('page.login.pwdLogin.forgetPassword') }}
-        </NButton>
+        </NButton> -->
       </div>
       <NButton type="primary" size="large" round block :loading="authStore.loginLoading" @click="handleSubmit">
         {{ $t('common.confirm') }}

@@ -510,6 +510,10 @@ const local: App.I18n.Schema = {
       deleteSuccessPlural: 'Successfully deleted {count} files'
     },
     setting: {
+      group: {
+        system: 'System Settings',
+        application: 'Application Settings'
+      },
       dependencies: 'Dependencies',
       dependenciesTipTitle: 'Dependency Management Guide',
       dependenciesTipContent: 'Dependencies managed here will be available to all functions within this application. A restart is required for changes to take effect.',
@@ -610,10 +614,25 @@ const local: App.I18n.Schema = {
       managePermissions: 'Manage Permissions',
       smtpConfig: 'SMTP Configuration',
       smtpConfigPlaceholder: 'Enter SMTP configuration (JSON format)',
-      webhookConfig: 'Webhook Configuration',
-      webhookConfigPlaceholder: 'Enter Webhook URL',
-      cors: 'CORS',
-      allowOrigins: 'Allow Origins',
+          webhookConfig: 'Webhook Configuration',
+          webhookConfigPlaceholder: 'Enter Webhook URL',
+          cors: 'CORS',
+          allowOrigins: 'Allow Origins',
+          userProfile: {
+            title: 'User Profile',
+            username: 'Username',
+            usernamePlaceholder: 'Enter new username (leave blank for no change)',
+            usernameHelp: '4-16 characters, supports Chinese, English, numbers, underscores, and hyphens',
+            password: 'New Password',
+            passwordPlaceholder: 'Enter new password (leave blank for no change)',
+            passwordHelp: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol",
+            confirmPassword: 'Confirm New Password',
+            confirmPasswordPlaceholder: 'Enter the new password again',
+            passwordsDoNotMatch: 'The two passwords do not match',
+            noChanges: 'You have not entered anything to modify',
+            confirmUpdate: 'Are you sure you want to update your profile? This action will require you to log in again.',
+            demoModeTip: 'Username and password cannot be updated in demo mode'
+          },
       allowCredentials: 'Allow Credentials',
       allowMethods: 'Allow Methods',
       allowHeaders: 'Allow Headers',
@@ -635,10 +654,65 @@ const local: App.I18n.Schema = {
         providerPlaceholder: 'e.g., openai, azure, anthropic',
         model: 'Model',
         modelPlaceholder: 'e.g., gpt-4, gpt-3.5-turbo',
-        apiKey: 'API Key',
-        apiKeyPlaceholder: 'Enter your API Key',
-        endpointUrl: 'Endpoint URL',
-        endpointUrlPlaceholder: 'Optional, for custom endpoints'
+            apiKey: 'API Key',
+            apiKeyPlaceholder: 'Please enter the API key',
+            endpointUrl: 'Endpoint URL',
+            endpointUrlPlaceholder: 'Please enter the endpoint URL, e.g., https://api.openai.com/v1',
+            proxy: 'Proxy URL',
+            proxyPlaceholder: 'Please enter the proxy URL, e.g., http://192.168.0.10:7890',
+            success: {
+              update: 'AI configuration updated successfully'
+            },
+            error: {
+              noAppSelected: 'No application selected',
+              fetch: 'Failed to fetch AI configuration',
+              update: 'Failed to update AI configuration',
+              empty: 'Please fill in at least one configuration item'
+            }
+          },
+      systemUpdate: {
+        title: 'System Update',
+        checkingForUpdates: 'Checking for updates...',
+        newVersionAvailable: 'New Version Available',
+        latestVersion: 'Latest Version',
+        publishedAt: 'Published At',
+        changelog: 'Changelog',
+        updateNow: 'Update Now',
+        upToDate: 'You are up to date!',
+        upToDateMessage: 'Your system is running the latest version.',
+        currentServerVersion: 'Current Server Version',
+        currentWebVersion: 'Current Web Version',
+        currentAppVersion: 'Current App Version',
+        currentLspVersion: 'Current LSP Version',
+        updateError: 'Update Check Failed',
+        updateDevInProgress: 'The update function is currently under development and is temporarily unavailable',
+        updateErrorContent: 'Could not fetch the latest version information. Please try again later.',
+        updateStarted: 'Update Started',
+        updateStartedContent: 'The system update is in progress in the background. It may take a few minutes. Please refresh the page later.',
+        updateFailed: 'Update Failed to Start',
+        updateFailedContent: 'Could not start the update process. Please check the backend logs.',
+        checkForUpdates: 'Check for Updates',
+        proxyPlaceholder: 'Optional: Enter proxy address, e.g., http://127.0.0.1:7890',
+        manualUpdate: 'Manual Update',
+        manualUpdateDescription: 'You can manually specify the image tag for each service to update. Leave blank to not update a service.',
+        serverTag: 'Server Image Tag',
+        serverTagPlaceholder: 'The central hub for all services (leave blank to use current tag)',
+        appTag: 'App Image Tag',
+        appTagPlaceholder: 'The environment for each application (leave blank to use current tag)',
+        lspTag: 'LSP Image Tag',
+        lspTagPlaceholder: 'Provides programming hints and completion for Python (leave blank to use current tag)',
+        webTag: 'Web Image Tag',
+        webTagPlaceholder: 'The service for the console page (leave blank to use current tag)',
+        manualUpdateInfo: 'Manual updates can cause serious errors. Do not use unless you know exactly what you are doing.',
+        runManualUpdate: 'Run Manual Update',
+        autoUpdateTab: 'Auto Update',
+        manualUpdateTab: 'Manual Update',
+        confirmUpdateTitle: 'Confirm Update',
+        confirmUpdateContent: 'Are you sure you want to perform a manual update? Incorrect tags may cause services to fail to start.',
+        changelogTab: 'Changelog',
+        loadingChangelogs: 'Loading changelogs...',
+        changelogError: 'Failed to load changelogs',
+        changelogErrorContent: 'Could not fetch changelogs. Please try again later.'
       }
     },
     index: {
@@ -683,7 +757,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: 'Please enter password',
-      invalid: '6-18 characters, including letters, numbers, and underscores'
+      invalid: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol"
     },
     confirmPwd: {
       required: 'Please enter password again',

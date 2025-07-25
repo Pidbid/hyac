@@ -1,14 +1,12 @@
 import { getServiceBaseURL } from '@/utils/service';
 import { getAuthorization } from '../request/shared';
 import {localStg} from "@/utils/storage"
+import {getServiceBaseUrl} from "@/utils/common"
 
 interface Message {
   role: 'user' | 'ai';
   content: string;
 }
-
-const isHttpProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y';
-const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
 
 /**
  * Fetch chat completion with stream.
@@ -21,6 +19,7 @@ const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
  */
 export function fetchChatCompletionStream(messages: Message[], model: string = 'default') {
   const Authorization = getAuthorization();
+  const baseURL = getServiceBaseUrl();
   const url = `${baseURL}/ai/chat_completions`;
   const appid = localStg.get("appId");
   return fetch(url, {

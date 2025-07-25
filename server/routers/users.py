@@ -3,15 +3,20 @@ import base64
 import hashlib
 import io
 import random
+import re
 import uuid
 from string import ascii_lowercase, ascii_uppercase, digits
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, validator
 
+from core.database import mongodb_manager
+from core.rate_limiter import LoginRateLimiter, get_request_limiter
+from core.exceptions import APIException
+from core.config import settings
 from core.jwt_auth import (
     create_access_token,
     create_refresh_token,
@@ -19,8 +24,7 @@ from core.jwt_auth import (
     verify_password,
     verify_refresh_token_and_get_user,
 )
-from models.common_model import BaseResponse
-from models.users_model import Captcha, User
+from models import Application, FunctionsHistory, Function, BaseResponse, Captcha, User
 
 router = APIRouter(
     prefix="/users",
@@ -44,6 +48,25 @@ class UpdateUserRequest(BaseModel):
     password: Optional[str] = None
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
+
+
+class UpdateMeRequest(BaseModel):
+    """Request model for user to update their own info."""
+
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+    @validator("username")
+    def validate_username(cls, v):
+        if v and not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9_-]{4,16}$", v):
+            raise ValueError("Username format is incorrect")
+        return v
+
+    @validator("password")
+    def validate_password(cls, v):
+        if v and not re.match(r"^[\w@]{6,18}$", v):
+            raise ValueError("Password format is incorrect")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -99,10 +122,13 @@ async def verify_captcha(captcha: str) -> dict:
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login_for_access_token(data: LoginRequest):
+async def login_for_access_token(data: LoginRequest, request: Request):
     """
     Handles user login, verifies credentials and CAPTCHA, and returns a JWT access token.
     """
+    limiter = LoginRateLimiter(request)
+    limiter.check_rate_limit()
+
     captcha_error = await verify_captcha(data.captcha)
     if captcha_error:
         return BaseResponse(
@@ -112,9 +138,11 @@ async def login_for_access_token(data: LoginRequest):
 
     user = await User.find_one(User.username == data.username)
     if not user or not verify_password(data.password, user.password):
+        limiter.record_failed_attempt()
         return BaseResponse(code=107, msg="Incorrect username or password")
 
     # Create access and refresh tokens
+    limiter.reset_attempts()
     token_data = {"sub": user.username}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
@@ -152,7 +180,11 @@ async def login_with_access_token(current_user: User = Depends(get_current_user)
     }
 
 
-@router.get("/captcha", response_model=GetCaptchaResponse)
+@router.get(
+    "/captcha",
+    response_model=GetCaptchaResponse,
+    dependencies=[Depends(get_request_limiter(limit=100, period=timedelta(days=1)))],
+)
 async def get_captcha():
     """
     Generates a new CAPTCHA image and returns it as a base64 encoded string.
@@ -219,25 +251,57 @@ async def create_user(data: CreateUserRequest):
     return new_user
 
 
-@router.put("/update/{username}", response_model=User)
-async def update_user(username: str, data: UpdateUserRequest):
+@router.post("/me", response_model=BaseResponse)
+async def update_me(
+    data: UpdateMeRequest, current_user: User = Depends(get_current_user)
+):
     """
-    Updates a user's information.
+    Allows a user to update their own information.
     """
-    user = await User.find_one(User.username == username)
-    if not user:
-        return BaseResponse(code=110, msg="User not found")
-
+    if settings.DEMO_MODE:
+        raise APIException(
+            code=114, msg="Username and password cannot be updated in demo mode"
+        )
     update_data = data.dict(exclude_unset=True)
-    if "password" in update_data and update_data["password"]:
-        update_data["password"] = hash_password(update_data["password"])
+    if not update_data:
+        return BaseResponse(code=0, msg="No information provided to update.")
 
-    for key, value in update_data.items():
-        setattr(user, key, value)
+    old_username = current_user.username
 
-    user.update_timestamp()
-    await user.save()
-    return user
+    async with await mongodb_manager.client.start_session() as s:
+        async with s.start_transaction():
+            if "username" in update_data and update_data["username"]:
+                new_username = update_data["username"]
+                # 检查新用户名是否存在
+                if await User.find_one(User.username == new_username, session=s):
+                    raise APIException(
+                        code=111, msg="User with this username already exists"
+                    )
+
+                # 更新关联的 Application
+                await Application.find(Application.users == old_username).update(
+                    {"$set": {"users.$": new_username}}, session=s
+                )
+
+                # 更新关联的 FunctionsHistory
+                await FunctionsHistory.find(
+                    FunctionsHistory.updated_by == old_username
+                ).update({"$set": {"updated_by": new_username}}, session=s)
+
+                # 更新关联的 Function 中的 users 数组
+                await Function.find(Function.users == old_username).update(
+                    {"$set": {"users.$": new_username}}, session=s
+                )
+
+                current_user.username = new_username
+
+            if "password" in update_data and update_data["password"]:
+                current_user.password = hash_password(update_data["password"])
+
+            current_user.update_timestamp()
+            await current_user.save(session=s)
+
+    return BaseResponse(code=0, msg="User information updated successfully")
 
 
 @router.delete("/delete/{username}", response_model=BaseResponse)

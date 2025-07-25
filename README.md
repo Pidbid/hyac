@@ -33,6 +33,7 @@
 ## 🌐 在线访问
 
 - **项目体验地址**: https://console.hyacos.top
+  - 默认用户名: `admin`, 默认密码: `admin123`
 - **项目文档地址**: https://docs.hyacos.top
 ## ✨ 主要功能
 
@@ -148,7 +149,12 @@ docker-compose up -d
 [![Star History Chart](https://api.star-history.com/svg?repos=Pidbid/Hyac&type=Date)](https://star-history.com/#Pidbid/Hyac&Date)
 
 
-## 🗺️ 路线图 (Roadmap)
+## 📜 更新日志
+
+- [简体中文](./changelog/CHANGELOG.zh-CN.md)
+- [English](./changelog/CHANGELOG.md)
+
+## ️ 路线图 (Roadmap)
 
 我们计划在未来的版本中加入更多强大的功能，以构建一个更完整、更企业级的 FaaS 平台。欢迎社区贡献或提出建议！
 

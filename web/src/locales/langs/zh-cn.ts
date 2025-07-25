@@ -510,6 +510,10 @@ const local: App.I18n.Schema = {
       deleteSuccessPlural: '成功删除 {count} 个文件'
     },
     setting: {
+      group: {
+        system: '系统设置',
+        application: '应用设置'
+      },
       dependencies: '依赖管理',
       dependenciesTipTitle: '依赖管理说明',
       dependenciesTipContent: '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
@@ -610,10 +614,25 @@ const local: App.I18n.Schema = {
       managePermissions: '管理权限',
       smtpConfig: 'SMTP 配置',
       smtpConfigPlaceholder: '请输入 SMTP 配置 (JSON 格式)',
-      webhookConfig: 'Webhook 配置',
-      webhookConfigPlaceholder: '请输入 Webhook URL',
-      cors: 'CORS',
-      allowOrigins: '允许的源',
+          webhookConfig: 'Webhook 配置',
+          webhookConfigPlaceholder: '请输入 Webhook URL',
+          cors: '跨域设置',
+          allowOrigins: '允许的源',
+          userProfile: {
+            title: '个人中心',
+            username: '用户名',
+            usernamePlaceholder: '输入新的用户名（留空则不修改）',
+            usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
+            password: '新密码',
+            passwordPlaceholder: '输入新的密码（留空则不修改）',
+            passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
+            confirmPassword: '确认新密码',
+            confirmPasswordPlaceholder: '再次输入新密码',
+            passwordsDoNotMatch: '两次输入的密码不一致',
+            noChanges: '您没有输入任何要修改的内容',
+            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
+            demoModeTip: '演示模式下不允许修改用户名和密码'
+          },
       allowCredentials: '允许凭证',
       allowMethods: '允许的方法',
       allowHeaders: '允许的头',
@@ -635,10 +654,65 @@ const local: App.I18n.Schema = {
         providerPlaceholder: '例如：openai, azure, anthropic',
         model: '模型',
         modelPlaceholder: '例如：gpt-4, gpt-3.5-turbo',
-        apiKey: 'API 密钥',
-        apiKeyPlaceholder: '输入您的 API 密钥',
-        endpointUrl: 'Endpoint URL',
-        endpointUrlPlaceholder: '可选，用于自定义节点'
+            apiKey: 'API 密钥',
+            apiKeyPlaceholder: '请输入 API 密钥',
+            endpointUrl: '接口地址',
+            endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
+            proxy: '代理地址',
+            proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
+            success: {
+              update: 'AI 配置更新成功'
+            },
+            error: {
+              noAppSelected: '未选择应用',
+              fetch: '获取 AI 配置失败',
+              update: '更新 AI 配置失败',
+              empty: '请至少填写一项配置'
+            }
+          },
+      systemUpdate: {
+        title: '系统更新',
+        checkingForUpdates: '正在检查更新...',
+        newVersionAvailable: '有新版本可用',
+        latestVersion: '最新版本',
+        publishedAt: '发布于',
+        changelog: '更新日志',
+        updateNow: '立即更新',
+        upToDate: '您已是最新版本！',
+        upToDateMessage: '您的系统正在运行最新版本。',
+        currentServerVersion: '当前后端版本',
+        currentWebVersion: '当前前端版本',
+        currentAppVersion: '当前 App 版本',
+        currentLspVersion: '当前 LSP 版本',
+        updateError: '检查更新失败',
+        updateDevInProgress: '当前更新功能正在开发中，暂时不可用',
+        updateErrorContent: '无法获取最新版本信息，请稍后再试。',
+        updateStarted: '更新已开始',
+        updateStartedContent: '系统更新正在后台进行，可能需要几分钟。完成后请刷新页面。',
+        updateFailed: '更新启动失败',
+        updateFailedContent: '无法启动更新过程，请检查后端日志。',
+        checkForUpdates: '检查更新',
+        proxyPlaceholder: '可选：请输入代理地址，例如 http://127.0.0.1:7890',
+        manualUpdate: '手动更新',
+        manualUpdateDescription: '您可以为每个服务手动指定镜像标签（Tag）来进行更新。留空则表示不更新该服务。',
+        serverTag: 'Server 镜像标签',
+        serverTagPlaceholder: 'Server 是所有服务的中枢 (留空则使用当前版本)',
+        appTag: 'App 镜像标签',
+        appTagPlaceholder: 'App 是每一个应用所处的环境 (留空则使用当前版本)',
+        lspTag: 'LSP 镜像标签',
+        lspTagPlaceholder: 'Lsp 是为Python提供的编程提示、补全服务 (留空则使用当前版本)',
+        webTag: 'Web 镜像标签',
+        webTagPlaceholder: 'Web 是console页面的服务 (留空则使用当前版本)',
+        manualUpdateInfo:'手动更新可能导致严重错误，除非您明确知晓每一步操作，否则不要使用',
+        runManualUpdate: '执行手动更新',
+        autoUpdateTab: '自动更新',
+        manualUpdateTab: '手动更新',
+        confirmUpdateTitle: '确认更新',
+        confirmUpdateContent: '您确定要执行手动更新吗？不正确的标签可能导致服务无法启动。',
+        changelogTab: '更新日志',
+        loadingChangelogs: '正在加载更新日志...',
+        changelogError: '加载日志失败',
+        changelogErrorContent: '无法获取更新日志，请稍后再试。'
       }
     },
     index: {
@@ -682,7 +756,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: '请输入密码',
-      invalid: '密码格式不正确，6-18位字符，包含字母、数字、下划线'
+      invalid: "密码格式不正确，6-18位字符，支持字母、数字、下划线和{'@'}符号"
     },
     confirmPwd: {
       required: '请输入确认密码',

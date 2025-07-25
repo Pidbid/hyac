@@ -1,14 +1,10 @@
 import process from "node:process";
-import path from "node:path";
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import { setupVitePlugins } from "./build/plugins";
 import { createViteProxy, getBuildTime } from "./build/config";
 import monacoEditorPlugin from "vite-plugin-monaco-editor-esm";
-import { viteStaticCopy } from "vite-plugin-static-copy";
-
-import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
-// @ts-ignore
+import path from "node:path";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,26 +41,23 @@ export default defineConfig((configEnv) => {
       ...setupVitePlugins(viteEnv, buildTime),
       monacoEditorPlugin({
         languageWorkers: ["editorWorkerService", "json"],
-        customDistPath(root, buildOutDir, base) {
-          return path.resolve(buildOutDir, "monacoeditorwork");
-        },
       }),
-      // viteStaticCopy({
-      //   targets: [
-      //     {
-      //       src: "./node_modules/@codingame/monaco-vscode-theme-defaults-default-extension/resources/*",
-      //       dest: "monaco-resources",
-      //     },
-      //     {
-      //       src: "./node_modules/@codingame/monaco-vscode-python-default-extension/resources/*",
-      //       dest: "monaco-resources",
-      //     },
-      //     {
-      //       src: "./node_modules/.vite/deps/*",
-      //       dest: "monaco-resources",
-      //     },
-      //   ],
-      // }),
+      {
+        name: "vite-plugin-dynamic-config",
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url === "/config.js") {
+              const config = {
+                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL,
+              };
+              res.setHeader("Content-Type", "application/javascript");
+              res.end(`window.APP_CONFIG = ${JSON.stringify(config)}`);
+              return;
+            }
+            next();
+          });
+        },
+      },
       {
         name: "monaco-vscode-resources",
         configureServer(server) {
@@ -100,22 +93,6 @@ export default defineConfig((configEnv) => {
             next();
           });
         },
-      },
-      {
-        name: 'vite-plugin-dynamic-config',
-        configureServer(server) {
-          server.middlewares.use((req, res, next) => {
-            if (req.url === '/config.js') {
-              const config = {
-                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL
-              };
-              res.setHeader('Content-Type', 'application/javascript');
-              res.end(`window.APP_CONFIG = ${JSON.stringify(config)}`);
-              return;
-            }
-            next();
-          });
-        }
       }
     ],
     define: {
@@ -125,7 +102,7 @@ export default defineConfig((configEnv) => {
       host: "0.0.0.0",
       port: 9527,
       proxy: createViteProxy(viteEnv, enableProxy),
-      allowedHosts: ['*'],
+      allowedHosts: ["*"],
     },
     preview: {
       port: 9725,

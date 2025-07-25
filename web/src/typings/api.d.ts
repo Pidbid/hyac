@@ -76,6 +76,11 @@ declare namespace Api {
       roles: string[];
       buttons: string[];
     }
+
+    interface UpdateMePayload {
+      username?: string;
+      password?: string;
+    }
   }
 
   /**
@@ -538,6 +543,37 @@ declare namespace Api {
       model: string;
       api_key: string;
       base_url: string;
+      proxy: string;
+    }
+
+    interface ManualUpdateTags {
+      server?: string;
+      app?: string;
+      lsp?: string;
+      web?: string;
+    }
+
+    interface ChangelogInfo {
+      version: string;
+      changelog: string;
+      published_at: string;
+    }
+
+    type ChangelogData = ChangelogInfo[];
+
+    interface UpdateStatus {
+      current_version: string;
+      latest_version: string;
+      is_latest: boolean;
+      latest_version_info?: {
+        version: string;
+        changelog: string;
+        published_at: string;
+      };
+      message?: string;
+    }
+    interface SystemSettings {
+      demo_mode: boolean;
     }
   }
 }

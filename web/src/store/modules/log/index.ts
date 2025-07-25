@@ -3,6 +3,7 @@ import { useAuthStore } from '../auth';
 import { useApplicationStore } from '../application';
 import dayjs from 'dayjs';
 import { ref, readonly } from 'vue';
+import { getServiceBaseUrl } from '@/utils/common';
 
 export const useLogStore = defineStore('log-store', () => {
   // State
@@ -44,7 +45,7 @@ export const useLogStore = defineStore('log-store', () => {
 
     logs.value = [];
 
-    const baseUrl = import.meta.env.VITE_SERVICE_BASE_URL;
+    const baseUrl = getServiceBaseUrl();
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     // Extract host from baseUrl, removing http/https protocol and any trailing slash
     const host = baseUrl.replace(/^(http|https):\/\//, '').replace(/\/$/, '');

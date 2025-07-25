@@ -757,6 +757,10 @@ declare namespace App {
           deleteSuccessPlural: string;
         };
         setting: {
+          group: {
+            system: string;
+            application: string;
+          };
           dependencies: string;
           dependenciesTipTitle: string;
           dependenciesTipContent: string;
@@ -882,14 +886,84 @@ declare namespace App {
             providerPlaceholder: string;
             model: string;
             modelPlaceholder: string;
-            apiKey: string;
-            apiKeyPlaceholder: string;
-            endpointUrl: string;
-            endpointUrlPlaceholder: string;
-          };
+                apiKey: string;
+                apiKeyPlaceholder: string;
+                endpointUrl: string;
+                endpointUrlPlaceholder: string;
+                proxy: string;
+                proxyPlaceholder: string;
+                success: {
+                  update: string;
+                };
+                error: {
+                  noAppSelected: string;
+                  fetch: string;
+                  update: string;
+                  empty: string;
+                };
+              };
+          systemUpdate: {
+            title: string;
+            checkingForUpdates: string;
+            newVersionAvailable: string;
+            latestVersion: string;
+            publishedAt: string;
+            changelog: string;
+            updateNow: string;
+            upToDate: string;
+            upToDateMessage: string;
+            currentServerVersion: string;
+            currentWebVersion: string;
+            currentAppVersion: string;
+            currentLspVersion: string;
+            updateError: string;
+            updateDevInProgress: string;
+            updateErrorContent: string;
+            updateStarted: string;
+            updateStartedContent: string;
+            updateFailed: string;
+            updateFailedContent: string;
+            checkForUpdates: string;
+            proxyPlaceholder: string;
+            manualUpdate: string;
+            manualUpdateDescription: string;
+            serverTag: string;
+            serverTagPlaceholder: string;
+            appTag: string;
+            appTagPlaceholder: string;
+            lspTag: string;
+            lspTagPlaceholder: string;
+            webTag: string;
+            webTagPlaceholder: string;
+            manualUpdateInfo: string;
+            runManualUpdate: string;
+            autoUpdateTab: string;
+            manualUpdateTab: string;
+            confirmUpdateTitle: string;
+            confirmUpdateContent: string;
+          changelogTab: string;
+          loadingChangelogs: string;
+          changelogError: string;
+          changelogErrorContent: string;
         };
-        index: {
-          branchDesc: string;
+              userProfile: {
+                title: string;
+                username: string;
+                usernamePlaceholder: string;
+                usernameHelp: string;
+                password: string;
+                passwordPlaceholder: string;
+                passwordHelp: string;
+                confirmPassword: string;
+                confirmPasswordPlaceholder: string;
+                passwordsDoNotMatch: string;
+                noChanges: string;
+                confirmUpdate: string;
+                demoModeTip: string;
+              };
+      };
+      index: {
+        branchDesc: string;
           greeting: string;
           weatherDesc: string;
           projectCount: string;
