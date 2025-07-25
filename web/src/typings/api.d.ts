@@ -543,6 +543,7 @@ declare namespace Api {
       model: string;
       api_key: string;
       base_url: string;
+      proxy: string;
     }
 
     interface ManualUpdateTags {

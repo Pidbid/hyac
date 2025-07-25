@@ -653,11 +653,22 @@ const local: App.I18n.Schema = {
         providerPlaceholder: 'e.g., openai, azure, anthropic',
         model: 'Model',
         modelPlaceholder: 'e.g., gpt-4, gpt-3.5-turbo',
-        apiKey: 'API Key',
-        apiKeyPlaceholder: 'Enter your API Key',
-        endpointUrl: 'Endpoint URL',
-        endpointUrlPlaceholder: 'Optional, for custom endpoints'
-      },
+            apiKey: 'API Key',
+            apiKeyPlaceholder: 'Please enter the API key',
+            endpointUrl: 'Endpoint URL',
+            endpointUrlPlaceholder: 'Please enter the endpoint URL, e.g., https://api.openai.com/v1',
+            proxy: 'Proxy URL',
+            proxyPlaceholder: 'Please enter the proxy URL, e.g., http://192.168.0.10:7890',
+            success: {
+              update: 'AI configuration updated successfully'
+            },
+            error: {
+              noAppSelected: 'No application selected',
+              fetch: 'Failed to fetch AI configuration',
+              update: 'Failed to update AI configuration',
+              empty: 'Please fill in at least one configuration item'
+            }
+          },
       systemUpdate: {
         title: 'System Update',
         checkingForUpdates: 'Checking for updates...',

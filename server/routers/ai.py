@@ -98,6 +98,12 @@ async def chat_completions(
         # Fallback for OpenAI-compatible providers
         env_vars_to_set["OPENAI_API_BASE"] = ai_conf.base_url
 
+    # Set proxy for LiteLLM if configured
+    if ai_conf.proxy:
+        litellm.proxy = ai_conf.proxy
+    else:
+        litellm.proxy = None  # Explicitly unset if not provided
+
     async def stream_generator() -> AsyncGenerator[str, None]:
         """
         Streams the response from LiteLLM within a temporary environment context.

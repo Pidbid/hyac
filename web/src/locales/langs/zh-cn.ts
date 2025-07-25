@@ -653,11 +653,22 @@ const local: App.I18n.Schema = {
         providerPlaceholder: '例如：openai, azure, anthropic',
         model: '模型',
         modelPlaceholder: '例如：gpt-4, gpt-3.5-turbo',
-        apiKey: 'API 密钥',
-        apiKeyPlaceholder: '输入您的 API 密钥',
-        endpointUrl: 'Endpoint URL',
-        endpointUrlPlaceholder: '可选，用于自定义节点'
-      },
+            apiKey: 'API 密钥',
+            apiKeyPlaceholder: '请输入 API 密钥',
+            endpointUrl: '接口地址',
+            endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
+            proxy: '代理地址',
+            proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
+            success: {
+              update: 'AI 配置更新成功'
+            },
+            error: {
+              noAppSelected: '未选择应用',
+              fetch: '获取 AI 配置失败',
+              update: '更新 AI 配置失败',
+              empty: '请至少填写一项配置'
+            }
+          },
       systemUpdate: {
         title: '系统更新',
         checkingForUpdates: '正在检查更新...',

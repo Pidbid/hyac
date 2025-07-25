@@ -886,11 +886,22 @@ declare namespace App {
             providerPlaceholder: string;
             model: string;
             modelPlaceholder: string;
-            apiKey: string;
-            apiKeyPlaceholder: string;
-            endpointUrl: string;
-            endpointUrlPlaceholder: string;
-          };
+                apiKey: string;
+                apiKeyPlaceholder: string;
+                endpointUrl: string;
+                endpointUrlPlaceholder: string;
+                proxy: string;
+                proxyPlaceholder: string;
+                success: {
+                  update: string;
+                };
+                error: {
+                  noAppSelected: string;
+                  fetch: string;
+                  update: string;
+                  empty: string;
+                };
+              };
           systemUpdate: {
             title: string;
             checkingForUpdates: string;

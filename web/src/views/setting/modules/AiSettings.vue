@@ -17,7 +17,8 @@ const formValue = ref({
   provider: '',
   model: '',
   api_key: '',
-  base_url: ''
+  base_url: '',
+  proxy: ''
 });
 
 const loading = ref(false);
@@ -69,9 +70,9 @@ const providerOptions = [
 
 async function getConfig() {
   loading.value = true;
-  const appId = localStg.get("appId")
+  const appId = localStg.get('appId');
   if (!appId) {
-    message.error('No application selected');
+    message.error($t('page.setting.ai.error.noAppSelected'));
     loading.value = false;
     return;
   }
@@ -81,25 +82,31 @@ async function getConfig() {
       formValue.value = data;
     }
   } catch (error) {
-    message.error('Failed to fetch AI configuration');
+    message.error($t('page.setting.ai.error.fetch'));
   } finally {
     loading.value = false;
   }
 }
 
 async function handleUpdate() {
+  const { provider, model, api_key, base_url } = formValue.value;
+  if (!provider && !model && !api_key && !base_url) {
+    message.error($t('page.setting.ai.error.empty'));
+    return;
+  }
+
   loading.value = true;
-  const appId = localStg.get("appId");
+  const appId = localStg.get('appId');
   if (!appId) {
-    message.error('No application selected');
+    message.error($t('page.setting.ai.error.noAppSelected'));
     loading.value = false;
     return;
   }
   try {
     await updateAiConfig({ appId, config: formValue.value });
-    message.success('AI configuration updated successfully');
+    message.success($t('page.setting.ai.success.update'));
   } catch (error) {
-    message.error('Failed to update AI configuration');
+    message.error($t('page.setting.ai.error.update'));
   } finally {
     loading.value = false;
   }
@@ -134,6 +141,9 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="$t('page.setting.ai.endpointUrl')" path="base_url">
         <NInput v-model:value="formValue.base_url" :placeholder="$t('page.setting.ai.endpointUrlPlaceholder')" />
+      </NFormItem>
+      <NFormItem :label="$t('page.setting.ai.proxy')" path="proxy">
+        <NInput v-model:value="formValue.proxy" :placeholder="$t('page.setting.ai.proxyPlaceholder')" />
       </NFormItem>
       <NFormItem>
         <NButton type="primary" :loading="loading" @click="handleUpdate">

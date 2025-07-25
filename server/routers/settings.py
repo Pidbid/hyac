@@ -510,8 +510,19 @@ async def ai_config_update(
         Application.app_id == data.appId, Application.users == current_user.username
     )
     if not app:
-        raise HTTPException(
-            status_code=404, detail="Application not found or permission denied"
+        raise APIException(code=202, msg="Application not found or permission denied")
+
+    # Validate that at least one of the required fields is provided
+    if not any(
+        [
+            data.config.provider,
+            data.config.model,
+            data.config.api_key,
+            data.config.base_url,
+        ]
+    ):
+        raise APIException(
+            code=112, msg="Please fill in at least one configuration item."
         )
 
     app.ai_config = data.config

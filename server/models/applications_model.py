@@ -65,6 +65,7 @@ class AIConfig(BaseModel):
     model: str = ""
     api_key: str = ""
     base_url: str = ""
+    proxy: str = ""
 
 
 class ApplicationStatus(str, Enum):
