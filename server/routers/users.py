@@ -10,10 +10,11 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, validator
 
 from core.database import mongodb_manager
+from core.rate_limiter import LoginRateLimiter, get_request_limiter
 from core.exceptions import APIException
 from core.jwt_auth import (
     create_access_token,
@@ -120,10 +121,13 @@ async def verify_captcha(captcha: str) -> dict:
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login_for_access_token(data: LoginRequest):
+async def login_for_access_token(data: LoginRequest, request: Request):
     """
     Handles user login, verifies credentials and CAPTCHA, and returns a JWT access token.
     """
+    limiter = LoginRateLimiter(request)
+    limiter.check_rate_limit()
+
     captcha_error = await verify_captcha(data.captcha)
     if captcha_error:
         return BaseResponse(
@@ -133,9 +137,11 @@ async def login_for_access_token(data: LoginRequest):
 
     user = await User.find_one(User.username == data.username)
     if not user or not verify_password(data.password, user.password):
+        limiter.record_failed_attempt()
         return BaseResponse(code=107, msg="Incorrect username or password")
 
     # Create access and refresh tokens
+    limiter.reset_attempts()
     token_data = {"sub": user.username}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
@@ -173,7 +179,11 @@ async def login_with_access_token(current_user: User = Depends(get_current_user)
     }
 
 
-@router.get("/captcha", response_model=GetCaptchaResponse)
+@router.get(
+    "/captcha",
+    response_model=GetCaptchaResponse,
+    dependencies=[Depends(get_request_limiter(limit=100, period=timedelta(days=1)))],
+)
 async def get_captcha():
     """
     Generates a new CAPTCHA image and returns it as a base64 encoded string.
