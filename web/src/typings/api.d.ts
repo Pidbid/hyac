@@ -572,5 +572,8 @@ declare namespace Api {
       };
       message?: string;
     }
+    interface SystemSettings {
+      demo_mode: boolean;
+    }
   }
 }

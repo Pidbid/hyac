@@ -593,3 +593,15 @@ async def update_system(
     return BaseResponse(
         code=0, msg="System update initiated. This may take a few minutes."
     )
+
+
+@router.get("/system", response_model=BaseResponse)
+async def get_system_settings(current_user: User = Depends(get_current_user)):
+    """
+    Retrieves system-level settings.
+    """
+    return BaseResponse(
+        code=0,
+        msg="Get system settings success",
+        data={"demo_mode": settings.DEMO_MODE},
+    )

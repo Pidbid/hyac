@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, h, ref, watch, onUnmounted, computed } from 'vue';
+import { reactive, h, ref, watch, onUnmounted, computed, onMounted } from 'vue';
 import {
   NButton,
   NPopconfirm,
@@ -30,12 +30,14 @@ import HomeLayout from '@/layouts/home-layout/index.vue';
 import { $t } from '@/locales';
 import { localStg } from '@/utils/storage';
 import { useAuthStore } from '@/store/modules/auth';
+import { useAppStore } from '@/store/modules/app';
 import type { DataTableColumn as TableColumn } from 'naive-ui';
 
 const { routerPush } = useRouterPush();
 const authStore = useAuthStore();
 const message = useMessage();
 const dialog = useDialog();
+const appStore = useAppStore();
 
 const showCreateModal = ref(false);
 const createAppForm = reactive({
@@ -271,6 +273,10 @@ onUnmounted(() => {
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
+});
+
+onMounted(() => {
+  appStore.updateDemoMode();
 });
 
 const createNewApp = () => {

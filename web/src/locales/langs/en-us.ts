@@ -630,7 +630,8 @@ const local: App.I18n.Schema = {
             confirmPasswordPlaceholder: 'Enter the new password again',
             passwordsDoNotMatch: 'The two passwords do not match',
             noChanges: 'You have not entered anything to modify',
-            confirmUpdate: 'Are you sure you want to update your profile? This action will require you to log in again.'
+            confirmUpdate: 'Are you sure you want to update your profile? This action will require you to log in again.',
+            demoModeTip: 'Username and password cannot be updated in demo mode'
           },
       allowCredentials: 'Allow Credentials',
       allowMethods: 'Allow Methods',

@@ -269,3 +269,14 @@ export function fetchChangelogs(params?: { proxy?: string }) {
     data: params
   })
 }
+
+/**
+ * Get system settings.
+ * @returns
+ */
+export function fetchGetSystemSetting() {
+  return request<Api.Settings.SystemSettings>({
+    url: '/settings/system',
+    method: 'get'
+  });
+}

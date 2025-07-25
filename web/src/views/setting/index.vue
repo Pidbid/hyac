@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, h, defineAsyncComponent } from 'vue';
+import { ref, computed, h, defineAsyncComponent, onMounted } from 'vue';
 import { NLayout, NLayoutSider, NLayoutContent, NMenu, NCard, NSplit, NIcon } from 'naive-ui';
 import {
   CodeSlashOutline,
@@ -13,11 +13,13 @@ import {
   PersonCircleOutline
 } from '@vicons/ionicons5';
 import { $t } from '@/locales';
+import { useAppStore } from '@/store/modules/app';
 
-defineOptions({
+ defineOptions({
   name: 'SettingIndex'
 });
 
+const appStore = useAppStore();
 const activeKey = ref('dependencies');
 
 const menuOptions = computed(() => [
@@ -90,6 +92,10 @@ const componentMap = {
 
 const currentComponent = computed(() => {
   return componentMap[activeKey.value as keyof typeof componentMap];
+});
+
+onMounted(() => {
+  appStore.updateDemoMode();
 });
 </script>
 

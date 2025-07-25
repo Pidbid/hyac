@@ -16,6 +16,7 @@ from pydantic import BaseModel, validator
 from core.database import mongodb_manager
 from core.rate_limiter import LoginRateLimiter, get_request_limiter
 from core.exceptions import APIException
+from core.config import settings
 from core.jwt_auth import (
     create_access_token,
     create_refresh_token,
@@ -257,6 +258,10 @@ async def update_me(
     """
     Allows a user to update their own information.
     """
+    if settings.DEMO_MODE:
+        raise APIException(
+            code=114, msg="Username and password cannot be updated in demo mode"
+        )
     update_data = data.dict(exclude_unset=True)
     if not update_data:
         return BaseResponse(code=0, msg="No information provided to update.")

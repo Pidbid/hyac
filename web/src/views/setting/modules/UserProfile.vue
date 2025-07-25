@@ -7,16 +7,18 @@ import { $t } from '@/locales';
 import { fetchUpdateMe } from '@/service/api';
 import { localStg } from '@/utils/storage';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
+import { useAppStore } from '@/store/modules/app';
 
-defineOptions({
-  name: 'UserProfile'
+ defineOptions({
+   name: 'UserProfile'
 });
 
 const message = useMessage();
 const dialog = useDialog();
 const router = useRouter();
+const appStore = useAppStore();
 
-const { formRef, validate } = useNaiveForm();
+ const { formRef, validate } = useNaiveForm();
 
 interface FormModel {
   username: string;
@@ -97,7 +99,11 @@ const handleValidateClick = async () => {
   <NCard :title="$t('page.setting.userProfile.title')">
     <NForm ref="formRef" :model="model" :rules="rules" label-placement="left" label-width="auto">
       <NFormItem :label="$t('page.setting.userProfile.username')" path="username">
-        <NInput v-model:value="model.username" :placeholder="$t('page.setting.userProfile.usernamePlaceholder')" />
+        <NInput
+          v-model:value="model.username"
+          :placeholder="$t('page.setting.userProfile.usernamePlaceholder')"
+          :disabled="appStore.isDemoMode"
+        />
         <template #feedback>
           <div class="text-xs text-gray-400">{{ $t('page.setting.userProfile.usernameHelp') }}</div>
         </template>
@@ -108,6 +114,7 @@ const handleValidateClick = async () => {
           type="password"
           show-password-on="mousedown"
           :placeholder="$t('page.setting.userProfile.passwordPlaceholder')"
+          :disabled="appStore.isDemoMode"
         />
         <template #feedback>
           <div class="text-xs text-gray-400">{{ $t('page.setting.userProfile.passwordHelp') }}</div>
@@ -119,10 +126,11 @@ const handleValidateClick = async () => {
           type="password"
           show-password-on="mousedown"
           :placeholder="$t('page.setting.userProfile.confirmPasswordPlaceholder')"
+          :disabled="appStore.isDemoMode"
         />
       </NFormItem>
       <NFormItem>
-        <NButton type="primary" @click="handleValidateClick">
+        <NButton type="primary" :disabled="appStore.isDemoMode" @click="handleValidateClick">
           <template #icon>
             <NIcon :component="SaveOutline" />
           </template>

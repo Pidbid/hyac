@@ -630,7 +630,8 @@ const local: App.I18n.Schema = {
             confirmPasswordPlaceholder: '再次输入新密码',
             passwordsDoNotMatch: '两次输入的密码不一致',
             noChanges: '您没有输入任何要修改的内容',
-            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。'
+            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
+            demoModeTip: '演示模式下不允许修改用户名和密码'
           },
       allowCredentials: '允许凭证',
       allowMethods: '允许的方法',

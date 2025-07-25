@@ -959,6 +959,7 @@ declare namespace App {
                 passwordsDoNotMatch: string;
                 noChanges: string;
                 confirmUpdate: string;
+                demoModeTip: string;
               };
       };
       index: {
