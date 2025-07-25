@@ -33,6 +33,7 @@
 ## 🌐 在线访问
 
 - **项目体验地址**: https://console.hyacos.top
+  - 默认用户名: `admin`, 默认密码: `admin123`
 - **项目文档地址**: https://docs.hyacos.top
 ## ✨ 主要功能
 

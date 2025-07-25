@@ -33,6 +33,7 @@
 ## 🌐 Online Access
 
 - **Experience Address**: https://console.hyacos.top
+  - Default Username: `admin`, Default Password: `admin123`
 - **Documentation Address**: https://docs.hyacos.top
 ## ✨ Features
 
