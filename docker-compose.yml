@@ -145,7 +145,7 @@ services:
     build:
       context: ./lsp
       dockerfile: Dockerfile
-    image: wicos/hyac_lsp:${WEB_IMAGE_TAG:-latest}
+    image: wicos/hyac_lsp:${LSP_IMAGE_TAG:-latest}
     container_name: hyac_lsp
     restart: unless-stopped
     networks:
