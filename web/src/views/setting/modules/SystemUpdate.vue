@@ -33,9 +33,9 @@
             </n-alert>
             <div class="mt-4 text-sm text-gray-500">
               <p>{{ $t('page.setting.systemUpdate.currentServerVersion') }}: {{ updateInfo.current_versions.server_version }}</p>
-              <p>{{ $t('page.setting.systemUpdate.currentAppVersion') }}: {{ updateInfo.current_versions.app_version }}</p>
-              <p>{{ $t('page.setting.systemUpdate.currentLspVersion') }}: {{ updateInfo.current_versions.lsp_version }}</p>
-              <p>{{ $t('page.setting.systemUpdate.currentWebVersion') }}: {{ updateInfo.current_versions.web_version }}</p>
+              <p>{{ $t('page.setting.systemUpdate.currentAppVersion') }}: {{ updateInfo.current_versions.app_version || 'N/A' }}</p>
+              <p>{{ $t('page.setting.systemUpdate.currentLspVersion') }}: {{ updateInfo.current_versions.lsp_version || 'N/A' }}</p>
+              <p>{{ $t('page.setting.systemUpdate.currentWebVersion') }}: {{ updateInfo.current_versions.web_version || 'N/A' }}</p>
             </div>
           </div>
         </n-space>

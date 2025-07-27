@@ -254,7 +254,7 @@ export function fetchUpdateSystem(tags?: Api.Settings.ManualUpdateTags) {
   return request<Api.Base.SuccessResponse>({
     method:"post",
     url:"/settings/system/update",
-    data: tags
+    data: tags || {}
   })
 }
 
