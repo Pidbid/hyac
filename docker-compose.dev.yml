@@ -101,6 +101,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
+      DEMO_MODE: "false"
     ports:
       - 8000:8000
     depends_on:
@@ -152,7 +153,7 @@ services:
     build:
       context: ./lsp
       dockerfile: Dockerfile
-    image: wicos/hyac_lsp:${WEB_IMAGE_TAG:-latest}
+    image: wicos/hyac_lsp:${LSP_IMAGE_TAG:-latest}
     container_name: hyac_lsp
     restart: unless-stopped
     networks:
