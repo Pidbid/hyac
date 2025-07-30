@@ -149,24 +149,6 @@ services:
       - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-web.loadbalancer.server.port=9527"
       - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
-  lsp:
-    build:
-      context: ./lsp
-      dockerfile: Dockerfile
-    image: wicos/hyac_lsp:${LSP_IMAGE_TAG:-latest}
-    container_name: hyac_lsp
-    restart: unless-stopped
-    networks:
-      - hyac_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hyac-lsp.rule=Host(`lsp.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-lsp.entrypoints=websecure"
-      - "traefik.http.routers.hyac-lsp.tls.certresolver=myresolver"
-      - "traefik.http.routers.hyac-lsp.service=hyac-lsp"
-      - "traefik.http.services.hyac-lsp.loadbalancer.server.port=8765"
-      - "traefik.http.routers.hyac-lsp.middlewares=hyac-lsp-ws"
-      - "traefik.http.middlewares.hyac-lsp-ws.headers.customrequestheaders.X-Forwarded-Proto=https"
   app:
     build:
       context: ./app
