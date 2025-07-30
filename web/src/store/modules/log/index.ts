@@ -46,7 +46,7 @@ export const useLogStore = defineStore('log-store', () => {
     logs.value = [];
 
     const baseUrl = getServiceBaseUrl();
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsProtocol = 'wss';
     // Extract host from baseUrl, removing http/https protocol and any trailing slash
     const host = baseUrl.replace(/^(http|https):\/\//, '').replace(/\/$/, '');
     const wsUrl = `${wsProtocol}://${host}/logs/websocket_logs/${applicationStore.appId}?token=${token}`;
