@@ -603,6 +603,9 @@ declare namespace App {
           editorSettings: string;
           fontSize: string;
           codePreview: string;
+          lineNumbers: string;
+          theme: string;
+          lsp: string;
           settingsSuccess: string;
           confirmDeleteDependence: string;
           deleteDependenceConfirm: string;
