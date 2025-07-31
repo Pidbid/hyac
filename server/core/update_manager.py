@@ -25,7 +25,6 @@ class UpdateManager:
                 "server_version": versions.get("SERVER_IMAGE_TAG"),
                 "web_version": versions.get("WEB_IMAGE_TAG"),
                 "app_version": versions.get("APP_IMAGE_TAG"),
-                "lsp_version": versions.get("LSP_IMAGE_TAG"),
             }
         except Exception as e:
             logger.error(f"Failed to read version file: {e}")
@@ -128,7 +127,6 @@ class UpdateManager:
             tag_map = {
                 "server": "SERVER_IMAGE_TAG",
                 "app": "APP_IMAGE_TAG",
-                "lsp": "LSP_IMAGE_TAG",
                 "web": "WEB_IMAGE_TAG",
             }
 
