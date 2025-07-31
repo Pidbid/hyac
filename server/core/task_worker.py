@@ -158,7 +158,16 @@ async def reconcile_running_apps():
     try:
         # 1. Get all apps that should be running from the database
         expected_running_apps = await Application.find(
-            Application.status == ApplicationStatus.RUNNING
+            # Application.status == ApplicationStatus.RUNNING
+            {
+                "status": {
+                    "$in": [
+                        ApplicationStatus.RUNNING,
+                        ApplicationStatus.STARTING,
+                        ApplicationStatus.ERROR,
+                    ]
+                }
+            }
         ).to_list()
         if not expected_running_apps:
             logger.info(

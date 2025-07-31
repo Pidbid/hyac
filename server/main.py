@@ -84,9 +84,6 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(watch_for_tasks())
     logger.info("Task worker started.")
 
-    # Initialize existing applications by creating tasks for the running worker
-    await InitializationService.initialize_existing_apps()
-
     # Start the scheduler for background tasks
     scheduler.add_job(
         sync_runtime_status, "interval", seconds=30, id="sync_runtime_status_job"
