@@ -708,9 +708,9 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
                 "Hot-reloading for the app container will not work."
             )
 
-    # --- Dynamic Network Attachment ---
-    # Find the network of the current (server) container to attach the new app container to it.
+    # --- Dynamic Network Attachment & Label Inheritance ---
     network_name = "hyac_network"  # Default fallback
+    compose_labels = {}
     try:
         server_container = docker_manager.client.containers.get("hyac_server")
         # Get the first network name from the list of networks
@@ -720,9 +720,29 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         logger.info(
             f"Server container is on network '{network_name}'. Attaching app container to the same network."
         )
+        # Inherit all docker-compose labels from the server container
+        server_labels = server_container.attrs["Config"]["Labels"]
+        compose_labels = {
+            k: v for k, v in server_labels.items() if k.startswith("com.docker.compose")
+        }
+        # Set a specific, dynamic service name for the app container to distinguish it
+        if compose_labels:
+            compose_labels["com.docker.compose.service"] = (
+                f"app-runtime-{app.app_id.lower()}"
+            )
+            # Ensure the container is not marked as a one-off, so 'down' cleans it up
+            compose_labels["com.docker.compose.oneoff"] = "False"
+            logger.info(
+                f"Inheriting and customizing docker-compose labels: {compose_labels}"
+            )
+        else:
+            logger.warning(
+                "No docker-compose labels found on server container to inherit."
+            )
+
     except (errors.NotFound, KeyError, IndexError) as e:
         logger.warning(
-            f"Could not dynamically determine server network (error: {e}). "
+            f"Could not dynamically determine server network or labels (error: {e}). "
             f"Falling back to default network 'hyac_network'. "
             "This might fail if the project name in docker-compose is not 'hyac'."
         )
@@ -736,6 +756,9 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
     }
 
+    # Merge compose labels with traefik labels
+    all_labels = {**compose_labels, **traefik_labels}
+
     app_image_name = get_app_image_name()
     container = docker_manager.create_container(
         image=app_image_name,
@@ -745,7 +768,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         volumes=volumes,
         restart=False,
         healthcheck=healthcheck,
-        labels=traefik_labels,
+        labels=all_labels,
     )
     if not container or not docker_manager.start_container(container_name):
         return None
