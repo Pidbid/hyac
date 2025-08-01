@@ -59,7 +59,8 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: 'Yes',
       no: 'No'
-    }
+    },
+    enable: 'Enable'
   },
   request: {
     logout: 'Logout user after request failed',
@@ -429,14 +430,50 @@ const local: App.I18n.Schema = {
       responseCopied: 'Response result copied',
       headerPlaceholder: 'Select or enter Header',
       headerValuePlaceholder: 'Header Value',
-      queryParameters: 'Query Parameters',
+      queryParameters: 'Query',
       keyPlaceholder: 'Key',
       valuePlaceholder: 'Value',
       bodyJson: 'Body (JSON)',
       sendRequest: 'Send Request',
       response: 'Response',
       responsePlaceholder: 'Response result',
-      commonFunctionTestHint: 'Common functions cannot be tested online directly. Please call them in other functions.'
+      commonFunctionTestHint: 'Common functions cannot be tested online directly. Please call them in other functions.',
+      commonFunctionCronHint: 'Cron jobs are not supported for common functions',
+      cronJobs: 'Cron Jobs',
+      fetchTasksFailed: 'Failed to fetch scheduled tasks',
+      createTask: 'Create Task',
+      editTask: 'Edit Task',
+      taskName: 'Task Name',
+      taskNamePlaceholder: 'Please enter task name',
+      triggerType: 'Trigger Type',
+      taskDescription: 'Task Description',
+      invalidJsonFormat: 'Invalid JSON format',
+      taskTriggered: 'Task triggered successfully',
+      taskTriggerFailed: 'Failed to trigger task',
+      confirmDeleteTask: 'Are you sure you want to delete this task?',
+      noTask: 'No scheduled task for this function',
+      taskNotCreated: 'Not Created',
+      intervalTrigger: 'Interval Trigger',
+      cronTrigger: 'Date Trigger (Cron)',
+      intervalSettings: 'Interval Settings',
+      every: 'Every',
+      units: {
+        seconds: 'Seconds',
+        minutes: 'Minutes',
+        hours: 'Hours',
+        days: 'Days',
+        months: 'Months',
+        day_of_week: 'Day of Week'
+      },
+      cronSettings: 'Date Settings',
+      cronPlaceholders: {
+        minute: 'Minute (0-59)',
+        hour: 'Hour (0-23)',
+        day: 'Day (1-31)',
+        month: 'Month (1-12)',
+        day_of_week: 'Day of Week (0-6)'
+      },
+      requestBody: 'Request Body (JSON)'
     },
     log: {
       loadFunctionListFailed: 'Failed to load function list',

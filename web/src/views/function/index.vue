@@ -33,6 +33,7 @@ import FunctionList from './modules/FunctionList.vue';
 import FunctionEditorPanel from './modules/FunctionEditorPanel.vue';
 import FunctionLogPanel from './modules/FunctionLogPanel.vue';
 import FunctionTestPanel from './modules/FunctionTestPanel.vue';
+import FunctionCronPanel from './modules/FunctionCronPanel.vue';
 import FunctionHistoryModal from './modules/FunctionHistoryModal.vue';
 import AiAssistantWindow from './modules/AiAssistantWindow.vue';
 
@@ -971,8 +972,23 @@ onBeforeUnmount(() => {
               </NSplit>
             </template>
             <template #2>
-              <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
-              <div v-else class="h-full w-full flex items-center justify-center">
+               <NTabs type="line" animated class="h-full" style="padding-left: 16px;">
+                  <NTabPane name="test" :tab="$t('page.function.functionTest')">
+                    <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
+                   <div v-else class="h-full w-full flex items-center justify-center">
+                     <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
+                   </div>
+                 </NTabPane>
+                 <NTabPane name="cron" :tab="$t('page.function.cronJobs')">
+                    <div v-if="selectedFunction.type === 'endpoint'">
+                      <FunctionCronPanel :func="selectedFunction" />
+                    </div>
+                    <div v-else class="h-full w-full flex items-center justify-center">
+                      <NEmpty :description="$t('page.function.commonFunctionCronHint')"></NEmpty>
+                    </div>
+                  </NTabPane>
+               </NTabs>
+              <div v-if="selectedFunction.type !== 'endpoint'" class="h-full w-full flex items-center justify-center">
                 <NEmpty :description="$t('page.function.commonFunctionTestHint')">
                 </NEmpty>
               </div>

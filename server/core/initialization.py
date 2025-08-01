@@ -20,6 +20,7 @@ from models.function_template_model import FunctionTemplate, TemplateType, Funct
 from models.tasks_model import Task, TaskAction
 from routers.users import hash_password
 from core.dependence_manager import dependence_manager
+from models.scheduled_tasks_model import ScheduledTask, TriggerType
 
 
 async def create_function_templates_for_app(app_id: str):
@@ -279,6 +280,53 @@ class InitializationService:
         await create_function_templates_for_app(demo_app.app_id)
 
     @staticmethod
+    async def initialize_system_tasks():
+        """
+        Initializes system-level scheduled tasks, such as runtime status synchronization.
+        """
+        task_id = "system_sync_runtime_status"
+        try:
+            # Find the existing task by its unique ID
+            existing_task = await ScheduledTask.find_one(
+                ScheduledTask.task_id == task_id
+            )
+
+            # Define the desired state of the system task
+            task_data = {
+                "name": "Sync Runtime Status",
+                "description": "Periodically synchronizes the status of all running applications.",
+                "trigger": TriggerType.INTERVAL,
+                "trigger_config": {"seconds": 30},
+                "enabled": True,
+                "is_system_task": True,
+                "app_id": None,
+                "function_id": None,
+            }
+
+            if not existing_task:
+                # Create the task if it doesn't exist
+                task = ScheduledTask(task_id=task_id, **task_data)
+                await task.insert()
+                logger.info(f"Created system task: '{task.name}'")
+            else:
+                # If it exists, ensure it is up-to-date with the latest configuration
+                # This prevents manual changes from being reverted on every restart
+                update_required = False
+                for key, value in task_data.items():
+                    if getattr(existing_task, key) != value:
+                        setattr(existing_task, key, value)
+                        update_required = True
+
+                if update_required:
+                    await existing_task.save()
+                    logger.info(
+                        f"Updated system task '{existing_task.name}' to latest configuration."
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to initialize system task '{task_id}': {e}")
+
+    @staticmethod
     async def _is_database_empty() -> bool:
         """
         Checks if the functions, applications, and users collections are all empty.
@@ -311,3 +359,6 @@ class InitializationService:
             # Dependencies will be installed by the app container on startup.
             await cls.initialize_demo_functions()
             await cls.initialize_functions_templates()
+
+        # Always ensure system tasks are initialized
+        await cls.initialize_system_tasks()

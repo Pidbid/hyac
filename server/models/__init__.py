@@ -14,3 +14,4 @@ from .statistics_model import FunctionMetric
 from .users_model import User, Captcha
 from .settings_model import SettingModel
 from .tasks_model import Task, TaskStatus, TaskAction
+from .scheduled_tasks_model import ScheduledTask, TriggerType
