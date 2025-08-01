@@ -6,7 +6,7 @@ import os
 import json
 from contextlib import redirect_stderr, redirect_stdout
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
@@ -91,6 +91,10 @@ async def dynamic_handler(
     """
     Handles all dynamic function calls, routing them to the appropriate loaded code.
     """
+    # --- Early exit for favicon requests ---
+    if func_id == "favicon.ico":
+        return Response(status_code=204)
+
     start_time = time.time()
     status = CallStatus.SUCCESS
     error_info = None

@@ -3,11 +3,11 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useApplicationStore } from '@/store/modules/application';
 import { useAppStore } from '@/store/modules/app';
 import { fetchStatisticsSummary } from '@/service/api/statistics';
-import CardData from './modules/card-data.vue';
-import LineChart from './modules/line-chart.vue';
+import SummaryCard from './modules/SummaryCard.vue';
+import TrendChart from './modules/TrendChart.vue';
+import RankingList from './modules/RankingList.vue';
 import PieChart from './modules/pie-chart.vue';
-import ProjectNews from './modules/project-news.vue';
-import CreativityBanner from './modules/creativity-banner.vue';
+import InsightCard from './modules/InsightCard.vue';
 
 const appStore = useAppStore();
 const applicationStore = useApplicationStore();
@@ -47,18 +47,27 @@ watch(
 </script>
 
 <template>
-  <NSpace vertical :size="24">
-    <CardData :loading="loading" :summary="summaryData" />
-    <NGrid :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
-      <NGi span="24 s:24 m:18">
-        <NCard :bordered="false" class="card-wrapper">
-          <LineChart :summary="summaryData" />
-        </NCard>
+  <NSpace vertical :size="16">
+    <!-- Row 1: Insight and Summary -->
+    <NGrid :cols="12" :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
+      <NGi span="12 s:12 m:4">
+        <InsightCard :summary="summaryData" />
       </NGi>
-      <NGi span="24 s:24 m:6">
-        <NCard :bordered="false" class="card-wrapper">
-          <PieChart :summary="summaryData" />
-        </NCard>
+      <NGi span="12 s:12 m:8">
+        <SummaryCard :loading="loading" :summary="summaryData" />
+      </NGi>
+    </NGrid>
+
+    <!-- Row 2: Main Trend Chart -->
+    <TrendChart :summary="summaryData" />
+
+    <!-- Row 3: Ranking and Pie Chart -->
+    <NGrid :cols="12" :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
+      <NGi span="12 s:12 m:6">
+        <RankingList :summary="summaryData" />
+      </NGi>
+      <NGi span="12 s:12 m:6">
+        <PieChart :summary="summaryData" />
       </NGi>
     </NGrid>
   </NSpace>

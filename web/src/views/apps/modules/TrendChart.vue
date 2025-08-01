@@ -1,18 +1,25 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useAppStore } from '@/store/modules/app';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
 import { fetchFunctionRequests } from '@/service/api/statistics';
-import { useRoute } from 'vue-router';
+import { useApplicationStore } from '@/store/modules/application';
 
 defineOptions({
-  name: 'LineChart'
+  name: 'TrendChart'
 });
 
+interface Props {
+  summary: Api.Statistics.Summary | null;
+}
+
+const props = defineProps<Props>();
+
 const appStore = useAppStore();
-const route = useRoute();
-const appId = route.query.appId as string;
+const applicationStore = useApplicationStore();
+const appId = computed(() => applicationStore.appId);
+const timeRange = ref(7); // Default to 7 days
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
@@ -75,19 +82,9 @@ const { domRef, updateOptions } = useEcharts(() => ({
   ]
 }));
 
-function updateLocale() {
-  updateOptions((opts, factory) => {
-    const originOpts = factory();
-    opts.legend.data = originOpts.legend.data;
-    opts.series[0].name = originOpts.series[0].name;
-    return opts;
-  });
-}
-
 async function getChartData() {
-  if (!appId) return;
-  // FIXME: This should be a dynamic functionId
-  const { data } = await fetchFunctionRequests({ appId, functionId: 'a2efa12a-12a2-4e9a-8a2a-2a12a2a12a2a' });
+  if (!appId.value) return;
+  const { data } = await fetchFunctionRequests(appId.value, timeRange.value);
   if (data) {
     updateOptions(opts => {
       opts.xAxis.data = data.map(item => item.date);
@@ -100,15 +97,27 @@ async function getChartData() {
 watch(
   () => appStore.locale,
   () => {
-    updateLocale();
+    updateOptions((opts, factory) => {
+      const originOpts = factory();
+      opts.legend.data = originOpts.legend.data;
+      opts.series[0].name = originOpts.series[0].name;
+      return opts;
+    });
   }
 );
 
-getChartData();
+watch([appId, timeRange], getChartData, { immediate: true });
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper">
+  <NCard :title="$t('page.apps.requestTrend')" :bordered="false" class="card-wrapper">
+    <template #header-extra>
+      <NRadioGroup v-model:value="timeRange" size="small">
+        <NRadioButton :value="1">24H</NRadioButton>
+        <NRadioButton :value="7">7 Days</NRadioButton>
+        <NRadioButton :value="30">30 Days</NRadioButton>
+      </NRadioGroup>
+    </template>
     <div ref="domRef" class="h-360px overflow-hidden"></div>
   </NCard>
 </template>

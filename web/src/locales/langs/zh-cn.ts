@@ -280,15 +280,24 @@ const local: App.I18n.Schema = {
       errorRestartingApp: '重启应用时发生错误'
     },
     apps: {
+      insights: '智能洞察',
+      noInsights: '暂无洞察信息',
+      requestTrend: '请求趋势',
+      coreMetrics: '核心指标',
+      successRate: '成功率',
       functionCount: '函数数量',
       databaseCount: '数据库数量',
       storageCount: '存储占用',
-      requestCount: '请求次数(24h)',
+      requestCount: '总调用数',
       requestCountUnit: '次',
       functionCountUnit: '个',
       databaseCountUnit: '条',
       storageCountUnit: 'MB',
       top5Functions: 'Top 5 函数',
+      top5FunctionsByCount: '调用次数 Top 5',
+      top5FunctionsByTime: '平均耗时 Top 5',
+      byCount: '按次数',
+      byTime: '按耗时',
       unknown: '未知'
     },
     database: {

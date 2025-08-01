@@ -280,15 +280,24 @@ const local: App.I18n.Schema = {
       errorRestartingApp: 'An error occurred while restarting the application'
     },
     apps: {
+      insights: 'Insights',
+      noInsights: 'No insights available',
+      requestTrend: 'Request Trend',
+      coreMetrics: 'Core Metrics',
+      successRate: 'Success Rate',
       functionCount: 'Functions',
       databaseCount: 'Databases',
       storageCount: 'Storage Usage',
-      requestCount: 'Requests (24h)',
+      requestCount: 'Total Requests',
       requestCountUnit: 'times',
       functionCountUnit: 'items',
       databaseCountUnit: 'rows',
       storageCountUnit: 'MB',
       top5Functions: 'Top 5 Functions',
+      top5FunctionsByCount: 'Top 5 by Count',
+      top5FunctionsByTime: 'Top 5 by Time',
+      byCount: 'By Count',
+      byTime: 'By Time',
       unknown: 'Unknown'
     },
     database: {

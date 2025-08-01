@@ -527,6 +527,11 @@ declare namespace App {
           errorRestartingApp: string;
         };
         apps: {
+          insights: string;
+          noInsights: string;
+          requestTrend: string;
+          coreMetrics: string;
+          successRate: string;
           functionCount: string;
           databaseCount: string;
           storageCount: string;
@@ -536,6 +541,10 @@ declare namespace App {
           databaseCountUnit: string;
           storageCountUnit: string;
           top5Functions: string;
+          top5FunctionsByCount: string;
+          top5FunctionsByTime: string;
+          byCount: string;
+          byTime: string;
           unknown: string;
         };
         database: {

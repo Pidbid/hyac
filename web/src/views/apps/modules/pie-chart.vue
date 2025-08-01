@@ -3,20 +3,23 @@ import { watch } from 'vue';
 import { useAppStore } from '@/store/modules/app';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
-import { fetchTopFunctions } from '@/service/api/statistics';
-import { useRoute } from 'vue-router';
+import { useApplicationStore } from '@/store/modules/application';
 
 defineOptions({
   name: 'PieChart'
 });
 
+interface Props {
+  summary: Api.Statistics.Summary | null;
+}
+const props = defineProps<Props>();
+
 const appStore = useAppStore();
-const route = useRoute();
-const appId = route.query.appId as string;
+const applicationStore = useApplicationStore();
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
-    trigger: 'item'
+    trigger: 'item',
   },
   legend: {
     bottom: '1%',
@@ -65,23 +68,21 @@ function updateLocale() {
   });
 }
 
-async function getChartData() {
-  if (!appId) return;
-  const { data } = await fetchTopFunctions({ appId });
-  if (data) {
-    updateOptions(opts => {
-      const chartData = data.map(item => ({
-        name: item.function_name || $t('page.apps.unknown'),
-        value: item.count
-      }));
+function updateChartData() {
+  if (!props.summary) return;
 
-      if (opts.series && opts.series[0]) {
-        opts.series[0].data = chartData;
-      }
+  const data = props.summary.functions.ranking_by_count || [];
+  const chartData = data.map(item => ({
+    name: item.function_name || $t('page.apps.unknown'),
+    value: item.count
+  }));
 
-      return opts;
-    });
-  }
+  updateOptions(opts => {
+    if (opts.series && opts.series[0]) {
+      opts.series[0].data = chartData;
+    }
+    return opts;
+  });
 }
 
 watch(
@@ -91,11 +92,11 @@ watch(
   }
 );
 
-getChartData();
+watch(() => props.summary, updateChartData, { deep: true });
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper">
+  <NCard :title="$t('page.apps.top5Functions')" :bordered="false" class="card-wrapper">
     <div ref="domRef" class="h-360px overflow-hidden"></div>
   </NCard>
 </template>
