@@ -32,7 +32,6 @@ class Settings(BaseSettings):
     SERVER_IMAGE_TAG: Optional[str] = "latest"
     WEB_IMAGE_TAG: Optional[str] = "latest"
     APP_IMAGE_TAG: Optional[str] = "latest"
-    LSP_IMAGE_TAG: Optional[str] = "latest"
 
     class Config:
         """

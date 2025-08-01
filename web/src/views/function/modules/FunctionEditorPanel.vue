@@ -1,39 +1,37 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { NCard, NButton, NIcon } from 'naive-ui';
 import { CheckmarkOutline, SaveOutline, InformationCircleOutline, BrushOutline, CreateOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
-import Editor from './editor.vue'; // 假设 editor.vue 在同一目录下
+import { useThemeStore } from '@/store/modules/theme';
+import EditorCodemirror from './EditorCodemirror.vue';
 
 interface editorConfigT {
   language: string;
   fontSize: number;
   minimap: boolean;
-  theme: "github-light" | "github-dark";
+  themeName: string;
+  lineNumbers: boolean;
 }
 
 const props = defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
-  editorConfig:editorConfigT;
+  editorConfig: editorConfigT;
   isSaving: boolean;
 }>();
 
 const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-editor-settings', 'edit-meta']);
 
+const themeStore = useThemeStore();
+const themeMode = computed(() => (themeStore.darkMode ? 'dark' : 'light'));
 
-const editorConfig = ref({
-  language: 'python',
-  fontSize: 14,
-  minimap: true,
-  theme: 'github-light'
-});
 
 </script>
 
 <template>
   <NCard :bordered="false" size="small" class="h-full flex-1"
-    :content-style="{ padding: '0px', display: 'flex', flexDirection: 'column' }">
+    :content-style="{ padding: '0px', display: 'flex', flexDirection: 'column', position: 'relative' }">
     <template #header>
       <div class="flex flex-col">
         <div class="flex flex-row items-center">
@@ -67,10 +65,17 @@ const editorConfig = ref({
         </NButton>
       </div>
     </template>
-    <div class="flex-1 min-h-0">
-      <Editor :model-value="func.code" @update:modelValue="$emit('update:code', $event)"
-        :language="editorConfig.language" :font-size="editorConfig.fontSize" :minimap="editorConfig.minimap" :theme="editorConfig.theme" />
-    </div>
+    <EditorCodemirror
+      :key="func.id"
+      :code="func.code"
+      :show-minimap="editorConfig.minimap"
+      :font-size="editorConfig.fontSize"
+      :theme-name="editorConfig.themeName"
+      :theme-mode="themeMode"
+      :tab-size="4"
+      :show-line-numbers="editorConfig.lineNumbers"
+      @update:code="$emit('update:code', $event)"
+    />
   </NCard>
 </template>
 

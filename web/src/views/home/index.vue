@@ -82,7 +82,7 @@ const tableColumns = (): TableColumn<any>[] => [
     key: 'index',
     title: $t('common.index'),
     align: 'center',
-    width: 64,
+    width: 50,
     render: (_, index) => {
       return (apiParams.page - 1) * apiParams.length + index + 1;
     }
@@ -91,7 +91,7 @@ const tableColumns = (): TableColumn<any>[] => [
     key: 'app_id',
     title: $t('page.home.appId'),
     align: 'center',
-    minWidth: 60
+    width: 160
   },
   {
     key: 'app_name',

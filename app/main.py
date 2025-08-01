@@ -17,6 +17,7 @@ from core.db_manager import db_manager
 from core.dependency_loader import install_app_dependencies
 from core.cache_watcher import watch_function_changes
 from core.env_manager import get_dynamic_envs, watch_for_env_changes
+from lsp.router_lsp import router as lsp_router
 
 from models.applications_model import Application, CORSConfig
 
@@ -123,6 +124,7 @@ async def health_check(response: Response):
 
 # Include the dynamic execution router.
 app.include_router(dynamic_router)
+app.include_router(lsp_router)
 
 if __name__ == "__main__":
     # Run the application using uvicorn server.

@@ -576,4 +576,39 @@ declare namespace Api {
       demo_mode: boolean;
     }
   }
+
+  /**
+   * namespace Scheduler
+   *
+   * backend api module: "scheduler"
+   */
+  namespace Scheduler {
+    type TriggerType = "cron" | "interval";
+
+    interface ScheduledTask {
+      task_id: string;
+      name: string;
+      func: string;
+      trigger: TriggerType;
+      trigger_config: Record<string, any>;
+      params: Record<string, any>;
+      body: Record<string, any>;
+      enabled: boolean;
+      description?: string;
+      created_at: string;
+      updated_at: string;
+    }
+
+    interface ScheduledTaskUpsert {
+      appId: string;
+      functionId: string;
+      name: string;
+      trigger: TriggerType;
+      trigger_config: Record<string, any>;
+      params?: Record<string, any>;
+      body?: Record<string, any>;
+      enabled?: boolean;
+      description?: string;
+    }
+  }
 }

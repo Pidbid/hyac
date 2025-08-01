@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [dev-0.0.7] - 2025-08-01
+- 添加函数【定时任务】功能
+- 修复启动逻辑中多次初始化 app runtime 的错误
+- 优化 web 主页 home 显示效果
+
+
+## [dev-0.0.6] - 2025-07-30
+- 修复了开发模式下函数日志无法显示的问题
+- 重构web端代码编辑器，使用 codemirror 替换 monaco
+- 重构服务端LSP: 删除单独LSP服务，将LSP整合到所属 app runtime中
 
 ## [dev-0.0.5] - 2025-07-26
 - 修复了LSP服务的配置

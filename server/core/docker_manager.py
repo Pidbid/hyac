@@ -290,6 +290,124 @@ class DockerManager:
             logger.error(f"Failed to build image '{tag}': {e}")
         return False
 
+    def pull_image(self, image_name: str) -> bool:
+        """
+        Pulls a Docker image from a registry.
+
+        Args:
+            image_name: The name of the image to pull (e.g., 'ubuntu:latest').
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not self._check_client():
+            return False
+        assert self.client is not None
+        try:
+            logger.info(f"Pulling image '{image_name}'...")
+            self.client.images.pull(image_name)
+            logger.info(f"Image '{image_name}' pulled successfully.")
+            return True
+        except errors.ImageNotFound:
+            logger.error(f"Image '{image_name}' not found in the registry.")
+            return False
+        except errors.APIError as e:
+            logger.error(f"Failed to pull image '{image_name}': {e}")
+            return False
+
+    async def recreate_service(self, service_name: str, new_image_tag: str) -> bool:
+        """
+        Recreates a service container with a new image tag, preserving its configuration.
+        This simulates 'docker-compose up -d <service>'.
+
+        Args:
+            service_name: The name of the service to recreate (e.g., 'server', 'web').
+            new_image_tag: The new image tag to use for the service.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not self._check_client():
+            return False
+        assert self.client is not None
+
+        container_name = f"hyac_{service_name}"
+        try:
+            # 1. Get the old container to preserve its configuration
+            old_container = self.client.containers.get(container_name)
+
+            # Extract essential configuration
+            container_config = old_container.attrs["Config"]
+            host_config = old_container.attrs["HostConfig"]
+            network_settings = old_container.attrs["NetworkSettings"]["Networks"]
+
+            # Construct the new image name
+            # Assumes image name format is 'wicos/hyac_<service_name>:<tag>'
+            image_base_name = container_config["Image"].split(":")[0]
+            new_image_name = f"{image_base_name}:{new_image_tag}"
+
+            # 2. Pull the new image
+            logger.info(
+                f"Pulling new image for service '{service_name}': {new_image_name}"
+            )
+            if not self.pull_image(new_image_name):
+                logger.error(
+                    f"Failed to pull new image for {service_name}. Aborting recreate."
+                )
+                return False
+
+            # 3. Stop and remove the old container
+            logger.info(f"Stopping and removing old container '{container_name}'...")
+            await self.stop_container(container_name)
+            await self.remove_container(container_name)
+            logger.info(f"Old container '{container_name}' removed.")
+
+            # 4. Create the new container with the preserved configuration
+            logger.info(
+                f"Recreating container '{container_name}' with image '{new_image_name}'..."
+            )
+
+            # Get the primary network name
+            network_name = list(network_settings.keys())[0]
+
+            new_container = self.client.containers.create(
+                image=new_image_name,
+                name=container_name,
+                environment=container_config.get("Env"),
+                volumes=[
+                    mount["Source"] for mount in host_config.get("Mounts", [])
+                ],  # This is a simplification
+                labels=container_config.get("Labels"),
+                hostname=container_config.get("Hostname"),
+                detach=True,
+                restart_policy=host_config.get("RestartPolicy"),
+            )
+
+            # Attach the container to the original network
+            network = self.client.networks.get(network_name)
+            network.connect(new_container)
+
+            new_container.start()
+
+            logger.info(
+                f"Service '{service_name}' recreated and started successfully with tag '{new_image_tag}'."
+            )
+            return True
+
+        except errors.NotFound:
+            logger.error(
+                f"Container for service '{service_name}' (named '{container_name}') not found."
+            )
+            return False
+        except errors.APIError as e:
+            logger.error(f"Failed to recreate service '{service_name}': {e}")
+            return False
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while recreating service '{service_name}': {e}"
+            )
+            return False
+
     def exec_in_container(self, container_name: str, command: str) -> tuple[int, str]:
         """
         Executes a command inside a running container.
@@ -590,9 +708,9 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
                 "Hot-reloading for the app container will not work."
             )
 
-    # --- Dynamic Network Attachment ---
-    # Find the network of the current (server) container to attach the new app container to it.
+    # --- Dynamic Network Attachment & Label Inheritance ---
     network_name = "hyac_network"  # Default fallback
+    compose_labels = {}
     try:
         server_container = docker_manager.client.containers.get("hyac_server")
         # Get the first network name from the list of networks
@@ -602,9 +720,29 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         logger.info(
             f"Server container is on network '{network_name}'. Attaching app container to the same network."
         )
+        # Inherit all docker-compose labels from the server container
+        server_labels = server_container.attrs["Config"]["Labels"]
+        compose_labels = {
+            k: v for k, v in server_labels.items() if k.startswith("com.docker.compose")
+        }
+        # Set a specific, dynamic service name for the app container to distinguish it
+        if compose_labels:
+            compose_labels["com.docker.compose.service"] = (
+                f"app-runtime-{app.app_id.lower()}"
+            )
+            # Ensure the container is not marked as a one-off, so 'down' cleans it up
+            compose_labels["com.docker.compose.oneoff"] = "False"
+            logger.info(
+                f"Inheriting and customizing docker-compose labels: {compose_labels}"
+            )
+        else:
+            logger.warning(
+                "No docker-compose labels found on server container to inherit."
+            )
+
     except (errors.NotFound, KeyError, IndexError) as e:
         logger.warning(
-            f"Could not dynamically determine server network (error: {e}). "
+            f"Could not dynamically determine server network or labels (error: {e}). "
             f"Falling back to default network 'hyac_network'. "
             "This might fail if the project name in docker-compose is not 'hyac'."
         )
@@ -618,6 +756,9 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
     }
 
+    # Merge compose labels with traefik labels
+    all_labels = {**compose_labels, **traefik_labels}
+
     app_image_name = get_app_image_name()
     container = docker_manager.create_container(
         image=app_image_name,
@@ -627,7 +768,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         volumes=volumes,
         restart=False,
         healthcheck=healthcheck,
-        labels=traefik_labels,
+        labels=all_labels,
     )
     if not container or not docker_manager.start_container(container_name):
         return None

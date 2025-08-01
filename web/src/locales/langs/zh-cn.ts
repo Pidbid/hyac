@@ -59,7 +59,8 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: '是',
       no: '否'
-    }
+    },
+    enable: '启用'
   },
   request: {
     logout: '请求失败后登出用户',
@@ -356,6 +357,9 @@ const local: App.I18n.Schema = {
       editorSettings: '编辑器设置',
       fontSize: '字体大小',
       codePreview: '代码预览',
+      lineNumbers: '显示行号',
+      theme: '主题',
+      lsp: 'LSP (测试功能)',
       settingsSuccess: '设置成功',
       confirmDeleteDependence: '确认删除依赖',
       deleteDependenceConfirm: '确定要删除依赖 "{name}" 吗？',
@@ -426,14 +430,50 @@ const local: App.I18n.Schema = {
       responseCopied: '响应结果已复制',
       headerPlaceholder: '选择或输入Header',
       headerValuePlaceholder: 'Header Value',
-      queryParameters: 'Query Parameters',
+      queryParameters: 'Query',
       keyPlaceholder: 'Key',
       valuePlaceholder: 'Value',
       bodyJson: 'Body (JSON)',
       sendRequest: '发送请求',
       response: '响应',
       responsePlaceholder: '响应结果',
-      commonFunctionTestHint: '公共函数无法直接进行在线测试，请在其他函数中调用'
+      commonFunctionTestHint: '公共函数无法直接进行在线测试，请在其他函数中调用',
+      commonFunctionCronHint: '公共函数不支持定时任务',
+      cronJobs: '定时任务',
+      fetchTasksFailed: '获取定时任务列表失败',
+      createTask: '创建任务',
+      editTask: '编辑任务',
+      taskName: '任务名称',
+      taskNamePlaceholder: '请输入任务名称',
+      triggerType: '触发器类型',
+      taskDescription: '任务描述',
+      invalidJsonFormat: 'JSON 格式无效',
+      taskTriggered: '任务已成功触发',
+      taskTriggerFailed: '触发任务失败',
+      confirmDeleteTask: '确定要删除此任务吗？',
+      noTask: '当前函数未配置定时任务',
+      taskNotCreated: '未创建',
+      intervalTrigger: '间隔触发 (Interval)',
+      cronTrigger: '日期触发 (Cron)',
+      intervalSettings: '间隔设置',
+      every: '每',
+      units: {
+        seconds: '秒',
+        minutes: '分钟',
+        hours: '小时',
+        days: '天',
+        months: '月',
+        day_of_week: '周'
+      },
+      cronSettings: '日期设置',
+      cronPlaceholders: {
+        minute: '分 (0-59)',
+        hour: '时 (0-23)',
+        day: '日 (1-31)',
+        month: '月 (1-12)',
+        day_of_week: '周 (0-6)'
+      },
+      requestBody: '请求体 (JSON)'
     },
     log: {
       loadFunctionListFailed: '加载函数列表失败',

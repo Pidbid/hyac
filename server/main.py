@@ -8,8 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from core.exceptions import APIException
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from core.runtime_status_manager import sync_runtime_status
+from core.scheduler_manager import scheduler_manager
 
 from core.database import mongodb_manager
 from core.logger import configure_logging
@@ -28,6 +27,7 @@ from routers import (
     health_router,
     runtime_router,
     proxy_router,
+    scheduler_router,
 )
 from core.initialization import InitializationService
 import asyncio
@@ -53,9 +53,6 @@ class HealthCheckFilter(logging.Filter):
 
 # Add the filter to the uvicorn access logger
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-
-
-scheduler = AsyncIOScheduler()
 
 
 @asynccontextmanager
@@ -84,21 +81,15 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(watch_for_tasks())
     logger.info("Task worker started.")
 
-    # Initialize existing applications by creating tasks for the running worker
-    await InitializationService.initialize_existing_apps()
-
-    # Start the scheduler for background tasks
-    scheduler.add_job(
-        sync_runtime_status, "interval", seconds=30, id="sync_runtime_status_job"
-    )
-    scheduler.start()
-    logger.info("Scheduler started for runtime status synchronization.")
+    # Start the dynamic scheduler manager
+    await scheduler_manager.start()
+    logger.info("Scheduler manager started.")
 
     yield
 
-    # Shutdown the scheduler
-    scheduler.shutdown()
-    logger.info("Scheduler shut down.")
+    # Shutdown the dynamic scheduler manager
+    scheduler_manager.shutdown()
+    logger.info("Scheduler manager shut down.")
 
     # Clean up all running app containers on shutdown
     logger.info("Shutting down all running app containers...")
@@ -145,16 +136,7 @@ app.include_router(settings_router)
 app.include_router(runtime_router)
 app.include_router(health_router)
 app.include_router(ai_router)
+app.include_router(scheduler_router)
 
 # The proxy router must be included last, as it's a catch-all.
 app.include_router(proxy_router)
-
-# if __name__ == "__main__":
-#     # Run the application using uvicorn server.
-#     uvicorn.run(
-#         "main:app",
-#         host="0.0.0.0",
-#         port=settings.get("SERVICE_PORT"),
-#         reload=True,
-#         workers=1,
-#     )

@@ -14,6 +14,7 @@ from models import (
     FunctionMetric,
     FunctionTemplate,
     Task,
+    ScheduledTask,
 )
 
 
@@ -52,6 +53,7 @@ class MongoDBManager:
                 FunctionTemplate,
                 SettingModel,
                 Task,
+                ScheduledTask,
             ],
         )
 

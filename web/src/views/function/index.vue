@@ -33,6 +33,7 @@ import FunctionList from './modules/FunctionList.vue';
 import FunctionEditorPanel from './modules/FunctionEditorPanel.vue';
 import FunctionLogPanel from './modules/FunctionLogPanel.vue';
 import FunctionTestPanel from './modules/FunctionTestPanel.vue';
+import FunctionCronPanel from './modules/FunctionCronPanel.vue';
 import FunctionHistoryModal from './modules/FunctionHistoryModal.vue';
 import AiAssistantWindow from './modules/AiAssistantWindow.vue';
 
@@ -61,14 +62,11 @@ const editorConfig = ref(storedEditorConfig ? JSON.parse(storedEditorConfig) : {
   language: 'python',
   fontSize: 14,
   minimap: true,
-  theme: 'github-light'
+  themeName: 'github',
+  lineNumbers: true,
 });
 
-watch(() => themeStore.darkMode, (isDark) => {
-  editorConfig.value.theme = isDark ? 'github-dark' : 'github-light';
-}, { immediate: true });
-
-watch(editorConfig, (newValue) => {
+watch(() => editorConfig.value, (newValue) => {
   localStorage.setItem('editorConfig', JSON.stringify(newValue));
 }, { deep: true });
 
@@ -381,7 +379,20 @@ const handleFunctionEditorSetting = () => {
     fontSize: editorConfig.value.fontSize,
     language: 'python',
     minimap: editorConfig.value.minimap,
+    lineNumbers: editorConfig.value.lineNumbers,
+    themeName: editorConfig.value.themeName,
   });
+
+  const themeOptions = [
+    { label: 'GitHub', value: 'github' },
+    { label: 'Basic', value: 'basic' },
+    { label: 'Gruvbox', value: 'gruvbox' },
+    { label: 'Material', value: 'material' },
+    { label: 'Solarized', value: 'solarized' },
+    { label: 'Tokyo Night', value: 'tokyoNight' },
+    { label: 'VSCode', value: 'vscode' },
+  ];
+
   const d = dialog.info({
     title: $t('page.function.editorSettings'),
     content: () => h(NForm, { labelPlacement: 'left', labelWidth: 80, onKeyup: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); (d.onPositiveClick as any)(); } } }, {
@@ -398,7 +409,21 @@ const handleFunctionEditorSetting = () => {
             value: tempConfig.minimap,
             onUpdateValue: (value) => { tempConfig.minimap = value; }
           })
-        })
+        }),
+        h(NFormItem, { label: $t('page.function.lineNumbers') }, {
+          default: () => h(NSwitch, {
+            value: tempConfig.lineNumbers,
+            onUpdateValue: (value) => { tempConfig.lineNumbers = value; }
+          })
+        }),
+        h(NFormItem, { label: $t('page.function.theme') }, {
+          default: () => h(NRadioGroup, {
+            value: tempConfig.themeName,
+            onUpdateValue: (value) => { tempConfig.themeName = value; }
+          }, {
+            default: () => themeOptions.map(opt => h(NRadio, { label: opt.label, value: opt.value }))
+          })
+        }),
       ]
     }),
     positiveText: $t('common.confirm'),
@@ -406,6 +431,8 @@ const handleFunctionEditorSetting = () => {
     onPositiveClick: () => {
       editorConfig.value.fontSize = tempConfig.fontSize;
       editorConfig.value.minimap = tempConfig.minimap;
+      editorConfig.value.lineNumbers = tempConfig.lineNumbers;
+      editorConfig.value.themeName = tempConfig.themeName;
       message.success($t('page.function.settingsSuccess'));
     },
   });
@@ -945,8 +972,23 @@ onBeforeUnmount(() => {
               </NSplit>
             </template>
             <template #2>
-              <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
-              <div v-else class="h-full w-full flex items-center justify-center">
+               <NTabs type="line" animated class="h-full" style="padding-left: 16px;">
+                  <NTabPane name="test" :tab="$t('page.function.functionTest')">
+                    <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
+                   <div v-else class="h-full w-full flex items-center justify-center">
+                     <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
+                   </div>
+                 </NTabPane>
+                 <NTabPane name="cron" :tab="$t('page.function.cronJobs')">
+                    <div v-if="selectedFunction.type === 'endpoint'">
+                      <FunctionCronPanel :func="selectedFunction" />
+                    </div>
+                    <div v-else class="h-full w-full flex items-center justify-center">
+                      <NEmpty :description="$t('page.function.commonFunctionCronHint')"></NEmpty>
+                    </div>
+                  </NTabPane>
+               </NTabs>
+              <div v-if="selectedFunction.type !== 'endpoint'" class="h-full w-full flex items-center justify-center">
                 <NEmpty :description="$t('page.function.commonFunctionTestHint')">
                 </NEmpty>
               </div>

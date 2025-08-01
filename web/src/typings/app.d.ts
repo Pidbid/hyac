@@ -358,6 +358,7 @@ declare namespace App {
           yes: string;
           no: string;
         };
+        enable: string;
       };
       request: {
         logout: string;
@@ -603,6 +604,9 @@ declare namespace App {
           editorSettings: string;
           fontSize: string;
           codePreview: string;
+          lineNumbers: string;
+          theme: string;
+          lsp: string;
           settingsSuccess: string;
           confirmDeleteDependence: string;
           deleteDependenceConfirm: string;
@@ -681,6 +685,42 @@ declare namespace App {
           response: string;
           responsePlaceholder: string;
           commonFunctionTestHint: string;
+          commonFunctionCronHint: string;
+          cronJobs: string;
+          fetchTasksFailed: string;
+          createTask: string;
+          editTask: string;
+          taskName: string;
+          taskNamePlaceholder: string;
+          triggerType: string;
+          taskDescription: string;
+          invalidJsonFormat: string;
+          taskTriggered: string;
+          taskTriggerFailed: string;
+          confirmDeleteTask: string;
+          noTask: string;
+          taskNotCreated: string;
+          intervalTrigger: string;
+          cronTrigger: string;
+          intervalSettings: string;
+          every: string;
+          units: {
+            seconds: string;
+            minutes: string;
+            hours: string;
+            days: string;
+            months: string;
+            day_of_week: string;
+          };
+          cronSettings: string;
+          cronPlaceholders: {
+            minute: string;
+            hour: string;
+            day: string;
+            month: string;
+            day_of_week: string;
+          };
+          requestBody: string;
         };
         log: {
           loadFunctionListFailed: string;
