@@ -338,7 +338,10 @@ const local: App.I18n.Schema = {
       idColumn: 'ID',
       contentColumn: 'Content',
       actionsColumn: 'Actions',
-      noCollections: 'No collections, go and create one'
+      noCollections: 'No collections, go and create one',
+      selectDocumentsToDelete: 'Please select documents to delete',
+      deleteSelectedConfirm: 'Are you sure you want to delete the selected {count} documents?',
+      deleteSelected: 'Delete Selected'
     },
     function: {
       tagsGroup: {

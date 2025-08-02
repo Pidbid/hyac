@@ -1,6 +1,7 @@
 # routers/services/database.py
 import math
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from core.jwt_auth import get_current_user
 from core.utils import motor_result_serializer
 from models.applications_model import Application
 from models.common_model import BaseResponse
+from core.exceptions import APIException
 
 router = APIRouter(
     prefix="/database",
@@ -68,6 +70,14 @@ class DeleteDocumentByIdRequest(BaseModel):
     appId: str
     colName: str
     docId: str
+
+
+class DeleteDocumentsByIdsRequest(BaseModel):
+    """Request model for deleting documents by their IDs."""
+
+    appId: str
+    colName: str
+    docIds: List[str]
 
 
 class UpdateDocumentByIdRequest(BaseModel):
@@ -316,6 +326,37 @@ async def delete_document(
 
     return BaseResponse(
         code=0, msg="Document deleted successfully", data=delete_response.raw_result
+    )
+
+
+@router.post("/delete_documents", response_model=BaseResponse)
+async def delete_documents(
+    data: DeleteDocumentsByIdsRequest, current_user=Depends(get_current_user)
+):
+    """
+    Deletes multiple documents from a collection by their IDs.
+    """
+    app = await Application.find_one(
+        Application.app_id == data.appId, Application.users == current_user.username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+    try:
+        delete_response = await dynamic_db.app_delete_documents_by_ids(
+            data.appId, data.colName, data.docIds
+        )
+    except ValueError as e:
+        raise APIException(code=400, msg=str(e))
+
+    if delete_response.deleted_count == 0:
+        return BaseResponse(
+            code=404, msg="No documents found to delete", data={"doc_ids": data.docIds}
+        )
+
+    return BaseResponse(
+        code=0, msg=f"Successfully deleted {delete_response.deleted_count} documents."
     )
 
 

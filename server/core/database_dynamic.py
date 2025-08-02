@@ -1,5 +1,5 @@
 # core/database_dynamic.py
-from bson import ObjectId
+from bson import ObjectId, errors
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from core.config import settings
@@ -74,6 +74,30 @@ class DynamicDB:
         """
         result = await self.db_client[app_id][col_name].delete_one(
             {"_id": ObjectId(doc_id)}
+        )
+        return result
+
+    async def app_delete_documents_by_ids(
+        self, app_id: str, col_name: str, doc_ids: list[str]
+    ):
+        """
+        Deletes multiple documents from the specified collection by their ObjectIds.
+
+        Args:
+            app_id (str): The ID of the application (database name).
+            col_name (str): The name of the collection.
+            doc_ids (list[str]): A list of string representations of the document's ObjectId.
+
+        Returns:
+            pymongo.results.DeleteResult: The result of the delete operation.
+        """
+        try:
+            object_ids = [ObjectId(doc_id) for doc_id in doc_ids]
+        except errors.InvalidId as e:
+            raise ValueError(f"Invalid document ID format {e}")
+
+        result = await self.db_client[app_id][col_name].delete_many(
+            {"_id": {"$in": object_ids}}
         )
         return result
 

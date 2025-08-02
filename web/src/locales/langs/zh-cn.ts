@@ -338,7 +338,10 @@ const local: App.I18n.Schema = {
       idColumn: 'ID',
       contentColumn: '内容',
       actionsColumn: '操作',
-      noCollections: '暂无集合，快去创建一个吧'
+      noCollections: '暂无集合，快去创建一个吧',
+      selectDocumentsToDelete: '请先选择要删除的文档',
+      deleteSelectedConfirm: '确定要删除选中的 {count} 个文档吗？',
+      deleteSelected: '批量删除'
     },
     function: {
       tagsGroup: {

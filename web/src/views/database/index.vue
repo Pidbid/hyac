@@ -31,7 +31,7 @@ import {
   TrashOutline
 } from '@vicons/ionicons5';
 import { Console } from 'console';
-import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument } from "@/service/api"
+import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument, DeleteDocuments } from "@/service/api"
 import { useApplicationStore } from '@/store/modules/application';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { $t } from '@/locales';
@@ -62,12 +62,14 @@ const paginatedDocuments = computed(() => {
 // 选中的文档用于编辑
 const editingDocument = ref<any>(null);
 const editingDocumentJson = ref<string>("{}");
+const checkedRowKeys = ref<string[]>([]);
 
 // 监听选中集合变化，重置文档和页码
 watch(selectedCollection, () => {
   page.value = 1; // 切换集合时重置页码
   editingDocument.value = null; // 清空编辑中的文档
   editingDocumentJson.value = '';
+  checkedRowKeys.value = [];
 });
 
 
@@ -162,6 +164,27 @@ const handleDeleteDocument = (doc: any) => {
   });
 };
 
+const handleDeleteSelected = () => {
+  if (checkedRowKeys.value.length === 0) {
+    message.warning($t('page.database.selectDocumentsToDelete'));
+    return;
+  }
+  dialog.warning({
+    title: $t('page.database.confirmDelete'),
+    content: $t('page.database.deleteSelectedConfirm', { count: checkedRowKeys.value.length }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const { error } = await DeleteDocuments(applicationStore.appId, selectedCollection.value, checkedRowKeys.value);
+      if (!error) {
+        await getCollectionDocuments(selectedCollection.value, 1, 15);
+        message.success($t('page.database.deleteSuccess'));
+        checkedRowKeys.value = [];
+      }
+    }
+  });
+};
+
 const handleDeleteCollection = (colName: string) => {
   dialog.error({
     title: $t('page.database.confirmDelete'),
@@ -235,7 +258,12 @@ const formatJson = (data: any) => {
 };
 
 // 表格列定义
-const documentColumns = [
+import type { DataTableColumns } from 'naive-ui';
+
+const documentColumns: DataTableColumns<any> = [
+  {
+    type: 'selection',
+  },
   {
     title: $t('page.database.idColumn'),
     key: 'id',
@@ -303,6 +331,10 @@ const documentColumns = [
     )
   }
 ];
+
+const handleCheck = (rowKeys: any) => {
+  checkedRowKeys.value = rowKeys;
+}
 
 const handleCollectionClick = async (collection: string) => {
   selectedCollection.value = collection;
@@ -413,11 +445,19 @@ onMounted(async () => {
                     </template>
                     {{ $t('page.database.insertDocument') }}
                   </NButton>
+                  <NButton size="small" type="error" @click="handleDeleteSelected"
+                    :disabled="checkedRowKeys.length === 0">
+                    <template #icon>
+                      <NIcon :component="TrashOutline" />
+                    </template>
+                    {{ $t('page.database.deleteSelected') }}
+                  </NButton>
                 </NSpace>
               </template>
               <div class="flex-grow-1" style="overflow: hidden;">
                 <NDataTable :columns="documentColumns" :data="documents" :bordered="false" flex-height
-                  :single-line="false" :row-key="(row: any) => row._id" style="height:100%;" />
+                  :single-line="false" :row-key="(row: any) => row._id" style="height:100%;"
+                  @update:checked-row-keys="handleCheck" />
               </div>
               <div class="flex justify-center p-4 border-t border-gray-200">
                 <NPagination v-model:page="page" v-model:page-size="pageSize" :item-count="totalDocuments"

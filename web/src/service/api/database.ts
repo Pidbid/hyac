@@ -64,6 +64,29 @@ export function DeleteDocument(appId: string, colName: string, docId: string) {
 }
 
 /**
+ * DeleteDocuments
+ *
+ * @param appId
+ * @param colName
+ * @param docIds
+ */
+export function DeleteDocuments(
+  appId: string,
+  colName: string,
+  docIds: string[],
+) {
+  return request<Api.Function.GetFunctionData>({
+    url: "/database/delete_documents",
+    method: "post",
+    data: {
+      appId,
+      colName,
+      docIds,
+    },
+  });
+}
+
+/**
  * DeleteCollection
  *
  * @param appId

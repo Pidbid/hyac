@@ -586,6 +586,9 @@ declare namespace App {
           contentColumn: string;
           actionsColumn: string;
           noCollections: string;
+          selectDocumentsToDelete: string;
+          deleteSelectedConfirm: string;
+          deleteSelected: string;
         };
         function: {
           tagsGroup: {
