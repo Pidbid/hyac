@@ -36,17 +36,20 @@ class RequestStats(BaseModel):
     total: int
     success: int
     error: int
+    unknown: int
 
 
 class FunctionRankingItem(BaseModel):
     function_name: str
     count: int
     average_execution_time: Optional[float] = None
+    function_id: Optional[str] = None
 
 
 class FunctionStats(BaseModel):
     count: int
     requests: RequestStats
+    overall_average_execution_time: float
     ranking_by_count: List[FunctionRankingItem]
     ranking_by_time: List[FunctionRankingItem]
 
@@ -66,8 +69,8 @@ class StorageStats(BaseModel):
 
 
 class InsightItem(BaseModel):
-    type: str  # e.g., 'error_rate_increase', 'latency_increase'
-    message: str
+    type: str  # e.g., 'info', 'warning'
+    message_key: str  # e.g., 'insights.highErrorRate'
     metadata: Optional[dict[str, Any]] = None
 
 
@@ -75,4 +78,3 @@ class StatisticsSummary(BaseModel):
     functions: FunctionStats
     database: DatabaseStats
     storage: StorageStats
-    insights: List[InsightItem]

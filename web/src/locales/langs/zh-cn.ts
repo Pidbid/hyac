@@ -184,7 +184,7 @@ const local: App.I18n.Schema = {
     database: '数据库',
     storage: '存储',
     log: '日志',
-    setting: '设置',
+    setting: '设置'
   },
   page: {
     login: {
@@ -201,7 +201,7 @@ const local: App.I18n.Schema = {
         validateSuccess: '验证成功',
         loginSuccess: '登录成功',
         welcomeBack: '欢迎回来，{userName} ！',
-        captchaPlaceholder: '请输入验证码',
+        captchaPlaceholder: '请输入验证码'
       },
       pwdLogin: {
         title: '密码登录',
@@ -280,15 +280,24 @@ const local: App.I18n.Schema = {
       errorRestartingApp: '重启应用时发生错误'
     },
     apps: {
-      insights: '智能洞察',
-      noInsights: '暂无洞察信息',
+      avgExecutionTime: '总体平均耗时',
+      unknownRequest: {
+        title: '未知请求监控',
+        label: '潜在的异常或攻击请求',
+        unit: '次',
+        description: '这些请求的目标函数已不存在，可能是已删除函数的残留调用或恶意探测。'
+      },
       requestTrend: '请求趋势',
       coreMetrics: '核心指标',
       successRate: '成功率',
       functionCount: '函数数量',
       databaseCount: '数据库数量',
       storageCount: '存储占用',
-      requestCount: '总调用数',
+      requestCount: '请求统计',
+      totalCalls: '总调用数',
+      successCalls: '成功调用',
+      errorCalls: '失败调用',
+      unknownCalls: '未知调用',
       requestCountUnit: '次',
       functionCountUnit: '个',
       databaseCountUnit: '条',
@@ -663,25 +672,25 @@ const local: App.I18n.Schema = {
       managePermissions: '管理权限',
       smtpConfig: 'SMTP 配置',
       smtpConfigPlaceholder: '请输入 SMTP 配置 (JSON 格式)',
-          webhookConfig: 'Webhook 配置',
-          webhookConfigPlaceholder: '请输入 Webhook URL',
-          cors: '跨域设置',
-          allowOrigins: '允许的源',
-          userProfile: {
-            title: '个人中心',
-            username: '用户名',
-            usernamePlaceholder: '输入新的用户名（留空则不修改）',
-            usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
-            password: '新密码',
-            passwordPlaceholder: '输入新的密码（留空则不修改）',
-            passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
-            confirmPassword: '确认新密码',
-            confirmPasswordPlaceholder: '再次输入新密码',
-            passwordsDoNotMatch: '两次输入的密码不一致',
-            noChanges: '您没有输入任何要修改的内容',
-            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
-            demoModeTip: '演示模式下不允许修改用户名和密码'
-          },
+      webhookConfig: 'Webhook 配置',
+      webhookConfigPlaceholder: '请输入 Webhook URL',
+      cors: '跨域设置',
+      allowOrigins: '允许的源',
+      userProfile: {
+        title: '个人中心',
+        username: '用户名',
+        usernamePlaceholder: '输入新的用户名（留空则不修改）',
+        usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
+        password: '新密码',
+        passwordPlaceholder: '输入新的密码（留空则不修改）',
+        passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
+        confirmPassword: '确认新密码',
+        confirmPasswordPlaceholder: '再次输入新密码',
+        passwordsDoNotMatch: '两次输入的密码不一致',
+        noChanges: '您没有输入任何要修改的内容',
+        confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
+        demoModeTip: '演示模式下不允许修改用户名和密码'
+      },
       allowCredentials: '允许凭证',
       allowMethods: '允许的方法',
       allowHeaders: '允许的头',
@@ -703,22 +712,22 @@ const local: App.I18n.Schema = {
         providerPlaceholder: '例如：openai, azure, anthropic',
         model: '模型',
         modelPlaceholder: '例如：gpt-4, gpt-3.5-turbo',
-            apiKey: 'API 密钥',
-            apiKeyPlaceholder: '请输入 API 密钥',
-            endpointUrl: '接口地址',
-            endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
-            proxy: '代理地址',
-            proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
-            success: {
-              update: 'AI 配置更新成功'
-            },
-            error: {
-              noAppSelected: '未选择应用',
-              fetch: '获取 AI 配置失败',
-              update: '更新 AI 配置失败',
-              empty: '请至少填写一项配置'
-            }
-          },
+        apiKey: 'API 密钥',
+        apiKeyPlaceholder: '请输入 API 密钥',
+        endpointUrl: '接口地址',
+        endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
+        proxy: '代理地址',
+        proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
+        success: {
+          update: 'AI 配置更新成功'
+        },
+        error: {
+          noAppSelected: '未选择应用',
+          fetch: '获取 AI 配置失败',
+          update: '更新 AI 配置失败',
+          empty: '请至少填写一项配置'
+        }
+      },
       systemUpdate: {
         title: '系统更新',
         changelog: '更新日志',
@@ -801,7 +810,6 @@ const local: App.I18n.Schema = {
     lang: '切换语言',
     fullscreen: '全屏',
     fullscreenExit: '退出全屏',
-
     reload: '刷新页面',
     collapse: '折叠菜单',
     expand: '展开菜单',

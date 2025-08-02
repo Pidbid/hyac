@@ -378,10 +378,12 @@ declare namespace Api {
       total: number;
       success: number;
       error: number;
+      unknown: number;
     }
 
     interface FunctionRankingItem {
       function_name: string;
+      function_id?: string;
       count: number;
       average_execution_time?: number;
     }
@@ -389,6 +391,7 @@ declare namespace Api {
     interface FunctionStats {
       count: number;
       requests: RequestStats;
+      overall_average_execution_time: number;
       ranking_by_count: FunctionRankingItem[];
       ranking_by_time: FunctionRankingItem[];
     }
@@ -407,17 +410,11 @@ declare namespace Api {
       total_usage_mb: number;
     }
 
-    interface InsightItem {
-      type: 'info' | 'warning' | 'error';
-      message: string;
-      metadata?: Record<string, any>;
-    }
 
     interface Summary {
       functions: FunctionStats;
       database: DatabaseStats;
       storage: StorageStats;
-      insights: InsightItem[];
     }
 
     interface FunctionRequestsResponse {

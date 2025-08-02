@@ -2,17 +2,11 @@
 import inspect
 import io
 import time
-import os
-import json
 from contextlib import redirect_stderr, redirect_stdout
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
 
-# These imports will need to be satisfied by copying files into the 'app' directory
 from core.config import settings
 from context import FunctionContext, EnvContext
 from core.faas_minio import app_id_context
@@ -217,7 +211,7 @@ async def dynamic_handler(
     finally:
         execution_time = time.time() - start_time
         metric = FunctionMetric(
-            function_id=func_id,
+            function_id=request.url.path if function_name == "Unknown" else func_id,
             app_id=app_id,
             function_name=function_name,
             status=status,

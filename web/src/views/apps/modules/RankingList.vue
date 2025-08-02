@@ -22,7 +22,7 @@ const rankingData = computed(() => {
   if (rankingType.value === 'count') {
     const data = props.summary.functions.ranking_by_count || [];
     return data.map(item => ({
-      name: item.function_name || $t('page.apps.unknown'),
+      name: item.function_name == 'Unknown' ? `${$t('page.apps.unknown')} ${item.function_id}` : item.function_name,
       value: `${item.count} ${$t('page.apps.requestCountUnit')}`
     }));
   }

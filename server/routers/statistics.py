@@ -15,7 +15,6 @@ from models.statistics_model import (
     StorageStats,
     CollectionStats,
     FunctionRankingItem,
-    InsightItem,
 )
 from core.jwt_auth import get_current_user
 from core.database_dynamic import dynamic_db
@@ -50,7 +49,7 @@ async def get_statistics_summary(
     function_count = await Function.find(Function.app_id == app.app_id).count()
 
     requests_pipeline = [
-        {"$match": {"app_id": app.app_id}},
+        {"$match": {"app_id": app.app_id, "function_name": {"$ne": "Unknown"}}},
         {
             "$group": {
                 "_id": "$status",
@@ -60,7 +59,6 @@ async def get_statistics_summary(
     ]
     requests_result = await FunctionMetric.aggregate(requests_pipeline).to_list()
 
-    total_calls = 0
     success_calls = 0
     error_calls = 0
     for res in requests_result:
@@ -68,7 +66,48 @@ async def get_statistics_summary(
             success_calls = res["count"]
         elif res["_id"] == CallStatus.ERROR:
             error_calls = res["count"]
-    total_calls = success_calls + error_calls
+
+    # --- Unknown Requests ---
+    unknown_requests_pipeline = [
+        {"$match": {"app_id": app.app_id}},
+        {
+            "$lookup": {
+                "from": "functions",
+                "localField": "function_id",
+                "foreignField": "function_id",
+                "as": "function_info",
+            }
+        },
+        {"$match": {"function_info": []}},
+        {"$count": "count"},
+    ]
+    unknown_requests_result = await FunctionMetric.aggregate(
+        unknown_requests_pipeline
+    ).to_list()
+    unknown_calls = (
+        unknown_requests_result[0]["count"] if unknown_requests_result else 0
+    )
+
+    total_calls = success_calls + error_calls + unknown_calls
+
+    # --- Overall Average Execution Time ---
+    overall_avg_time_pipeline = [
+        {"$match": {"app_id": app.app_id}},
+        {
+            "$group": {
+                "_id": None,
+                "avg_time": {"$avg": "$execution_time"},
+            }
+        },
+    ]
+    overall_avg_time_result = await FunctionMetric.aggregate(
+        overall_avg_time_pipeline
+    ).to_list()
+    overall_average_execution_time = (
+        (overall_avg_time_result[0]["avg_time"] * 1000)
+        if overall_avg_time_result and overall_avg_time_result[0]["avg_time"]
+        else 0
+    )
 
     # --- Function Ranking ---
     ranking_pipeline_base = [
@@ -90,10 +129,11 @@ async def get_statistics_summary(
         },
         {
             "$project": {
+                "function_id": "$_id",
                 "function_name": {
                     "$ifNull": [
                         {"$arrayElemAt": ["$function_info.function_name", 0]},
-                        "Unknown Function",
+                        "Unknown",
                     ]
                 },
                 "count": 1,
@@ -126,8 +166,12 @@ async def get_statistics_summary(
     function_stats = FunctionStats(
         count=function_count,
         requests=RequestStats(
-            total=total_calls, success=success_calls, error=error_calls
+            total=total_calls,
+            success=success_calls,
+            error=error_calls,
+            unknown=unknown_calls,
         ),
+        overall_average_execution_time=overall_average_execution_time,
         ranking_by_count=[
             FunctionRankingItem(**item) for item in ranking_by_count_result
         ],
@@ -164,30 +208,10 @@ async def get_statistics_summary(
     total_usage_mb = total_usage_bytes / (1024 * 1024)
     storage_stats = StorageStats(total_usage_mb=total_usage_mb)
 
-    # --- Generate Mock Insights ---
-    insights = [
-        InsightItem(
-            type="info",
-            message="💡 智能看板功能暂不可用、开发中……",
-            metadata={"function_name": "get_user_profile", "change": 0.35},
-        ),
-        InsightItem(
-            type="info",
-            message="💡 函数 'get_user_profile' 的调用量在过去24小时内增加了35%。",
-            metadata={"function_name": "get_user_profile", "change": 0.35},
-        ),
-        InsightItem(
-            type="warning",
-            message="⚡️ 函数 'process_payment' 的平均执行时间增加了120ms。",
-            metadata={"function_name": "process_payment", "latency_increase_ms": 120},
-        ),
-    ]
-
     summary = StatisticsSummary(
         functions=function_stats,
         database=db_stats,
         storage=storage_stats,
-        insights=insights,
     )
 
     return BaseResponse(code=0, msg="Success", data=summary)

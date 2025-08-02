@@ -7,7 +7,8 @@ import SummaryCard from './modules/SummaryCard.vue';
 import TrendChart from './modules/TrendChart.vue';
 import RankingList from './modules/RankingList.vue';
 import PieChart from './modules/pie-chart.vue';
-import InsightCard from './modules/InsightCard.vue';
+import FunctionStatusCard from './modules/FunctionStatusCard.vue';
+import UnknownRequestCard from './modules/UnknownRequestCard.vue';
 
 const appStore = useAppStore();
 const applicationStore = useApplicationStore();
@@ -50,15 +51,18 @@ watch(
   <NSpace vertical :size="16">
     <!-- Row 1: Insight and Summary -->
     <NGrid :cols="12" :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
-      <NGi span="12 s:12 m:4">
-        <InsightCard :summary="summaryData" />
-      </NGi>
       <NGi span="12 s:12 m:8">
-        <SummaryCard :loading="loading" :summary="summaryData" />
+        <FunctionStatusCard :loading="loading" :summary="summaryData" />
+      </NGi>
+      <NGi span="12 s:12 m:4">
+        <UnknownRequestCard :loading="loading" :summary="summaryData" />
       </NGi>
     </NGrid>
 
-    <!-- Row 2: Main Trend Chart -->
+    <!-- Row 2: Summary -->
+    <SummaryCard :loading="loading" :summary="summaryData" />
+
+    <!-- Row 3: Main Trend Chart -->
     <TrendChart :summary="summaryData" />
 
     <!-- Row 3: Ranking and Pie Chart -->
