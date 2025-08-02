@@ -974,7 +974,7 @@ onBeforeUnmount(() => {
             <template #2>
                <NTabs type="line" animated class="h-full" style="padding-left: 16px;">
                   <NTabPane name="test" :tab="$t('page.function.functionTest')">
-                    <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :function-address="functionAddress" />
+                    <FunctionTestPanel v-if="selectedFunction.type === 'endpoint'" :key="selectedFunction.id" :function-address="functionAddress" />
                    <div v-else class="h-full w-full flex items-center justify-center">
                      <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
                    </div>
