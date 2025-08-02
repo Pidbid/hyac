@@ -561,13 +561,6 @@ declare namespace Api {
       proxy: string;
     }
 
-    interface ManualUpdateTags {
-      server?: string;
-      app?: string;
-      lsp?: string;
-      web?: string;
-    }
-
     interface ChangelogInfo {
       version: string;
       changelog: string;
@@ -576,16 +569,10 @@ declare namespace Api {
 
     type ChangelogData = ChangelogInfo[];
 
-    interface UpdateStatus {
-      current_version: string;
-      latest_version: string;
-      is_latest: boolean;
-      latest_version_info?: {
-        version: string;
-        changelog: string;
-        published_at: string;
-      };
-      message?: string;
+    interface SystemVersions {
+      server_version: string;
+      web_version: string;
+      app_version: string;
     }
     interface SystemSettings {
       demo_mode: boolean;

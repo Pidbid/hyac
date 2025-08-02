@@ -235,39 +235,25 @@ export function updateAiConfig(data: { appId: string; config: Api.Settings.AICon
 }
 
 /**
- * Check for system updates.
- * @returns
- */
-export function fetchCheckForUpdates(params?: { proxy?: string }) {
-  return request<Api.Settings.UpdateStatus>({
-    method:"post",
-    url:"/settings/system/check_update",
-    data: params
-  })
-}
-
-/**
- * Trigger system update.
- * @returns
- */
-export function fetchUpdateSystem(tags?: Api.Settings.ManualUpdateTags) {
-  return request<Api.Base.SuccessResponse>({
-    method:"post",
-    url:"/settings/system/update",
-    data: tags || {}
-  })
-}
-
-/**
  * Fetch system changelogs.
  * @returns
  */
-export function fetchChangelogs(params?: { proxy?: string }) {
+export function fetchChangelogs() {
   return request<Api.Settings.ChangelogData>({
-    method: "post",
-    url: "/settings/system/changelogs",
-    data: params
-  })
+    method: 'post',
+    url: '/settings/system/changelogs'
+  });
+}
+
+/**
+ * Get system versions.
+ * @returns
+ */
+export function fetchSystemVersions() {
+  return request<Api.Settings.SystemVersions>({
+    url: '/settings/system/versions',
+    method: 'get'
+  });
 }
 
 /**
