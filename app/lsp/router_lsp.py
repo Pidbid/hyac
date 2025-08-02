@@ -35,7 +35,7 @@ async def read_from_pylsp(
                 header_buffer += line
                 if b"\r\n\r\n" in header_buffer:
                     break
-            
+
             match = CONTENT_LENGTH_PATTERN.search(header_buffer)
             if match:
                 content_length = int(match.group(1))
@@ -49,18 +49,16 @@ async def read_from_pylsp(
             # 2. 读取消息体
             body_start_index = header_buffer.find(b"\r\n\r\n") + 4
             buffer = header_buffer[body_start_index:]
-            
+
             body = buffer
             remaining_body_length = content_length - len(body)
             if remaining_body_length > 0:
-                body += await pylsp_process.stdout.readexactly(
-                    remaining_body_length
-                )
+                body += await pylsp_process.stdout.readexactly(remaining_body_length)
 
             # 3. 将解析出的消息体（JSON-RPC）解码为字符串，并发送给前端
             json_rpc_string = body.decode("utf-8")
             await websocket.send_text(json_rpc_string)
-            logger.info(f"pylsp -> client: {json_rpc_string.strip()}")
+            # logger.info(f"pylsp -> client: {json_rpc_string.strip()}")
 
     except asyncio.IncompleteReadError:
         logger.info("pylsp 进程的 stdout 流已关闭。")
@@ -91,9 +89,9 @@ async def write_to_pylsp(
 
             pylsp_process.stdin.write(full_message)
             await pylsp_process.stdin.drain()
-            logger.info(
-                f"client -> pylsp: {full_message.decode(errors='ignore').strip()}"
-            )
+            # logger.info(
+            #     f"client -> pylsp: {full_message.decode(errors='ignore').strip()}"
+            # )
     except WebSocketDisconnect:
         logger.info("客户端在写入 pylsp 输入时断开连接。")
     except Exception as e:
@@ -113,7 +111,8 @@ async def log_pylsp_stderr(pylsp_process: asyncio.subprocess.Process):
     while not pylsp_process.stderr.at_eof():
         line = await pylsp_process.stderr.readline()
         if line:
-            logger.error(f"pylsp stderr: {line.decode(errors='ignore').strip()}")
+            # logger.error(f"pylsp stderr: {line.decode(errors='ignore').strip()}")
+            pass
 
 
 @router.websocket("/__lsp__")

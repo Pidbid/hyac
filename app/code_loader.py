@@ -1,4 +1,5 @@
 # app/code_loader.py
+import inspect
 from typing import Optional, Tuple
 from loguru import logger
 from types import SimpleNamespace
@@ -15,12 +16,12 @@ class CodeLoader:
 
     async def load_function_by_ids(
         self, app_id: str, function_id: str
-    ) -> Optional[Tuple[dict, Function]]:
+    ) -> Optional[Tuple[dict, Function, Optional[inspect.Signature]]]:
         """
         Loads a function by its application ID and function ID.
         It first checks the cache, and if not found, queries the database,
         compiles the code, and caches the result.
-        Returns a tuple of (compiled_code, function_document).
+        Returns a tuple of (compiled_code, function_document, signature).
         """
         cache_key = code_cache._make_key(app_id, function_id)
 
@@ -38,11 +39,11 @@ class CodeLoader:
         if not func_doc:
             return None
 
-        # Compile the code.
-        compiled_code = self._compile_code(func_doc.code, cache_key)
+        # Compile the code and get its signature.
+        compiled_code, signature = self._compile_code(func_doc.code, cache_key)
 
-        # Cache the compiled code and the function document and return.
-        data_to_cache = (compiled_code, func_doc)
+        # Cache the compiled code, the function document, and the signature.
+        data_to_cache = (compiled_code, func_doc, signature)
         code_cache.set(cache_key, data_to_cache)
         return data_to_cache
 
@@ -71,16 +72,19 @@ class CodeLoader:
             return None
 
         # Compile the code.
-        compiled = self._compile_code(func.code, cache_key)
+        compiled, _ = self._compile_code(func.code, cache_key)
 
         # Cache the compiled code and return.
         code_cache.set(cache_key, compiled)
         return compiled
 
-    def _compile_code(self, code: str, module_key: str) -> dict:
+    def _compile_code(
+        self, code: str, module_key: str
+    ) -> Tuple[dict, Optional[inspect.Signature]]:
         """
-        Compiles the provided Python code string into an executable namespace.
+        Compiles code into a namespace and extracts the handler's signature.
         Injects custom functions like 'minio_open' into the execution namespace.
+        Returns the namespace and the signature of the 'handler' function, if it exists.
         """
         try:
             # Use an independent namespace and inject custom functions.
@@ -88,8 +92,11 @@ class CodeLoader:
                 "minio_open": minio_open,
             }
             exec(code, namespace)
-            # Return the entire namespace so all methods and classes are available
-            return namespace
+            handler_func = namespace.get("handler")
+            signature = (
+                inspect.signature(handler_func) if callable(handler_func) else None
+            )
+            return namespace, signature
         except Exception as e:
             raise RuntimeError(
                 f"Code compilation failed for module '{module_key}': {e}"
@@ -119,7 +126,8 @@ class CodeLoader:
 
             # If not in cache, compile and cache it
             try:
-                compiled_namespace = self._compile_code(func.code, cache_key)
+                # Common functions do not need signature inspection.
+                compiled_namespace, _ = self._compile_code(func.code, cache_key)
                 code_cache.set(cache_key, compiled_namespace)
                 # Convert dict to namespace for attribute access
                 common_namespaces[func.function_name] = SimpleNamespace(

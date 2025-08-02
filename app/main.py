@@ -5,9 +5,12 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+
+from core.exceptions import APIException
 
 # Assuming a shared database manager and logger configuration
 from core.database import MongoDBManager
@@ -18,6 +21,7 @@ from core.dependency_loader import install_app_dependencies
 from core.cache_watcher import watch_function_changes
 from core.env_manager import get_dynamic_envs, watch_for_env_changes
 from lsp.router_lsp import router as lsp_router
+from code_loader import CodeLoader
 
 from models.applications_model import Application, CORSConfig
 
@@ -55,8 +59,11 @@ async def lifespan(app: FastAPI):
     logger.info("Executor database initialized.")
 
     # Load CORS configuration
-    app = await Application.find_one(Application.app_id == os.environ.get("APP_ID"))
-    cors_config = app.cors or None
+    application = await Application.find_one(
+        Application.app_id == os.environ.get("APP_ID")
+    )
+    cors_config = application.cors or None
+    app.state.application = application
     if not cors_config:
         logger.error("Failed to load CORS configuration.")
         cors_config = CORSConfig(
@@ -65,6 +72,13 @@ async def lifespan(app: FastAPI):
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    # Pre-load common functions
+    code_loader = CodeLoader()
+    common_modules = await code_loader.load_all_common_functions(application.app_id)
+    app.state.common_modules = common_modules
+    logger.info(f"Successfully pre-loaded common functions.")
+
     # Install dependencies for the specific application.
     await install_app_dependencies()
 
@@ -80,7 +94,7 @@ async def lifespan(app: FastAPI):
     )
 
     # Start the function code cache watcher.
-    asyncio.create_task(watch_function_changes())
+    asyncio.create_task(watch_function_changes(app))
     # Start the environment variable watcher.
     asyncio.create_task(watch_for_env_changes())
     app_ready = True
@@ -94,6 +108,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(APIException)
+async def api_exception_handler(request: Request, exc: APIException):
+    """
+    Global exception handler for APIException.
+    Returns a JSON response with the error code and message.
+    """
+    return JSONResponse(
+        status_code=200,
+        content={"code": exc.code, "msg": exc.msg},
+    )
+
 
 # Add CORS middleware to allow cross-origin requests.
 app.add_middleware(

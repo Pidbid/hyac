@@ -11,6 +11,7 @@ class CallStatus(str, Enum):
 
     SUCCESS = "success"
     ERROR = "error"
+    UNKNOWN = "unknown"
 
 
 class FunctionMetric(Document):
