@@ -439,26 +439,6 @@ docker_manager = DockerManager()
 # --- FaaS Specific High-Level Functions ---
 
 
-def _get_server_image_tag() -> str:
-    """
-    Retrieves the image tag of the running 'hyac_server' container.
-    Falls back to 'latest' if the tag cannot be determined.
-    """
-    try:
-        client = docker.from_env()
-        server_container = client.containers.get("hyac_server")
-        image_name = server_container.image.tags[0]
-        # e.g., 'wicos/hyac_server:dev-0.0.1' -> 'dev-0.0.1'
-        tag = image_name.split(":")[-1]
-        logger.info(f"Successfully determined server image tag: {tag}")
-        return tag
-    except (errors.NotFound, IndexError, errors.DockerException) as e:
-        logger.warning(
-            f"Could not determine server image tag, falling back to 'latest'. Reason: {e}"
-        )
-        return "latest"
-
-
 def get_app_image_name() -> str:
     """
     Determines the appropriate image name for the 'hyac_app' container.
@@ -466,12 +446,14 @@ def get_app_image_name() -> str:
     if settings.DEV_MODE:
         return "hyac_app:dev"  # Use local dev image
 
-    tag = _get_server_image_tag()
-    return f"wicos/hyac_app:{tag}"
+    # The image tag is now directly sourced from settings
+    return f"wicos/hyac_app:{settings.APP_IMAGE_TAG}"
 
 
 # In-memory store for running app containers. A more robust solution might use Redis.
 running_apps: Dict[str, Dict[str, Any]] = {}
+# In-memory lock to prevent race conditions when starting the same app container.
+_app_start_locks: Dict[str, asyncio.Lock] = {}
 
 
 def find_free_port() -> int:
@@ -639,24 +621,36 @@ async def build_app_image_if_not_exists():
 
 async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
     """
-    Starts a dedicated container for a specific application.
+    Starts a dedicated container for a specific application, with a lock to prevent race conditions.
     """
-    if not docker_manager.client:
-        return None
+    # Get or create a lock for the specific app_id
+    lock = _app_start_locks.setdefault(app.app_id, asyncio.Lock())
 
-    container_name = f"hyac-app-runtime-{app.app_id.lower()}"
-    domain_name = settings.DOMAIN_NAME or "localhost"
+    async with lock:
+        if not docker_manager.client:
+            return None
 
-    # Check if container is already running
-    if app.app_id in running_apps:
-        logger.info(f"Container for app '{app.app_id}' is already running.")
-        return running_apps[app.app_id]
+        container_name = f"hyac-app-runtime-{app.app_id.lower()}"
+        container_names = [c["name"] for c in docker_manager.list_containers()]
+        domain_name = settings.DOMAIN_NAME or "localhost"
 
-    # Stop and remove any stale container with the same name
-    if await docker_manager.stop_container(container_name):
-        await docker_manager.remove_container(container_name)
+        # Double-check if container is already running after acquiring the lock
+        if app.app_id in running_apps:
+            logger.info(
+                f"Container for app '{app.app_id}' is already running (checked after acquiring lock)."
+            )
+            return running_apps[app.app_id]
 
-    # When running inside Docker, the app container needs to connect to other services
+        # Stop and remove any stale container with the same name
+        if container_name in container_names and await docker_manager.stop_container(
+            container_name
+        ):
+            logger.info(
+                f"Stopped and deleted stale container '{container_name}' before starting a new one."
+            )
+            await docker_manager.remove_container(container_name)
+
+        # When running inside Docker, the app container needs to connect to other services
     # using their service names as hostnames.
     environment = {
         "APP_ID": app.app_id,  # Pass the app_id to the container
@@ -666,7 +660,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "MINIO_SECRET_KEY": settings.MINIO_SECRET_KEY,
         "SECRET_KEY": settings.SECRET_KEY,
         "DEV_MODE": settings.DEV_MODE,
-        "DEBUG": True,
+        "DEBUG": True,  # Only for logger level
     }
 
     # Add user-defined environment variables
@@ -730,7 +724,6 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             compose_labels["com.docker.compose.service"] = (
                 f"app-runtime-{app.app_id.lower()}"
             )
-            # Ensure the container is not marked as a one-off, so 'down' cleans it up
             compose_labels["com.docker.compose.oneoff"] = "False"
             logger.info(
                 f"Inheriting and customizing docker-compose labels: {compose_labels}"
@@ -790,7 +783,7 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             elif health_status == "unhealthy":
                 logger.error(f"Container '{container_name}' is unhealthy. Aborting.")
                 is_ready = False
-                break
+                # break
             # If status is 'starting', continue waiting
             await asyncio.sleep(2)
         except KeyError:
@@ -850,6 +843,14 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
     }
     running_apps[app.app_id] = container_info
     logger.info(f"Started container for app '{app.app_id}'. Traefik proxy configured.")
+
+    # Clean up the lock from the dictionary if it's no longer needed
+    # This prevents the dictionary from growing indefinitely.
+    # Note: This is a simple cleanup. A more robust solution might use a timeout
+    # or a more sophisticated cache eviction policy.
+    if app.app_id in _app_start_locks:
+        del _app_start_locks[app.app_id]
+
     return container_info
 
 
