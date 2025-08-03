@@ -5,6 +5,10 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [dev-0.0.9] - 2025-08-03
+- 修改 app runtime 动态启动tag
+- 完善 web app 首页
+
 ## [dev-0.0.8] - 2025-08-02
 - 将动态app runtime 容器修改到主项目下  
 - 重构web端应用概览内容
