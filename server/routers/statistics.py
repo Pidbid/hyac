@@ -184,14 +184,21 @@ async def get_statistics_summary(
     db = dynamic_db.app_db(data.appId)["__config__"]
     collections = await db.find({}).to_list()
     collections_data = []
-    for i in collections[0]["collections"]:
-        if i != "__config__":
-            count = await db[i].count_documents({})
-            collections_data.append(CollectionStats(name=i, count=count))
-    db_stats = {
-        "collections": collections_data,
-        "count": len(collections[0]["collections"]) - 1 if collections else 0,
-    }
+    if collections and collections[0].get("collections"):
+        app_db = dynamic_db.app_db(data.appId)
+        for i in collections[0]["collections"]:
+            if i != "__config__":
+                count = await app_db[i].count_documents({})
+                collections_data.append(CollectionStats(name=i, count=count))
+        db_stats = {
+            "collections": collections_data,
+            "count": len(collections_data),
+        }
+    else:
+        db_stats = {
+            "collections": [],
+            "count": 0,
+        }
 
     # --- Storage Statistics ---
     total_usage_bytes = 0
