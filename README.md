@@ -1,4 +1,4 @@
-# Hyac - 轻量级Python函数计算与应用平台
+# Hyac - 轻量级Python云函数（Faas）平台
 
 <p align="right">
   <a href="./README.en.md">English</a>
