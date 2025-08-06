@@ -55,7 +55,7 @@ graph TD
     end
 
     subgraph "🏗️ Infrastructure"
-        N[Nginx]
+        T[Traefik]
         DB[(MongoDB)]
         S[(MinIO)]
     end
@@ -69,9 +69,10 @@ graph TD
         Web[Web]
     end
 
-    U -- HTTPS --> N
-    N -- /api --> Server
-    N -- / --> Web
+    U -- HTTPS --> T
+    T -- Routes by domain --> Server
+    T -- Routes by domain --> Web
+    T -- Routes by domain --> S
     
     Server -- Manages --> App
     Server -- Reads/Writes --> DB
@@ -84,7 +85,7 @@ graph TD
     Web -- API Requests --> Server
 ```
 
-- **`nginx`**: Acts as a reverse proxy, handling all external requests and routing them to the `server` or `web` service based on the path.
+- **`traefik`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or `minio` services based on the domain.
 - **`server`**: The core backend service, responsible for business logic, API routing, user authentication, and FaaS application management.
 - **`app`**: The function executor service, which dynamically executes user-defined functions in an isolated environment.
 - **`web`**: A Vue 3-based frontend application that provides the user interface.
@@ -156,19 +157,9 @@ docker-compose up -d
 
 ## ️ Roadmap
 
-We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform. Community contributions and suggestions are welcome!
+We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform.
 
-### Platform-Level Features
-- [ ] **Multi-User & Permissions Management**: Introduce roles (e.g., admin, developer) for fine-grained access control.
-- [ ] **Platform Monitoring Dashboard**: Provide a global view of system status, resource utilization, and audit logs.
-- [ ] **Runtime Management**: Allow administrators to add, configure, and manage new function runtime environments (e.g., Node.js, Deno).
-- [ ] **System-Level Integration Configuration**: Offer a unified interface to configure global SMTP, object storage, and third-party notification services.
-
-### Application-Level Features
-- [ ] **Custom Domains & Advanced Access Control**: Support binding custom domains and provide IP whitelist/blacklist functionality.
-- [ ] **Resource Quota Management**: Allow setting limits on CPU, memory, and execution timeout for individual applications.
-- [ ] **Dependency Analysis & Security Scanning**: Integrate tools to detect dependency conflicts and known security vulnerabilities.
-- [ ] **Function Template Marketplace**: Create a community-driven marketplace for sharing and using pre-built function templates.
+For a detailed overview of future features, architectural enhancements, and improvement plans, please see our [Feature Roadmap (FEATURES.en.md)](./FEATURES.en.md). Community contributions and suggestions are welcome!
 
 ## 🤝 Contributing
 
