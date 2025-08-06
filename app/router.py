@@ -81,7 +81,10 @@ async def _load_function_details(
 
 
 async def _prepare_arguments(
-    request: Request, signature: inspect.Signature, context: FunctionContext
+    request: Request,
+    signature: inspect.Signature,
+    context: FunctionContext,
+    background_tasks: BackgroundTasks,
 ) -> Dict[str, Any]:
     """Prepares the arguments for the handler function based on its signature."""
     handler_args = {}
@@ -89,6 +92,8 @@ async def _prepare_arguments(
         handler_args["context"] = context
     if "request" in signature.parameters:
         handler_args["request"] = request
+    if "background_tasks" in signature.parameters:
+        handler_args["background_tasks"] = background_tasks
 
     # Intelligently pass body/query parameters
     body_params = {}
@@ -210,7 +215,9 @@ async def dynamic_handler(
         )
 
         # 3. Prepare arguments for the handler
-        handler_args = await _prepare_arguments(request, signature, context)
+        handler_args = await _prepare_arguments(
+            request, signature, context, background_tasks
+        )
 
         # 4. Execute the function and return its result
         return await _execute_and_log(handler_func, handler_args, log_func)
