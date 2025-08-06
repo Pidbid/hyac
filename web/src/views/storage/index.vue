@@ -318,7 +318,9 @@ const handleDeleteSelected = () => {
     onPositiveClick: async () => {
       message.loading(t('page.storage.deleting'), { duration: 0 });
       try {
-        const { error } = await deleteFiles(applicationStore.appId, checkedRowKeys.value as string[]);
+        const currentPath = pathArrayToString();
+        const objectNamesToDelete = checkedRowKeys.value.map(name => `${currentPath}${name}`);
+        const { error } = await deleteFiles(applicationStore.appId, objectNamesToDelete);
         message.destroyAll();
 
         if (error) {
