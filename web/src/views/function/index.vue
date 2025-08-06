@@ -959,7 +959,7 @@ onBeforeUnmount(() => {
       </template>
       <template #2>
         <div v-if="functions.length > 0" class="w-full h-full">
-          <NSplit :size="0.85">
+          <NSplit :default-size="0.85" :min="0.1" :max="0.85">
             <template #1>
               <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
                 <template #1>
