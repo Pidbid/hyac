@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [dev-0.0.10] - 2025-08-06
+
+### Added
+- Support for background tasks.
+
+### Fixed
+- WebSocket connection for logs.
+- App runtime dependencies installer.
+- Function code editor space resizable issue.
+- Issue where multiple files cannot be deleted.
+- Improved database collection statistics handling.
+
+### Performance
+- Restart app container after installing/uninstalling dependencies.
+- Set starting status after inserting a restart task.
+
+### Docs
+- Updated README and features documentation.
+
 ## [dev-0.0.9] - 2025-08-03
 - Modify the dynamic startup tag for the app runtime
 - Improve the web app homepage
