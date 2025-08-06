@@ -389,6 +389,7 @@ const local: App.I18n.Schema = {
       dependenceDeleted: 'Dependence has been deleted',
       dependenceDeletedAndRestarting: 'Dependence has been deleted, container is restarting...',
       deleteFailed: 'Delete failed',
+      restartFailed: 'Restart failed',
       addDependenceSuccessAndRestarting: 'Dependence added successfully, container is restarting...',
       addDependenceSuccess: 'Dependence added successfully',
       addDependenceFailed: 'Failed to add dependence',

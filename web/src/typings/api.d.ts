@@ -92,6 +92,7 @@ declare namespace Api {
     interface AppInfo {
       appId: string;
       appName: string;
+      status?: Api.Settings.ApplicationStatus;
     }
   }
 

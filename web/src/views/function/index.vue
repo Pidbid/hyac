@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, h, reactive, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDialog, useMessage, NForm, NInput, NRadioGroup, NRadio, NSelect, NSplit, NFormItem, type SelectOption, NInputNumber, NButtonGroup, NButton, NTabs, NTabPane, NScrollbar, NList, NListItem, NThing, NEmpty, NDataTable, NSpin, NIcon, NSwitch, NSpace } from 'naive-ui';
 import { AddOutline, CloseOutline, SearchOutline, BrushOutline, SparklesOutline, LinkOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
@@ -26,7 +27,8 @@ import {
   addEnv,
   removeEnv,
   getDomain,
-  getFunctionTags
+  getFunctionTags,
+  restartApp
 } from '@/service/api';
 
 import FunctionList from './modules/FunctionList.vue';
@@ -44,6 +46,7 @@ const functionStore = useFunctionStore();
 const appStore = useAppStore();
 const logStore = useLogStore();
 const themeStore = useThemeStore();
+const router = useRouter();
 
 const isDependenceLoading = ref(false)
 const dependenceTabsRef = ref<undefined | HTMLElement>(undefined)
@@ -586,10 +589,16 @@ const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
         }, { default: () => $t('page.function.deleteOnly') }),
         h(NButton, {
           type: "warning", size: "small", onClick: async () => {
-            const { error } = await packageRemove(applicationStore.appId, dep.name, true);
-            if (!error) {
-              message.success($t('page.function.dependenceDeletedAndRestarting'));
-              await handleDependence(false); // Refresh list without closing dialog
+            const { error: removeError } = await packageRemove(applicationStore.appId, dep.name, true);
+            if (!removeError) {
+              const { error: restartError } = await restartApp(applicationStore.appId);
+              if (!restartError) {
+                message.success($t('page.function.dependenceDeletedAndRestarting'));
+                applicationStore.setAppStatus('starting');
+                router.push({ name: 'home' });
+              } else {
+                message.error($t('page.function.restartFailed'));
+              }
             } else {
               message.error($t('page.function.deleteFailed'));
             }
@@ -603,17 +612,29 @@ const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
 
 
 const handlePackageAdd = async (restart: boolean = false) => {
-  const { data, error } = await packageAdd(applicationStore.appId, packageSelectInput.value.name, packageSelectInput.value.version, restart);
+  const { error } = await packageAdd(applicationStore.appId, packageSelectInput.value.name, packageSelectInput.value.version, restart);
   if (!error) {
-    message.success(restart ? $t('page.function.addDependenceSuccessAndRestarting') : $t('page.function.addDependenceSuccess'));
+    if (restart) {
+      const { error: restartError } = await restartApp(applicationStore.appId);
+      if (!restartError) {
+        message.success($t('page.function.addDependenceSuccessAndRestarting'));
+        applicationStore.setAppStatus('starting');
+        router.push({ name: 'home' });
+      } else {
+        message.error($t('page.function.restartFailed'));
+      }
+      dialog.destroyAll();
+      return;
+    }
+    message.success($t('page.function.addDependenceSuccess'));
     await handleDependence(false); // Refresh list without closing dialog
-  }else{
+  } else {
     message.error($t('page.function.addDependenceFailed'));
   }
-  packageSelectInput.value = {name:'',version: ''}
-  packageResult.value = []
+  packageSelectInput.value = { name: '', version: '' };
+  packageResult.value = [];
   addDependenceDialogRef.destroy();
-}
+};
 
 let searchTimeout: number | null = null;
 

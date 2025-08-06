@@ -27,6 +27,7 @@ export const useApplicationStore = defineStore(SetupStoreId.Application, () => {
   const appInfo: Api.Application.AppInfo = reactive({
     appId: localStg.get("appId") || "",
     appName: "",
+    status: "running",
   });
 
   /** current appid */
@@ -39,11 +40,16 @@ export const useApplicationStore = defineStore(SetupStoreId.Application, () => {
     }
   };
 
+  const setAppStatus = (status: Api.Settings.ApplicationStatus) => {
+    appInfo.status = status;
+  };
+
   return {
     token,
     appId,
     appInfo,
     loginLoading,
     getApplicationInfo,
+    setAppStatus,
   };
 });

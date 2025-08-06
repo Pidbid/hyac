@@ -636,6 +636,7 @@ declare namespace App {
           dependenceDeleted: string;
           dependenceDeletedAndRestarting: string;
           deleteFailed: string;
+          restartFailed: string;
           addDependenceSuccessAndRestarting: string;
           addDependenceSuccess: string;
           addDependenceFailed: string;
