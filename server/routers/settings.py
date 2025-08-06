@@ -185,7 +185,7 @@ async def package_add(
         return BaseResponse(
             code=105, msg="Add failed, because system dependencies already exist"
         )
-    elif data.name in [d["name"] for d in app.common_dependencies]:
+    elif data.name in [d.name for d in app.common_dependencies]:
         # await app.update(
         #     {"$set": {"common_dependencies.$[elem].version": data.version}},
         #     array_filters=[{"elem.name": data.name}],
