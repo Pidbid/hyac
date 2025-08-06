@@ -5,6 +5,8 @@ from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, Query, Security, WebSocket, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.exceptions import WebSocketException
+from starlette import status
 from jwt import ExpiredSignatureError, PyJWTError
 
 from core.config import settings
@@ -83,29 +85,30 @@ async def get_current_user_for_websocket(
     The token is expected as a query parameter.
     """
     if token is None:
-        await websocket.close(code=4001, reason="Authentication token is missing")
-        raise HTTPException(status_code=403, detail="Not authenticated")
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Authentication token is missing",
+        )
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
-            await websocket.close(
-                code=4001, reason="Invalid authentication credentials"
-            )
-            raise HTTPException(
-                status_code=401, detail="Invalid authentication credentials"
+            raise WebSocketException(
+                code=status.WS_1008_POLICY_VIOLATION,
+                reason="Invalid authentication credentials",
             )
     except PyJWTError:
-        await websocket.close(code=4001, reason="Invalid authentication credentials")
-        raise HTTPException(
-            status_code=401, detail="Invalid authentication credentials"
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Invalid authentication credentials",
         )
 
     user = await User.find_one(User.username == username)
     if user is None:
-        await websocket.close(code=4001, reason="User not found")
-        raise HTTPException(status_code=401, detail="User not found")
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="User not found"
+        )
     return user
 
 
