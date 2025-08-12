@@ -114,9 +114,6 @@ onMounted(fetchData);
             <NFormItem :label="$t('page.setting.requestMethod')">
               <NSelect v-model:value="settings.webhook.method" :options="[{label: 'POST', value: 'POST'}, {label: 'GET', value: 'GET'}]" />
             </NFormItem>
-            <NFormItem :label="$t('page.setting.requestBodyTemplate')">
-              <NInput v-model:value="settings.webhook.template" type="textarea" :rows="5" />
-            </NFormItem>
             <NButton type="info" ghost @click="handleTest('webhook')">{{ $t('page.setting.sendTest') }}</NButton>
           </NForm>
         </NTabPane>
