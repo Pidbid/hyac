@@ -44,7 +44,6 @@ class WebhookNotification(BaseModel):
     enabled: bool = False
     url: str = ""
     method: str = "POST"
-    template: str = ""
 
 
 class WeChatNotification(BaseModel):

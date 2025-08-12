@@ -14,21 +14,14 @@ class NotificationManager:
     def __init__(self, config: NotificationConfig):
         self.config = config
 
-    async def send_notification(self, subject: str, message: str):
+    async def send_email(self, to_address: str, subject: str, body: str):
         """
-        Sends a notification based on the configured methods.
+        Sends a customized email notification.
         """
-        if self.config.email.enabled:
-            await self.send_email(subject, message)
-        if self.config.webhook.enabled:
-            await self.send_webhook(subject, message)
-        if self.config.wechat.enabled:
-            await self.send_wechat(subject, message)
+        if not self.config.email.enabled:
+            logger.warning("Email notification is not enabled.")
+            return
 
-    async def send_email(self, subject: str, message: str):
-        """
-        Sends an email notification.
-        """
         email_config = self.config.email
         if not all(
             [
@@ -39,47 +32,35 @@ class NotificationManager:
                 email_config.fromAddress,
             ]
         ):
-            logger.error(
-                "Email notification is enabled, but configuration is incomplete."
-            )
+            logger.error("Email configuration is incomplete.")
             return
 
         msg = MIMEMultipart()
         msg["From"] = email_config.fromAddress
-        msg["To"] = ", ".join([email_config.fromAddress])  # Sending to self for now
+        msg["To"] = to_address
         msg["Subject"] = subject
-        msg.attach(MIMEText(message, "plain"))
+        msg.attach(MIMEText(body, "plain"))
 
         try:
             server = smtplib.SMTP_SSL(email_config.smtpServer, email_config.port)
             server.login(email_config.username, email_config.password)
             server.send_message(msg)
             server.quit()
-            logger.info(f"Email notification sent to {email_config.fromAddress}")
+            logger.info(f"Email notification sent to {to_address}")
         except Exception as e:
             logger.error(f"Failed to send email notification: {e}")
 
-    async def send_webhook(self, subject: str, message: str):
+    async def send_webhook(self, payload: dict):
         """
-        Sends a webhook notification.
+        Sends a webhook notification with a custom payload.
         """
-        webhook_config = self.config.webhook
-        if not webhook_config.url:
-            logger.error("Webhook notification is enabled, but URL is not configured.")
+        if not self.config.webhook.enabled:
+            logger.warning("Webhook notification is not enabled.")
             return
 
-        # Replace placeholders in the template
-        payload_str = webhook_config.template.replace("{{subject}}", subject).replace(
-            "{{message}}", message
-        )
-        try:
-            payload = httpx.post(
-                webhook_config.url,
-                content=payload_str,
-                headers={"Content-Type": "application/json"},
-            ).json()
-        except Exception as e:
-            logger.error(f"Failed to decode webhook template JSON: {e}")
+        webhook_config = self.config.webhook
+        if not webhook_config.url:
+            logger.error("Webhook URL is not configured.")
             return
 
         try:
@@ -96,10 +77,14 @@ class NotificationManager:
         except Exception as e:
             logger.error(f"Failed to send webhook notification: {e}")
 
-    async def send_wechat(self, subject: str, message: str):
+    async def send_wechat(self, payload: dict):
         """
-        Sends a WeChat notification. (Not implemented yet)
+        Sends a WeChat notification with a custom payload. (Not implemented yet)
         """
+        if not self.config.wechat.enabled:
+            logger.warning("WeChat notification is not enabled.")
+            return
+
         logger.info(
             "WeChat notification is enabled, but the feature is not yet implemented."
         )
