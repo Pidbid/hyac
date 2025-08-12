@@ -88,8 +88,8 @@ async def _prepare_arguments(
 ) -> Dict[str, Any]:
     """Prepares the arguments for the handler function based on its signature."""
     handler_args = {}
-    if "context" in signature.parameters:
-        handler_args["context"] = context
+    if "ctx" in signature.parameters:
+        handler_args["ctx"] = context
     if "request" in signature.parameters:
         handler_args["request"] = request
     if "background_tasks" in signature.parameters:

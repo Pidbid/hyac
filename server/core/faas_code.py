@@ -29,7 +29,7 @@ class AdvancedCalculator:
 """
 
 # --- Template for default endpoint function ---
-endpoint_template_default = """async def handler(context, request):
+endpoint_template_default = """async def handler(ctx, request):
     return {"code": 0, "msg":"success", "data":[1,2,3]}
 """
 
@@ -38,11 +38,11 @@ endpoint_template_db = """from datetime import datetime
 from loguru import logger
 from bson import ObjectId
 
-async def handler(context, request, name: str = "World", value: int = 0):
+async def handler(ctx, request, name: str = "World", value: int = 0):
     # -----------------------------------------------------------------------------
     # Example 1: Asynchronous Database Operations (Motor) - Recommended
     # - Use `async def` to define the function.
-    # - Get the asynchronous database instance via `context.motor_db`.
+    # - Get the asynchronous database instance via `ctx.motor_db`.
     # - Use the `await` keyword before all database operations to ensure non-blocking execution.
     # -----------------------------------------------------------------------------
     \"\"\"
@@ -50,7 +50,7 @@ async def handler(context, request, name: str = "World", value: int = 0):
     \"\"\"
     
     logger.info(f"[Async] Received parameters: name='{name}', value={value}")
-    db = context.motor_db  # Get the asynchronous Motor database client
+    db = ctx.motor_db  # Get the asynchronous Motor database client
     demo_collection = db["hyac_demo_async"]
     
     # CREATE
@@ -77,7 +77,7 @@ async def handler(context, request, name: str = "World", value: int = 0):
     # -----------------------------------------------------------------------------
     # Example 2: Synchronous Database Operations (Pymongo)
     # - Use `async def` to define the function.
-    # - Get the synchronous database instance via `context.pymongo_db`.
+    # - Get the synchronous database instance via `ctx.pymongo_db`.
     # - This is a synchronous operation, but in FastAPI's async environment, it runs 
     #   in a separate thread pool to avoid blocking the event loop.
     # -----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ async def handler(context, request, name: str = "World", value: int = 0):
     A complete example of database operations using PyMongo (synchronous).
     \"\"\"
     logger.info(f"[Sync] Received parameters: name='{name}', value={value}")
-    db = context.pymongo_db  # Get the synchronous PyMongo database client
+    db = ctx.pymongo_db  # Get the synchronous PyMongo database client
     demo_collection = db["hyac_demo_sync"]
     
     # CREATE
@@ -114,7 +114,7 @@ async def handler(context, request, name: str = "World", value: int = 0):
 # --- Template for an Endpoint that calls a Common Function ---
 endpoint_template_common_call = """from loguru import logger
 
-async def handler(context, request, x: int = 10, y: int = 3):
+async def handler(ctx, request, x: int = 10, y: int = 3):
     \"\"\"
     An example of an endpoint that calls a common function.
     This example assumes a common function with function_id 'math_utils' exists.
@@ -122,14 +122,14 @@ async def handler(context, request, x: int = 10, y: int = 3):
     
     # 1. Call a simple function from the common module
     try:
-        simple_sum = context.common.math_utils.add(x, y)
+        simple_sum = ctx.common.math_utils.add(x, y)
         logger.info(f"Called 'math_utils.add', result: {simple_sum}")
     except AttributeError:
         simple_sum = "Error: 'math_utils.add' not available."
 
     # 2. Use a class from the common module
     try:
-        Calculator = context.common.math_utils.AdvancedCalculator
+        Calculator = ctx.common.math_utils.AdvancedCalculator
         calc_instance = Calculator(precision=4)
         product = calc_instance.multiply(x, y)
         quotient = calc_instance.divide(x, y)
@@ -151,11 +151,11 @@ async def handler(context, request, x: int = 10, y: int = 3):
 endpoint_template_storage = """from loguru import logger
 from fastapi.responses import StreamingResponse
 
-# Note: The 'context' object provides access to 'minio_open'.
+# Note: The 'ctx' object provides access to 'minio_open'.
 # You don't need to import it directly from 'app.core.faas_minio'.
-# The FaaS environment injects it into the context.
+# The FaaS environment injects it into the ctx.
 
-async def handler(context, request, action: str = "read_write"):
+async def handler(ctx, request, action: str = "read_write"):
     \"\"\"
     An example demonstrating file operations with MinIO.
     - action='read_write': Shows how to write and then read a file.
@@ -170,7 +170,7 @@ async def handler(context, request, action: str = "read_write"):
         # 1. Write to a file (buffered)
         content_to_write = "Hello from Hyac FaaS! This is a test."
         try:
-            with context.minio_open(file_path, "w", encoding="utf-8") as f:
+            with ctx.minio_open(file_path, "w", encoding="utf-8") as f:
                 f.write(content_to_write)
             logger.info(f"Successfully wrote to '{file_path}'")
         except Exception as e:
@@ -180,7 +180,7 @@ async def handler(context, request, action: str = "read_write"):
         # 2. Read from the file (buffered)
         read_content = ""
         try:
-            with context.minio_open(file_path, "r", encoding="utf-8") as f:
+            with ctx.minio_open(file_path, "r", encoding="utf-8") as f:
                 read_content = f.read()
             logger.info(f"Successfully read from '{file_path}'")
         except Exception as e:
@@ -200,7 +200,7 @@ async def handler(context, request, action: str = "read_write"):
         
         # For demonstration, first ensure a file exists to be streamed.
         large_content = "This is a line in a large file.\\n" * 500
-        with context.minio_open(file_path, "w") as f:
+        with ctx.minio_open(file_path, "w") as f:
             f.write(large_content)
         logger.info(f"Created a sample large file for streaming at '{file_path}'")
 
@@ -208,7 +208,7 @@ async def handler(context, request, action: str = "read_write"):
         def file_streamer(path: str, chunk_size: int = 8192):
             try:
                 # Use streaming=True for efficient, chunked reading
-                with context.minio_open(path, "rb", streaming=True) as f:
+                with ctx.minio_open(path, "rb", streaming=True) as f:
                     while True:
                         chunk = f.read(chunk_size)
                         if not chunk:
