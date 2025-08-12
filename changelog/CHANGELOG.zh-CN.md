@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [dev-0.0.11] - 2025-08-12
+
+### 新增
+- 添加 FaaS 函数模板。
+- 添加 MinIO 上下文。
+
+### 修复
+- 删除 Webhook 通知的输入负载。
+- 改进通知模块。
+
+### 其他
+- 将 Context 修改为 ctx。
+
 ## [dev-0.0.10] - 2025-08-06
 
 ### 新增
