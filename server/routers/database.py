@@ -153,7 +153,6 @@ async def get_collection_documents(
         raise HTTPException(
             status_code=404, detail="Application not found or permission denied"
         )
-
     total_count = await dynamic_db.app_collection_documents_counts(
         data.appId, data.colName
     )
@@ -324,9 +323,7 @@ async def delete_document(
             code=404, msg="Document not found", data={"doc_id": data.docId}
         )
 
-    return BaseResponse(
-        code=0, msg="Document deleted successfully", data=delete_response.raw_result
-    )
+    return BaseResponse(code=0, msg="Document deleted successfully", data=data.docId)
 
 
 @router.post("/delete_documents", response_model=BaseResponse)
@@ -390,5 +387,5 @@ async def update_document(
     return BaseResponse(
         code=0,
         msg="Document updated successfully",
-        data=update_response.raw_result,
+        data=data.docId,
     )

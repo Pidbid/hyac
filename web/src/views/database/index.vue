@@ -242,7 +242,12 @@ const handleCancelEdit = () => {
   message.info($t('page.database.cancelEdit'));
 };
 
+
 const handleRefreshDocuments = async () => {
+  if (!selectedCollection.value) {
+    message.warning($t('page.database.noCollections'));
+    return;
+  }
   await getCollectionDocuments(selectedCollection.value, 1, 15)
   message.success($t('page.database.refreshSuccess'))
 };
@@ -439,7 +444,7 @@ onMounted(async () => {
                       <NIcon :component="RefreshOutline" />
                     </template>
                   </NButton>
-                  <NButton size="small" type="primary" @click="handleCreateDocument">
+                  <NButton size="small" type="primary" :disabled="collections.length == 0" @click="handleCreateDocument">
                     <template #icon>
                       <NIcon :component="AddOutline" />
                     </template>
