@@ -21,7 +21,21 @@
 .roo
 .trae
 
-# Traefik
+# Traefik (legacy)
 traefik
 
+# Caddy
+caddy/data/*
+caddy/config/*
+caddy/logs/*
+!caddy/data/.gitkeep
+!caddy/config/.gitkeep
+!caddy/logs/.gitkeep
+
+# Logs
 /app/logs
+*.log
+openspec
+codex
+.claude
+.zilong
