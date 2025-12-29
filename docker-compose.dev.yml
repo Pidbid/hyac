@@ -52,36 +52,28 @@ services:
       retries: 10
       start_period: 10s
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hyac-minio.rule=Host(`oss.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-minio.entrypoints=websecure"
-      - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
-      - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
-      - "traefik.http.services.hyac-minio.loadbalancer.passhostheader=true"
-  traefik:
-    image: "traefik:latest"
-    container_name: "hyac_traefik"
+      - "caddy=oss.${DOMAIN_NAME}"
+      - "caddy.reverse_proxy={{upstreams 9000}}"
+  caddy:
+    build:
+      context: ./caddy
+    container_name: "hyac_caddy"
     restart: unless-stopped
-    command:
-      - "--api.insecure=true"
-      - "--api.dashboard=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-      - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      DOCKER_HOST: "unix:///var/run/docker.sock"
+      CADDY_DOCKER_CADDYFILE_PATH: "/etc/caddy/Caddyfile"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./traefik/letsencrypt:/letsencrypt"
-      - "./traefik/dynamic:/etc/traefik/dynamic"
+      - "${PODMAN_SOCKET}:/var/run/docker.sock:ro"
+      - "./caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
+      - "./caddy/data:/data"
+      - "./caddy/config:/config"
+      - "./caddy/logs:/var/log/caddy"
     networks:
       - hyac_network
   server:
@@ -102,6 +94,7 @@ services:
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
       DEMO_MODE: "false"
+      DOCKER_HOST: "unix:///var/run/docker.sock"
     ports:
       - 8000:8000
     depends_on:
@@ -111,8 +104,7 @@ services:
         condition: service_healthy
     volumes:
     - /etc/localtime:/etc/localtime:ro
-    - /var/run/docker.sock:/var/run/docker.sock
-    - ./traefik/dynamic:/traefik/dynamic
+    - ${PODMAN_SOCKET}:/var/run/docker.sock
     - ./server:/server
     - ./app:/app
     networks:
@@ -124,11 +116,8 @@ services:
       retries: 10
       start_period: 10s
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-server.entrypoints=websecure"
-      - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
-      - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
+      - "caddy=server.${DOMAIN_NAME}"
+      - "caddy.reverse_proxy={{upstreams 8000}}"
   web:
     build:
       context: ./web
@@ -143,12 +132,8 @@ services:
     networks:
       - hyac_network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hyac-web.rule=Host(`console.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-web.entrypoints=websecure"
-      - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
-      - "traefik.http.services.hyac-web.loadbalancer.server.port=9527"
-      - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
+      - "caddy=console.${DOMAIN_NAME}"
+      - "caddy.reverse_proxy={{upstreams 9527}}"
   app:
     build:
       context: ./app

@@ -36,6 +36,7 @@ caddy/logs/*
 /app/logs
 *.log
 openspec
-codex
+.codex
 .claude
 .zilong
+helloagents

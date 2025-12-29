@@ -3,7 +3,6 @@ import json
 from loguru import logger
 from typing import List
 from core.config import settings
-from core.docker_manager import create_traefik_console_config
 from core.faas_code import faas_templates
 from core.minio_manager import minio_manager
 from core.utils import create_mongodb_user, generate_short_id
@@ -349,7 +348,6 @@ class InitializationService:
         This is triggered if INIT_DEMO_FUNCTION is true and the database is empty or DEBUG is on.
         """
         # Deprecated: Front-end is now served by Nginx, not MinIO.
-        # create_traefik_console_config()
 
         if await cls._is_database_empty():
             # Deprecated: Front-end is now served by Nginx, not MinIO.

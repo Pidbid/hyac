@@ -37,7 +37,7 @@
 - **项目文档地址**: https://docs.hyacos.top
 ## ✨ 主要功能
 
-- 🚀 **动态函数执行**: 在隔离的 Docker 容器中动态加载和执行函数代码。
+- 🚀 **动态函数执行**: 在隔离的容器中动态加载和执行函数代码。
 - 🔥 **代码热更新**: 无需重启服务即可实现函数代码的实时更新。
 - 🌐 **多语言支持**: 基于运行时的可扩展性，未来可以支持多种编程语言。
 - 💻 **现代化前端**: 基于 Vue 3 和 Naive UI 构建，提供响应式、用户友好的管理界面。
@@ -46,7 +46,7 @@
 
 ## 🏛️ 系统架构
 
-Hyac 采用基于 Docker Compose 的微服务架构，各组件协同工作，形成一个高效的 FaaS 生态系统。
+Hyac 采用基于 Podman Compose 的微服务架构，各组件协同工作，形成一个高效的 FaaS 生态系统。
 
 ```mermaid
 graph TD
@@ -55,7 +55,7 @@ graph TD
     end
 
     subgraph "🏗️ 基础设施"
-        T[Traefik]
+        T[Caddy]
         DB[(MongoDB)]
         S[(MinIO)]
     end
@@ -85,7 +85,7 @@ graph TD
     Web -- API请求 --> Server
 ```
 
-- **`traefik`**: 作为反向代理和负载均衡器，处理所有外部请求，并根据域名自动路由到 `server`、`web` 或 `minio` 服务。
+- **`caddy`**: 作为反向代理和负载均衡器，处理所有外部请求，并根据域名自动路由到 `server`、`web` 或 `minio` 服务。
 - **`server`**: 核心后端服务，负责业务逻辑、API 路由、用户认证和 FaaS 应用管理。
 - **`app`**: 函数执行器服务，在隔离的环境中动态执行用户定义的函数。
 - **`web`**: 基于 Vue 3 的前端应用，提供用户交互界面。
@@ -97,14 +97,14 @@ graph TD
 - **后端**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **前端**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **数据库与存储**: MongoDB, MinIO
-- **容器化**: Docker, Docker Compose
+- **容器化**: Podman, Podman Compose
 
 ## 🚀 快速开始
 
 ### ✅ 环境准备
 
-- [Docker](https://www.docker.com/get-started)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Podman](https://podman.io/)
+- [Podman Compose](https://github.com/containers/podman-compose)
 
 ### ⚙️ 安装与配置
 
@@ -115,14 +115,16 @@ graph TD
     ```
 
 2.  配置环境变量:
-    复制 `.env.example` 文件并重命名为 `.env`，然后根据您的环境修改其中的配置。
+    复制 `.env.example` 文件并重命名为 `.env`，然后根据您的环境修改其中的配置（包含 DNS-01 证书相关变量）。
+    - 如果非 Cloudflare，请自行替换 `caddy/Dockerfile` 中的 DNS 插件并更新 `caddy/Caddyfile`。
+    - rootless Podman 请将 `PODMAN_SOCKET` 指向 `/run/user/<UID>/podman/podman.sock`。
 
 ### ▶️ 启动服务
 
 执行以下命令以构建和启动所有服务：
 
 ```bash
-docker-compose up -d
+podman-compose up -d
 ```
 
 ### 🌐 访问地址
@@ -136,7 +138,8 @@ docker-compose up -d
 ├── app/            # 函数执行器服务
 ├── server/         # 核心后端服务
 ├── web/            # 前端应用 (Vue 3)
-├── docker-compose.yml # Docker Compose 配置
+├── docker-compose.yml # Podman Compose 配置
+├── caddy/          # Caddy 配置
 ├── ...
 ├── ...
 ├── ...

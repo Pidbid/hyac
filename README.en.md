@@ -37,7 +37,7 @@
 - **Project Documentation**: https://docs.hyacos.top
 ## ✨ Key Features
 
-- 🚀 **Dynamic Function Execution**: Dynamically load and execute function code in isolated Docker containers.
+- 🚀 **Dynamic Function Execution**: Dynamically load and execute function code in isolated containers.
 - 🔥 **Hot Code-Swapping**: Real-time updates of function code without service restarts.
 - 🌐 **Multi-language Support**: Extensibility based on runtimes allows for future support of multiple programming languages.
 - 💻 **Modern Frontend**: Built with Vue 3 and Naive UI, providing a responsive, user-friendly management interface.
@@ -46,7 +46,7 @@
 
 ## 🏛️ System Architecture
 
-Hyac adopts a microservices architecture based on Docker Compose, where various components work together to form an efficient FaaS ecosystem.
+Hyac adopts a microservices architecture based on Podman Compose, where various components work together to form an efficient FaaS ecosystem.
 
 ```mermaid
 graph TD
@@ -55,7 +55,7 @@ graph TD
     end
 
     subgraph "🏗️ Infrastructure"
-        T[Traefik]
+        T[Caddy]
         DB[(MongoDB)]
         S[(MinIO)]
     end
@@ -85,7 +85,7 @@ graph TD
     Web -- API Requests --> Server
 ```
 
-- **`traefik`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or `minio` services based on the domain.
+- **`caddy`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or `minio` services based on the domain.
 - **`server`**: The core backend service, responsible for business logic, API routing, user authentication, and FaaS application management.
 - **`app`**: The function executor service, which dynamically executes user-defined functions in an isolated environment.
 - **`web`**: A Vue 3-based frontend application that provides the user interface.
@@ -97,14 +97,14 @@ graph TD
 - **Backend**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **Frontend**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **Database & Storage**: MongoDB, MinIO
-- **Containerization**: Docker, Docker Compose
+- **Containerization**: Podman, Podman Compose
 
 ## 🚀 Getting Started
 
 ### ✅ Prerequisites
 
-- [Docker](https://www.docker.com/get-started)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Podman](https://podman.io/)
+- [Podman Compose](https://github.com/containers/podman-compose)
 
 ### ⚙️ Installation & Configuration
 
@@ -115,14 +115,16 @@ graph TD
     ```
 
 2.  Configure environment variables:
-    Copy the `.env.example` file and rename it to `.env`, then modify the configurations according to your environment.
+    Copy the `.env.example` file and rename it to `.env`, then modify the configurations according to your environment (including DNS-01 certificate variables).
+    - If you are not using Cloudflare, update the DNS plugin in `caddy/Dockerfile` and adjust `caddy/Caddyfile`.
+    - For rootless Podman, set `PODMAN_SOCKET` to `/run/user/<UID>/podman/podman.sock`.
 
 ### ▶️ Starting the Services
 
 Execute the following command to build and start all services:
 
 ```bash
-docker-compose up -d
+podman-compose up -d
 ```
 
 ### 🌐 Access Points
@@ -137,8 +139,8 @@ docker-compose up -d
 ├── app/            # Function Executor Service
 ├── server/         # Core Backend Service
 ├── web/            # Frontend Application (Vue 3)
-├── nginx/          # Nginx Configuration
-├── docker-compose.yml # Docker Compose Configuration
+├── caddy/          # Caddy configuration
+├── docker-compose.yml # Podman Compose configuration
 ├── ...
 ├── ...
 ├── ...

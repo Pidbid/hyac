@@ -1,0 +1,23 @@
+{
+  email {$EMAIL_ADDRESS}
+  acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+  log {
+    output file /var/log/caddy/access.log
+  }
+}
+
+# Wildcard site to obtain a single certificate for all subdomains.
+*.{$DOMAIN_NAME} {
+  @web host_regexp webSub ^web-(?P<app>[a-z0-9-]+)\.{$DOMAIN_NAME}$
+  handle @web {
+    @root path /
+    rewrite @root /{re.webSub.app}/index.html
+    @other not path /
+    rewrite @other /{re.webSub.app}{http.request.uri.path}
+    header_up Host "minio:9000"
+    header_up x-amz-content-sha256 "UNSIGNED-PAYLOAD"
+    reverse_proxy minio:9000
+  }
+
+  respond "Not Found" 404
+}

@@ -465,139 +465,6 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
-def create_traefik_console_config():
-    """Generates the Traefik config for the main console service."""
-    domain_name = settings.DOMAIN_NAME
-    if not domain_name:
-        logger.warning(
-            "DOMAIN_NAME not set, skipping console Traefik config generation."
-        )
-        return
-
-    config_dir = "/traefik/dynamic"
-    os.makedirs(config_dir, exist_ok=True)
-    config_path = os.path.join(config_dir, "console.yml")
-    bucket_name = "console"
-
-    config_content = f"""
-http:
-  routers:
-    console-router:
-      rule: "Host(`{bucket_name}.{domain_name}`)"
-      entryPoints: ["websecure"]
-      service: "console-service"
-      tls:
-        certResolver: "myresolver"
-      middlewares:
-        - "console-chain"
-
-  services:
-    console-service:
-      loadBalancer:
-        servers:
-          - url: "http://minio:9000"
-
-  middlewares:
-    console-chain:
-      chain:
-        middlewares:
-          - "console-headers"
-          - "console-rewrite-root"
-          - "console-add-prefix"
-          - "console-spa"
-    console-headers:
-      headers:
-        customRequestHeaders:
-          x-amz-content-sha256: "UNSIGNED-PAYLOAD"
-          Host: "minio:9000"
-    console-rewrite-root:
-      replacePathRegex:
-        regex: "^/?$"
-        replacement: "/index.html"
-    console-add-prefix:
-      addPrefix:
-        prefix: "/{bucket_name}"
-    console-spa:
-      errors:
-        status: ["404"]
-        service: "console-service"
-        query: "/{bucket_name}/index.html"
-"""
-    with open(config_path, "w") as f:
-        f.write(config_content)
-    logger.info(f"Traefik console config created at {config_path}.")
-
-
-def create_traefik_web_config(app_id: str, domain_name: str):
-    config_dir = (
-        "/traefik/dynamic"  # This is the path accessible inside the server container
-    )
-    os.makedirs(config_dir, exist_ok=True)
-    config_path = os.path.join(config_dir, f"web-{app_id}.yml")
-
-    bucket_name = f"web-{app_id.lower()}"
-    chain_name = f"web-chain-{app_id}"
-    headers_name = f"web-headers-{app_id}"
-    rewrite_name = f"web-rewrite-{app_id}"
-    prefix_name = f"web-prefix-{app_id}"
-    spa_name = f"web-spa-{app_id}"
-    service_name = f"web-service-{app_id}"
-    router_name = f"web-router-{app_id}"
-
-    config_content = f"""
-http:
-  routers:
-    {router_name}:
-      rule: "Host(`{bucket_name}.{domain_name}`)"
-      entryPoints: ["websecure"]
-      service: "{service_name}"
-      tls:
-        certResolver: "myresolver"
-      middlewares:
-        - "{chain_name}"
-
-  services:
-    {service_name}:
-      loadBalancer:
-        servers:
-          - url: "http://minio:9000"
-
-  middlewares:
-    {chain_name}:
-      chain:
-        middlewares:
-          - "{headers_name}"
-          - "{rewrite_name}"
-          - "{prefix_name}"
-          - "{spa_name}"
-    {headers_name}:
-      headers:
-        customRequestHeaders:
-          x-amz-content-sha256: "UNSIGNED-PAYLOAD"
-          Host: "minio:9000"
-    {rewrite_name}:
-      replacePathRegex:
-        regex: "^/?$"
-        replacement: "/index.html"
-    {prefix_name}:
-      addPrefix:
-        prefix: "/{bucket_name}"
-    {spa_name}:
-      errors:
-        status: ["404"]
-        service: "{service_name}"
-        query: "/{bucket_name}/index.html"
-"""
-    with open(config_path, "w") as f:
-        f.write(config_content)
-    logger.info(f"Traefik web config for app '{app_id}' created at {config_path}.")
-
-
-def remove_traefik_web_config(app_id: str):
-    config_path = f"/traefik/dynamic/web-{app_id}.yml"
-    if os.path.exists(config_path):
-        os.remove(config_path)
-        logger.info(f"Removed Traefik web config: {config_path}")
 
 
 async def build_app_image_if_not_exists():
@@ -740,17 +607,14 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             "This might fail if the project name in docker-compose is not 'hyac'."
         )
 
-    # --- Traefik Labels for the runtime container ---
-    traefik_labels = {
-        "traefik.enable": "true",
-        f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
-        f"traefik.http.routers.{container_name}.entrypoints": "websecure",
-        f"traefik.http.routers.{container_name}.tls.certresolver": "myresolver",
-        f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
+    # --- Caddy Labels for the runtime container ---
+    caddy_labels = {
+        "caddy": f"{app.app_id.lower()}.{domain_name}",
+        "caddy.reverse_proxy": "{{upstreams 8001}}",
     }
 
-    # Merge compose labels with traefik labels
-    all_labels = {**compose_labels, **traefik_labels}
+    # Merge compose labels with caddy labels
+    all_labels = {**compose_labels, **caddy_labels}
 
     app_image_name = get_app_image_name()
     container = docker_manager.create_container(
@@ -834,15 +698,12 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
 
     await create_function_templates_for_app(app.app_id)
 
-    # Create Traefik config for web hosting
-    create_traefik_web_config(app.app_id, domain_name)
-
     container_info = {
         "name": container_name,
         "id": container.id,
     }
     running_apps[app.app_id] = container_info
-    logger.info(f"Started container for app '{app.app_id}'. Traefik proxy configured.")
+    logger.info(f"Started container for app '{app.app_id}'. Caddy proxy configured.")
 
     # Clean up the lock from the dictionary if it's no longer needed
     # This prevents the dictionary from growing indefinitely.
@@ -864,12 +725,9 @@ async def stop_app_container(app_id: str):
         if await docker_manager.stop_container(container_name):
             await docker_manager.remove_container(container_name)
 
-        # Remove Traefik web config file
-        remove_traefik_web_config(app_id)
-
         del running_apps[app_id]
         logger.info(
-            f"Container for app '{app_id}' stopped and removed. Traefik proxy updated."
+            f"Container for app '{app_id}' stopped and removed. Caddy proxy updated."
         )
 
 
@@ -950,9 +808,6 @@ async def delete_application_background(app: Application):
                     await minio_manager.delete_object(web_bucket_name, obj["name"])
             await minio_manager.remove_bucket(web_bucket_name)
             logger.info(f"Deleted MinIO bucket '{web_bucket_name}'.")
-
-        # Also remove the web hosting Traefik config
-        remove_traefik_web_config(app.app_id)
 
     except Exception as e:
         logger.error(f"Error deleting MinIO buckets for app '{app.app_id}': {e}")
