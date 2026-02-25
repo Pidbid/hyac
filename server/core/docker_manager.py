@@ -678,6 +678,10 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "SECRET_KEY": settings.SECRET_KEY,
         "DEV_MODE": settings.DEV_MODE,
         "DEBUG": True,  # Only for logger level
+        "LSP_MODE": settings.LSP_MODE,
+        "LSP_SIDECAR_URL": settings.LSP_SIDECAR_URL,
+        "LSP_SIDECAR_TIMEOUT_SECONDS": settings.LSP_SIDECAR_TIMEOUT_SECONDS,
+        "LSP_SIDECAR_FALLBACK_LEGACY": settings.LSP_SIDECAR_FALLBACK_LEGACY,
     }
 
     # Add user-defined environment variables

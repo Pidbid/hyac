@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     SERVER_IMAGE_TAG: Optional[str] = "latest"
     WEB_IMAGE_TAG: Optional[str] = "latest"
     APP_IMAGE_TAG: Optional[str] = "latest"
+    LSP_MODE: Optional[str] = "legacy"
+    LSP_SIDECAR_URL: Optional[str] = "ws://hyac_lsp_sidecar:9002/lsp"
+    LSP_SIDECAR_TIMEOUT_SECONDS: Optional[int] = 10
+    LSP_SIDECAR_FALLBACK_LEGACY: Optional[bool] = True
 
     class Config:
         """

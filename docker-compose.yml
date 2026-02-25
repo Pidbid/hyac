@@ -101,6 +101,10 @@ services:
       DEV_MODE: "false"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
       DEMO_MODE: ${DEMO_MODE}
+      LSP_MODE: ${LSP_MODE:-legacy}
+      LSP_SIDECAR_URL: ${LSP_SIDECAR_URL:-ws://hyac_lsp_sidecar:9002/lsp}
+      LSP_SIDECAR_TIMEOUT_SECONDS: ${LSP_SIDECAR_TIMEOUT_SECONDS:-10}
+      LSP_SIDECAR_FALLBACK_LEGACY: ${LSP_SIDECAR_FALLBACK_LEGACY:-true}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -148,6 +152,15 @@ services:
     image: wicos/hyac_app:${APP_IMAGE_TAG:-latest}
     command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
+    networks:
+      - hyac_network
+  lsp-sidecar:
+    build:
+      context: ./app
+    image: wicos/hyac_lsp_sidecar:${APP_IMAGE_TAG:-latest}
+    container_name: hyac_lsp_sidecar
+    command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002"]
+    restart: unless-stopped
     networks:
       - hyac_network
 

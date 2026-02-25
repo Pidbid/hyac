@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None
     DEV_MODE: Optional[bool] = False
     DEBUG: Optional[bool] = True
+    LSP_MODE: str = "legacy"  # legacy | sidecar
+    LSP_SIDECAR_URL: str = "ws://hyac_lsp_sidecar:9002/lsp"
+    LSP_SIDECAR_TIMEOUT_SECONDS: int = 10
+    LSP_SIDECAR_FALLBACK_LEGACY: bool = True
 
     class Config:
         """

@@ -4,9 +4,16 @@ import { EditorView, keymap, highlightSpecialChars, drawSelection } from '@codem
 import { EditorState, Compartment } from '@codemirror/state';
 import { indentUnit, indentOnInput, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import {
+  closeBrackets,
+  closeBracketsKeymap,
+  autocompletion,
+  completionKeymap,
+  type Completion,
+  type CompletionContext
+} from '@codemirror/autocomplete';
 import { gutter, GutterMarker, lineNumbers } from '@codemirror/view';
-import { python } from '@codemirror/lang-python';
+import { python, pythonLanguage } from '@codemirror/lang-python';
 import { LSPClient, languageServerSupport } from '@codemirror/lsp-client';
 import type { Transport } from '@codemirror/lsp-client';
 import { showMinimap } from '@replit/codemirror-minimap';
@@ -94,6 +101,37 @@ const selectedTheme = computed(() => {
   return props.themeMode === 'dark' ? themeSet.dark : themeSet.light;
 });
 
+const hyacContextOptions: Completion[] = [
+  { label: 'app_id', type: 'property', detail: 'str' },
+  { label: 'func_id', type: 'property', detail: 'str' },
+  { label: 'logger', type: 'property', detail: 'loguru.Logger' },
+  { label: 'pymongo_db', type: 'property', detail: 'pymongo.database.Database' },
+  { label: 'motor_db', type: 'property', detail: 'motor.AsyncIOMotorDatabase' },
+  { label: 'db', type: 'property', detail: 'motor.AsyncIOMotorDatabase' },
+  { label: 'sync_db', type: 'property', detail: 'pymongo.database.Database' },
+  { label: 'env', type: 'property', detail: 'EnvContext' },
+  { label: 'common', type: 'property', detail: 'SimpleNamespace' },
+  { label: 'notification', type: 'property', detail: 'NotificationManager' },
+  { label: 'minio', type: 'property', detail: 'MinioContext' }
+];
+
+function hyacContextCompletionSource(context: CompletionContext) {
+  const match = context.matchBefore(/(?:ctx|context)\.\w*/);
+  if (!match) return null;
+  if (!context.explicit && match.from === match.to) return null;
+  const dotIndex = match.text.indexOf('.');
+  if (dotIndex < 0) return null;
+  return {
+    from: match.from + dotIndex + 1,
+    options: hyacContextOptions,
+    validFor: /^\w*$/
+  };
+}
+
+const hyacContextCompletions = pythonLanguage.data.of({
+  autocomplete: hyacContextCompletionSource
+});
+
 function createWebSocketTransport(url: string): ClosableTransport {
   const socket = new ReconnectingWebSocket(url);
   let handlers: ((value: string) => void)[] = [];
@@ -156,8 +194,10 @@ onMounted(() => {
           indentOnInput(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           closeBrackets(),
-          keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          autocompletion({ activateOnTyping: true }),
+          keymap.of([...closeBracketsKeymap, ...completionKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           python(),
+          hyacContextCompletions,
           themeCompartment.of(selectedTheme.value),
           minimapCompartment.of(
             props.showMinimap

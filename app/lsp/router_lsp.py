@@ -5,10 +5,16 @@ import traceback
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
+from starlette.websockets import WebSocketState
+
+from core.config import settings
+from lsp.session_manager import LspSessionManager
+from lsp.sidecar_client import SidecarBridge, SidecarBridgeError
 
 # 配置日志
 
 router = APIRouter()
+session_manager = LspSessionManager()
 
 # 用于从头部提取 Content-Length 的正则表达式
 CONTENT_LENGTH_PATTERN = re.compile(rb"Content-Length: (\d+)\r\n")
@@ -115,14 +121,7 @@ async def log_pylsp_stderr(pylsp_process: asyncio.subprocess.Process):
             pass
 
 
-@router.websocket("/__lsp__")
-async def lsp_websocket_endpoint(websocket: WebSocket):
-    """
-    处理 LSP 的 WebSocket 连接，作为 pylsp 的中继。
-    """
-    await websocket.accept()
-    logger.info("WebSocket 连接已接受。")
-
+async def _run_legacy_lsp_session(websocket: WebSocket) -> None:
     pylsp_process = None
     try:
         # 1. 准备 pylsp 进程的环境
@@ -179,7 +178,67 @@ async def lsp_websocket_endpoint(websocket: WebSocket):
             await pylsp_process.wait()
             logger.info("pylsp 进程已终止。")
 
-        # 确保 WebSocket 连接被关闭
-        if websocket.client_state != "DISCONNECTED":
-            await websocket.close()
-        logger.info("WebSocket 连接已关闭。")
+
+async def _run_sidecar_lsp_session(websocket: WebSocket, app_id: str, session_id: str):
+    bridge = SidecarBridge(
+        sidecar_url=settings.LSP_SIDECAR_URL,
+        timeout_seconds=settings.LSP_SIDECAR_TIMEOUT_SECONDS,
+    )
+    await bridge.proxy(
+        websocket=websocket,
+        app_id=app_id,
+        session_id=session_id,
+        workspace="/app/.hyac_lsp",
+    )
+
+
+def _use_sidecar_mode() -> bool:
+    return settings.LSP_MODE.strip().lower() == "sidecar"
+
+
+@router.websocket("/__lsp__")
+async def lsp_websocket_endpoint(websocket: WebSocket):
+    """
+    处理 LSP 的 WebSocket 连接，支持 legacy/sidecar 双模式。
+    """
+    await websocket.accept()
+    app_id = os.environ.get("APP_ID", "unknown")
+    mode = "sidecar" if _use_sidecar_mode() else "legacy"
+    session = session_manager.create(app_id=app_id, mode=mode)
+    logger.info(
+        f"LSP WebSocket connected. session={session.session_id}, app_id={app_id}, mode={mode}, active={session_manager.size()}"
+    )
+
+    try:
+        if mode == "sidecar":
+            try:
+                await _run_sidecar_lsp_session(
+                    websocket=websocket, app_id=app_id, session_id=session.session_id
+                )
+            except SidecarBridgeError as exc:
+                logger.error(f"Sidecar mode failed: {exc}")
+                if not settings.LSP_SIDECAR_FALLBACK_LEGACY:
+                    raise
+                logger.warning(
+                    "Falling back to legacy pylsp mode because LSP_SIDECAR_FALLBACK_LEGACY=true"
+                )
+                await _run_legacy_lsp_session(websocket)
+        else:
+            await _run_legacy_lsp_session(websocket)
+    except WebSocketDisconnect:
+        logger.info("客户端主动断开连接。")
+    except Exception as e:
+        logger.error(
+            f"处理 LSP WebSocket 连接时发生严重错误: {e}\n{traceback.format_exc()}"
+        )
+    finally:
+        session_manager.remove(session.session_id)
+        if websocket.client_state != WebSocketState.DISCONNECTED:
+            try:
+                await websocket.close()
+            except RuntimeError:
+                # The websocket may already be closed by the ASGI server.
+                pass
+        logger.info(
+            f"LSP WebSocket closed. session={session.session_id}, active={session_manager.size()}"
+        )

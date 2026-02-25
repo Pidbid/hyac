@@ -92,6 +92,10 @@ services:
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
       DEMO_MODE: "false"
+      LSP_MODE: ${LSP_MODE:-sidecar}
+      LSP_SIDECAR_URL: ${LSP_SIDECAR_URL:-ws://hyac_lsp_sidecar:9002/lsp}
+      LSP_SIDECAR_TIMEOUT_SECONDS: ${LSP_SIDECAR_TIMEOUT_SECONDS:-10}
+      LSP_SIDECAR_FALLBACK_LEGACY: ${LSP_SIDECAR_FALLBACK_LEGACY:-true}
     ports:
       - 8000:8000
     depends_on:
@@ -146,6 +150,19 @@ services:
     image: hyac_app:dev
     command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
+    networks:
+      - hyac_network
+  lsp-sidecar:
+    build:
+      context: ./app
+      target: development
+    image: hyac_lsp_sidecar:dev
+    container_name: hyac_lsp_sidecar
+    command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002", "--reload"]
+    ports:
+      - "9002:9002"
+    volumes:
+      - ./app:/app
     networks:
       - hyac_network
 
