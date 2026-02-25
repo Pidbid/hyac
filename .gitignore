@@ -25,3 +25,6 @@
 traefik
 
 /app/logs
+
+# Helloagents
+.helloagents
