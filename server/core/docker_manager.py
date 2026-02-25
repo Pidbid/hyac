@@ -450,6 +450,25 @@ def get_app_image_name() -> str:
     return f"wicos/hyac_app:{settings.APP_IMAGE_TAG}"
 
 
+def _use_acme_certresolver() -> bool:
+    """
+    In development mode we avoid ACME requests to prevent rate limiting.
+    """
+    return not settings.DEV_MODE
+
+
+def _router_tls_yaml_block(indent: str = "      ") -> str:
+    """
+    Build router tls config block for Traefik dynamic file provider.
+    """
+    if _use_acme_certresolver():
+        return (
+            f"{indent}tls:\n"
+            f'{indent}  certResolver: "myresolver"'
+        )
+    return f"{indent}tls: {{}}"
+
+
 # In-memory store for running app containers. A more robust solution might use Redis.
 running_apps: Dict[str, Dict[str, Any]] = {}
 # In-memory lock to prevent race conditions when starting the same app container.
@@ -486,8 +505,7 @@ http:
       rule: "Host(`{bucket_name}.{domain_name}`)"
       entryPoints: ["websecure"]
       service: "console-service"
-      tls:
-        certResolver: "myresolver"
+{_router_tls_yaml_block(indent="      ")}
       middlewares:
         - "console-chain"
 
@@ -551,8 +569,7 @@ http:
       rule: "Host(`{bucket_name}.{domain_name}`)"
       entryPoints: ["websecure"]
       service: "{service_name}"
-      tls:
-        certResolver: "myresolver"
+{_router_tls_yaml_block(indent="      ")}
       middlewares:
         - "{chain_name}"
 
@@ -745,9 +762,14 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "traefik.enable": "true",
         f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
         f"traefik.http.routers.{container_name}.entrypoints": "websecure",
-        f"traefik.http.routers.{container_name}.tls.certresolver": "myresolver",
+        f"traefik.http.routers.{container_name}.tls": "true",
         f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
     }
+
+    if _use_acme_certresolver():
+        traefik_labels[
+            f"traefik.http.routers.{container_name}.tls.certresolver"
+        ] = "myresolver"
 
     # Merge compose labels with traefik labels
     all_labels = {**compose_labels, **traefik_labels}

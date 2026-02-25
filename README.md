@@ -129,6 +129,50 @@ docker-compose up -d
 
 - **前端应用**: `http://console.[yourdomain]`
 
+### 🔐 开发环境 HTTPS 调试（localhost + mkcert，无需 hosts）
+
+在 `docker-compose.dev.yml` 中，Traefik 使用本地 TLS（不走 `certresolver`），用于避免调试时频繁触发 Let's Encrypt 限流。
+
+> 推荐开发域名固定为 `localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.localhost` 子域名时无需编辑 `hosts`。
+
+建议流程：
+
+1. 准备开发环境变量文件（推荐与生产分离）：
+
+```bash
+cp .env .env.dev
+# 将 .env.dev 中 DOMAIN_NAME 改为 localhost
+```
+
+2. 安装并初始化 `mkcert`（只需一次）：
+
+```bash
+mkcert -install
+```
+
+3. 生成开发证书（放到 `./traefik/certs/`）：
+
+```bash
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost "*.localhost"
+```
+
+4. 启动开发环境（显式使用 `.env.dev`）：
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+```
+
+5. 通过以下域名访问并调试：
+- `https://console.localhost`
+- `https://server.localhost`
+- `https://oss.localhost`
+
+说明：
+- 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。
+- 生产环境 (`docker-compose.yml`) 继续使用 `.env` 中真实域名与 ACME 自动证书签发策略，不应设置为 `localhost`。
+
 ## 📁 主要项目结构
 
 ```

@@ -57,7 +57,7 @@ export default defineConfig((configEnv) => {
       host: "0.0.0.0",
       port: 9527,
       proxy: createViteProxy(viteEnv, enableProxy),
-      allowedHosts: ["*"],
+      allowedHosts: true,
     },
     preview: {
       port: 9725,
