@@ -122,15 +122,24 @@ function createWebSocketTransport(url: string): ClosableTransport {
 
 onMounted(() => {
   if (editorRef.value) {
-    const client = new LSPClient({
-      rootUri: 'inmemory:///tmp',
-      timeout: 10000
-    });
+    const lspExtensions: any[] = [];
 
-    const baseUrl = getServiceBaseUrl();
-    const lspUri = `${convertDomain(baseUrl, "wss", applicationStore.appId)}/__lsp__`;
-    transport = createWebSocketTransport(lspUri);
-    client.connect(transport);
+    try {
+      const client = new LSPClient({
+        rootUri: 'inmemory:///tmp',
+        timeout: 10000
+      });
+
+      const baseUrl = getServiceBaseUrl();
+      const lspUri = `${convertDomain(baseUrl, "wss", applicationStore.appId)}/__lsp__`;
+      transport = createWebSocketTransport(lspUri);
+      client.connect(transport);
+      lspExtensions.push(
+        languageServerSupport(client, `inmemory:///tmp/${functionStore.funcInfo?.id}.py`, 'python')
+      );
+    } catch (error) {
+      console.warn('[EditorCodemirror] LSP init failed, fallback to local editor only.', error);
+    }
 
     view = new EditorView({
       state: EditorState.create({
@@ -170,7 +179,7 @@ onMounted(() => {
               }
             })
           ),
-          languageServerSupport(client, `inmemory:///tmp/${functionStore.funcInfo?.id}.py`, 'python'),
+          ...lspExtensions,
           lineNumbersCompartment.of(props.showLineNumbers ? lineNumbers() : []),
           EditorView.theme({
             '&': { height: '100%' },
