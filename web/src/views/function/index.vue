@@ -60,14 +60,14 @@ const commonDependencies = ref<Api.Settings.Dependency[]>([]);
 const systemDependencies = ref<Api.Settings.Dependency[]>([]);
 const userEnv = ref<Api.Settings.EnvInfo[]>([]);
 const systemEnv = ref<Api.Settings.EnvInfo[]>([]);
-const storedEditorConfig = localStorage.getItem('editorConfig');
-const editorConfig = ref(storedEditorConfig ? JSON.parse(storedEditorConfig) : {
-  language: 'python',
-  fontSize: 14,
-  minimap: true,
-  themeName: 'github',
-  lineNumbers: true,
-});
+  const storedEditorConfig = localStorage.getItem('editorConfig');
+  const editorConfig = ref(storedEditorConfig ? JSON.parse(storedEditorConfig) : {
+    language: 'python',
+    fontSize: 14,
+    minimap: true,
+    themeName: 'vs-dark',
+    lineNumbers: true,
+  });
 
 watch(() => editorConfig.value, (newValue) => {
   localStorage.setItem('editorConfig', JSON.stringify(newValue));
@@ -387,13 +387,9 @@ const handleFunctionEditorSetting = () => {
   });
 
   const themeOptions = [
-    { label: 'GitHub', value: 'github' },
-    { label: 'Basic', value: 'basic' },
-    { label: 'Gruvbox', value: 'gruvbox' },
-    { label: 'Material', value: 'material' },
-    { label: 'Solarized', value: 'solarized' },
-    { label: 'Tokyo Night', value: 'tokyoNight' },
-    { label: 'VSCode', value: 'vscode' },
+    { label: 'Visual Studio', value: 'vs' },
+    { label: 'Visual Studio Dark', value: 'vs-dark' },
+    { label: 'High Contrast', value: 'hc-black' },
   ];
 
   const d = dialog.info({

@@ -1,6 +1,7 @@
 import process from "node:process";
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
+import monacoEditorPlugin from "vite-plugin-monaco-editor-esm";
 import { setupVitePlugins } from "./build/plugins";
 import { createViteProxy, getBuildTime } from "./build/config";
 
@@ -32,6 +33,7 @@ export default defineConfig((configEnv) => {
       },
     },
     plugins: [
+      monacoEditorPlugin(),
       ...setupVitePlugins(viteEnv, buildTime),
       {
         name: "vite-plugin-dynamic-config",

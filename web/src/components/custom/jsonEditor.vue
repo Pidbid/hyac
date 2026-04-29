@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import * as monaco from 'monaco-editor';
-import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-
-window.MonacoEnvironment = {
-  getWorker(_workerId: any, _label: string) {
-    return new JsonWorker();
-  }
-};
 interface Props {
   modelValue: string;
   height?: number;
