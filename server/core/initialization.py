@@ -18,7 +18,7 @@ from core.jwt_auth import create_refresh_token
 from models.users_model import User
 from models.function_template_model import FunctionTemplate, TemplateType, FunctionType
 from models.tasks_model import Task, TaskAction
-from routers.users import hash_password
+from core.passwords import hash_password
 from core.dependence_manager import dependence_manager
 from models.scheduled_tasks_model import ScheduledTask, TriggerType
 

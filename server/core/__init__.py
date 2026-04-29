@@ -1,9 +1,6 @@
-from . import config
-from . import database
-from . import database_dynamic
-from . import docker_manager
-from . import faas_code
-from . import jwt_auth
-from . import logger
-from . import minio_manager
-from . import utils
+"""Core package for HYAC server.
+
+Keep this package initializer side-effect free. Importing individual helpers such
+as ``core.passwords`` should not eagerly initialize configuration, database,
+Docker, MinIO, or JWT modules.
+"""

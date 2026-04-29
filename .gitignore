@@ -39,3 +39,6 @@ traefik/dynamic-dev/*
 
 # Helloagents
 .helloagents
+
+# Nested git metadata
+web/.git_disabled/

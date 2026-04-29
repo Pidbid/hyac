@@ -23,11 +23,11 @@ interface LoginModule {
   component: Component;
 }
 
-const moduleMap: Record<UnionKey.LoginModule, LoginModule> = {
-  'pwd-login': { label: loginModuleRecord['pwd-login'], component: PwdLogin },
+const moduleMap: Partial<Record<UnionKey.LoginModule, LoginModule>> = {
+  'pwd-login': { label: loginModuleRecord['pwd-login'], component: PwdLogin }
 };
 
-const activeModule = computed(() => moduleMap[props.module || 'pwd-login']);
+const activeModule = computed(() => moduleMap[props.module || 'pwd-login'] || moduleMap['pwd-login']!);
 
 const bgThemeColor = computed(() =>
   themeStore.darkMode ? getPaletteColorByNumber(themeStore.themeColor, 600) : themeStore.themeColor

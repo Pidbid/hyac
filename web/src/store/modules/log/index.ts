@@ -1,9 +1,9 @@
+import { readonly, ref } from 'vue';
 import { defineStore } from 'pinia';
+import dayjs from 'dayjs';
+import { getServiceBaseUrl } from '@/utils/common';
 import { useAuthStore } from '../auth';
 import { useApplicationStore } from '../application';
-import dayjs from 'dayjs';
-import { ref, readonly } from 'vue';
-import { getServiceBaseUrl } from '@/utils/common';
 
 export const useLogStore = defineStore('log-store', () => {
   // State
@@ -28,7 +28,7 @@ export const useLogStore = defineStore('log-store', () => {
     const applicationStore = useApplicationStore();
 
     if (ws.value) {
-      console.log("WebSocket is already connected or connecting.");
+      console.log('WebSocket is already connected or connecting.');
       return;
     }
 
@@ -46,20 +46,19 @@ export const useLogStore = defineStore('log-store', () => {
     logs.value = [];
 
     const baseUrl = getServiceBaseUrl();
-    const wsProtocol = 'wss';
-    // Extract host from baseUrl, removing http/https protocol and any trailing slash
-    const host = baseUrl.replace(/^(http|https):\/\//, '').replace(/\/$/, '');
-    const wsUrl = `${wsProtocol}://${host}/logs/websocket_logs/${applicationStore.appId}?token=${token}`;
+    const serviceUrl = new URL(baseUrl);
+    const wsProtocol = serviceUrl.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${serviceUrl.host}/logs/websocket_logs/${applicationStore.appId}?token=${encodeURIComponent(token)}`;
     ws.value = new WebSocket(wsUrl);
 
     ws.value.onopen = () => {
       isConnected.value = true;
-      console.info("Global WebSocket connection established");
+      console.info('Global WebSocket connection established');
       messageQueue.value.forEach(message => ws.value?.send(message));
       messageQueue.value = [];
     };
 
-    ws.value.onmessage = (event) => {
+    ws.value.onmessage = event => {
       try {
         const logData = JSON.parse(event.data);
         if (logData.error) {
@@ -77,11 +76,11 @@ export const useLogStore = defineStore('log-store', () => {
         };
         logs.value.unshift(formattedLog);
       } catch (e) {
-        console.error("Failed to parse log message:", e);
+        console.error('Failed to parse log message:', e);
       }
     };
 
-    ws.value.onerror = (error) => {
+    ws.value.onerror = error => {
       console.error('Global WebSocket Error:', error);
       isConnected.value = false;
       ws.value = null;

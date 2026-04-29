@@ -1,4 +1,4 @@
-import hashlib
+from core.passwords import verify_password
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -133,19 +133,6 @@ async def optional_get_current_user(
         return user
     return None
 
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verifies a plain password against a hashed password (MD5).
-
-    Args:
-        plain_password: The plain text password.
-        hashed_password: The MD5 hashed password.
-
-    Returns:
-        True if the passwords match, False otherwise.
-    """
-    return hashlib.md5(plain_password.encode("utf-8")).hexdigest() == hashed_password
 
 
 async def verify_refresh_token_and_get_user(

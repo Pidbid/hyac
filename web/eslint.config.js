@@ -19,9 +19,12 @@ export default defineConfig(
         }
       ],
       'unocss/order-attributify': 'off',
-      'max-params':{
-        max: 5
-      }
+      'max-params': [
+        'warn',
+        {
+          max: 5
+        }
+      ]
     }
   }
 );
