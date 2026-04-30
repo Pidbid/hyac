@@ -2,6 +2,7 @@
 .env
 .env.dev
 !/web/.env
+.codex
 
 # Dependencies
 **/node_modules
