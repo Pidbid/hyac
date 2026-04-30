@@ -5,6 +5,7 @@ import type { LayoutMode } from '@sa/materials';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
 import HomeHeader from '../modules/home-header/index.vue';
+import GlobalFooter from '../modules/global-footer/index.vue';
 import { setupMixMenuContext } from '../context';
 
 defineOptions({
