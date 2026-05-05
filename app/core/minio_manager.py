@@ -25,25 +25,26 @@ class MinioManager:
         self.client = None
         if not all(
             [
-                settings.MINIO_ACCESS_KEY,
-                settings.MINIO_SECRET_KEY,
+                settings.object_storage_access_key,
+                settings.object_storage_secret_key,
             ]
         ):
             logger.warning("MinIO configuration is incomplete; client not initialized.")
             return
 
         try:
-            assert settings.MINIO_ACCESS_KEY is not None
-            assert settings.MINIO_SECRET_KEY is not None
+            assert settings.object_storage_access_key is not None
+            assert settings.object_storage_secret_key is not None
             self.client = Minio(
-                endpoint="minio:9000",
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
-                secure=False,
+                endpoint=settings.object_storage_internal_endpoint,
+                access_key=settings.object_storage_access_key,
+                secret_key=settings.object_storage_secret_key,
+                secure=bool(settings.S3_SECURE_INTERNAL),
+                region=settings.S3_REGION,
             )
-            logger.info("MinIO client initialized successfully.")
+            logger.info("S3-compatible object storage client initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize MinIO client: {e}")
+            logger.error(f"Failed to initialize S3-compatible object storage client: {e}")
             self.client = None
 
     def _check_client(self) -> bool:
@@ -299,6 +300,10 @@ class MinioManager:
         if not self._check_client():
             return False
 
+        logger.warning(
+            "The 'mc admin user add' workflow is MinIO-specific and must be "
+            "verified before it is used with RustFS in production."
+        )
         # Note: 'myminio' is an alias configured in the mc client.
         # This should be read from config in a production environment.
         mc_alias = "myminio"
@@ -345,6 +350,10 @@ class MinioManager:
         if not self._check_client():
             return False
 
+        logger.warning(
+            "The 'mc admin policy' workflow is MinIO-specific and must be "
+            "verified before it is used with RustFS in production."
+        )
         if permission == "readonly":
             actions = ["s3:GetObject"]
         elif permission == "readwrite":

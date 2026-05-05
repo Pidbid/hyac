@@ -41,7 +41,7 @@
 - 🔥 **Hot Code-Swapping**: Real-time updates of function code without service restarts.
 - 🌐 **Multi-language Support**: Extensibility based on runtimes allows for future support of multiple programming languages.
 - 💻 **Modern Frontend**: Built with Vue 3 and Naive UI, providing a responsive, user-friendly management interface.
-- 📦 **Unified Object Storage**: Integrated with MinIO to provide unified file storage for functions and applications.
+- 📦 **Unified Object Storage**: Integrated with RustFS/S3-compatible object storage to provide unified file storage for functions and applications.
 - 🔗 **Comprehensive API**: Offers a rich set of APIs for managing applications, functions, databases, logs, etc.
 
 ## 🏛️ System Architecture
@@ -57,7 +57,7 @@ graph TD
     subgraph "🏗️ Infrastructure"
         T[Traefik]
         DB[(MongoDB)]
-        S[(MinIO)]
+        S[(RustFS)]
     end
 
     subgraph "⚙️ Backend Services"
@@ -85,18 +85,18 @@ graph TD
     Web -- API Requests --> Server
 ```
 
-- **`traefik`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or `minio` services based on the domain.
+- **`traefik`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or S3-compatible object storage service based on the domain.
 - **`server`**: The core backend service, responsible for business logic, API routing, user authentication, and FaaS application management.
 - **`app`**: The function executor service, which dynamically executes user-defined functions in an isolated environment.
 - **`web`**: A Vue 3-based frontend application that provides the user interface.
 - **`mongodb`**: Serves as the primary database, storing core data such as applications, functions, and users.
-- **`minio`**: Used for object storage, for instance, to store function code, dependencies, or other files.
+- **`rustfs`**: Provides S3-compatible object storage, for instance, to store function code, dependencies, or other files. The Compose service name remains `minio` temporarily as an internal DNS compatibility layer.
 
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **Frontend**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
-- **Database & Storage**: MongoDB, MinIO
+- **Database & Storage**: MongoDB, RustFS(S3-compatible)
 - **Containerization**: Docker, Docker Compose
 
 ## 🚀 Getting Started
@@ -128,7 +128,7 @@ docker-compose up -d
 ### 🌐 Access Points
 
 - **Frontend Application**: `http://localhost:80`
-- **MinIO Console**: `http://localhost:9001` (Default username/password: `minioadmin`/`minioadmin`)
+- **RustFS Console**: `http://localhost:9001` (uses the configured S3/RustFS access key and secret)
 
 ## 📁 Major Project Structure
 

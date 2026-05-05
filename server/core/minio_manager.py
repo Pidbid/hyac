@@ -6,12 +6,23 @@ import subprocess
 import tempfile
 from datetime import timedelta
 from typing import Dict, List, Optional
+from urllib.parse import quote
 
 from loguru import logger
 from minio import Minio
 from minio.error import S3Error
 
 from core.config import settings
+
+
+def _download_response_headers(object_name: str) -> dict[str, str]:
+    """Returns response headers that ask browsers to download the object."""
+    filename = object_name.rsplit("/", 1)[-1] or "download"
+    return {
+        "response-content-disposition": (
+            f"attachment; filename*=UTF-8''{quote(filename)}"
+        )
+    }
 
 
 class MinioManager:
@@ -26,25 +37,26 @@ class MinioManager:
         self.client = None
         if not all(
             [
-                settings.MINIO_ACCESS_KEY,
-                settings.MINIO_SECRET_KEY,
+                settings.object_storage_access_key,
+                settings.object_storage_secret_key,
             ]
         ):
             logger.warning("MinIO configuration is incomplete; client not initialized.")
             return
 
         try:
-            assert settings.MINIO_ACCESS_KEY is not None
-            assert settings.MINIO_SECRET_KEY is not None
+            assert settings.object_storage_access_key is not None
+            assert settings.object_storage_secret_key is not None
             self.client = Minio(
-                endpoint="minio:9000",
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
-                secure=False,
+                endpoint=settings.object_storage_internal_endpoint,
+                access_key=settings.object_storage_access_key,
+                secret_key=settings.object_storage_secret_key,
+                secure=bool(settings.S3_SECURE_INTERNAL),
+                region=settings.S3_REGION,
             )
-            logger.info("MinIO client initialized successfully.")
+            logger.info("S3-compatible object storage client initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize MinIO client: {e}")
+            logger.error(f"Failed to initialize S3-compatible object storage client: {e}")
             self.client = None
 
     def _check_client(self) -> bool:
@@ -344,6 +356,7 @@ class MinioManager:
                 bucket_name,
                 object_name,
                 expires=timedelta(seconds=expires_in_seconds),
+                response_headers=_download_response_headers(object_name),
             )
             logger.info(
                 f"Successfully generated download URL for object '{object_name}'."
@@ -408,6 +421,10 @@ class MinioManager:
         if not self._check_client():
             return False
 
+        logger.warning(
+            "The 'mc admin user add' workflow is MinIO-specific and must be "
+            "verified before it is used with RustFS in production."
+        )
         mc_alias = "myminio"
         command = [
             "mc",
@@ -449,6 +466,10 @@ class MinioManager:
         if not self._check_client():
             return False
 
+        logger.warning(
+            "The 'mc admin policy' workflow is MinIO-specific and must be "
+            "verified before it is used with RustFS in production."
+        )
         if permission == "readonly":
             actions = ["s3:GetObject"]
         elif permission == "readwrite":

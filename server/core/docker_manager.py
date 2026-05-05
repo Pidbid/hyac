@@ -513,7 +513,7 @@ http:
     console-service:
       loadBalancer:
         servers:
-          - url: "http://minio:9000"
+          - url: "{settings.object_storage_internal_url}"
 
   middlewares:
     console-chain:
@@ -527,7 +527,7 @@ http:
       headers:
         customRequestHeaders:
           x-amz-content-sha256: "UNSIGNED-PAYLOAD"
-          Host: "minio:9000"
+          Host: "{settings.object_storage_internal_host_header}"
     console-rewrite-root:
       replacePathRegex:
         regex: "^/?$"
@@ -577,7 +577,7 @@ http:
     {service_name}:
       loadBalancer:
         servers:
-          - url: "http://minio:9000"
+          - url: "{settings.object_storage_internal_url}"
 
   middlewares:
     {chain_name}:
@@ -591,7 +591,7 @@ http:
       headers:
         customRequestHeaders:
           x-amz-content-sha256: "UNSIGNED-PAYLOAD"
-          Host: "minio:9000"
+          Host: "{settings.object_storage_internal_host_header}"
     {rewrite_name}:
       replacePathRegex:
         regex: "^/?$"
@@ -673,6 +673,10 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "APP_ID": app.app_id,  # Pass the app_id to the container
         "MONGODB_USERNAME": settings.MONGODB_USERNAME,
         "MONGODB_PASSWORD": settings.MONGODB_PASSWORD,
+        "S3_ACCESS_KEY": settings.object_storage_access_key,
+        "S3_SECRET_KEY": settings.object_storage_secret_key,
+        "S3_INTERNAL_ENDPOINT": settings.object_storage_internal_endpoint,
+        "S3_SECURE_INTERNAL": settings.S3_SECURE_INTERNAL,
         "MINIO_ACCESS_KEY": settings.MINIO_ACCESS_KEY,
         "MINIO_SECRET_KEY": settings.MINIO_SECRET_KEY,
         "SECRET_KEY": settings.SECRET_KEY,

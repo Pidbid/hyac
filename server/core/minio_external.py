@@ -2,12 +2,23 @@
 import asyncio
 from datetime import timedelta
 from typing import Optional
+from urllib.parse import quote
 
 from loguru import logger
 from minio import Minio
 from minio.error import S3Error
 
 from core.config import settings
+
+
+def _download_response_headers(object_name: str) -> dict[str, str]:
+    """Returns response headers that ask browsers to download the object."""
+    filename = object_name.rsplit("/", 1)[-1] or "download"
+    return {
+        "response-content-disposition": (
+            f"attachment; filename*=UTF-8''{quote(filename)}"
+        )
+    }
 
 
 class MinioExternalManager:
@@ -23,8 +34,8 @@ class MinioExternalManager:
         self.client = None
         if not all(
             [
-                settings.MINIO_ACCESS_KEY,
-                settings.MINIO_SECRET_KEY,
+                settings.object_storage_access_key,
+                settings.object_storage_secret_key,
             ]
         ):
             logger.warning(
@@ -33,18 +44,19 @@ class MinioExternalManager:
             return
 
         try:
-            assert settings.MINIO_ACCESS_KEY is not None
-            assert settings.MINIO_SECRET_KEY is not None
+            assert settings.object_storage_access_key is not None
+            assert settings.object_storage_secret_key is not None
             self.client = Minio(
-                endpoint=f"oss.{settings.DOMAIN_NAME}",
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
-                secure=True,
+                endpoint=settings.object_storage_external_endpoint,
+                access_key=settings.object_storage_access_key,
+                secret_key=settings.object_storage_secret_key,
+                secure=bool(settings.S3_SECURE_EXTERNAL),
+                region=settings.S3_REGION,
             )
-            logger.info("External MinIO client initialized successfully.")
+            logger.info("External S3-compatible object storage client initialized successfully.")
         except Exception as e:
             logger.error(
-                f"Failed to initialize external MinIO client: {e}", exc_info=True
+                f"Failed to initialize external S3-compatible object storage client: {e}", exc_info=True
             )
             self.client = None
 
@@ -64,6 +76,7 @@ class MinioExternalManager:
                 bucket_name,
                 object_name,
                 expires=timedelta(seconds=expires_in_seconds),
+                response_headers=_download_response_headers(object_name),
             )
             logger.info(
                 f"Successfully generated external download URL for object '{object_name}'."

@@ -41,7 +41,7 @@
 - 🔥 **代码热更新**: 无需重启服务即可实现函数代码的实时更新。
 - 🌐 **多语言支持**: 基于运行时的可扩展性，未来可以支持多种编程语言。
 - 💻 **现代化前端**: 基于 Vue 3 和 Naive UI 构建，提供响应式、用户友好的管理界面。
-- 📦 **统一对象存储**: 集成 MinIO，为函数和应用提供统一的文件存储服务。
+- 📦 **统一对象存储**: 集成 RustFS/S3 兼容对象存储，为函数和应用提供统一的文件存储服务。
 - 🔗 **全面的 API**: 提供丰富的 API，用于管理应用、函数、数据库、日志等。
 
 ## 🏛️ 系统架构
@@ -57,7 +57,7 @@ graph TD
     subgraph "🏗️ 基础设施"
         T[Traefik]
         DB[(MongoDB)]
-        S[(MinIO)]
+        S[(RustFS)]
     end
 
     subgraph "⚙️ 后端服务"
@@ -85,18 +85,18 @@ graph TD
     Web -- API请求 --> Server
 ```
 
-- **`traefik`**: 作为反向代理和负载均衡器，处理所有外部请求，并根据域名自动路由到 `server`、`web` 或 `minio` 服务。
+- **`traefik`**: 作为反向代理和负载均衡器，处理所有外部请求，并根据域名自动路由到 `server`、`web` 或 S3 兼容对象存储服务。
 - **`server`**: 核心后端服务，负责业务逻辑、API 路由、用户认证和 FaaS 应用管理。
 - **`app`**: 函数执行器服务，在隔离的环境中动态执行用户定义的函数。
 - **`web`**: 基于 Vue 3 的前端应用，提供用户交互界面。
 - **`mongodb`**: 作为主数据库，存储应用、函数、用户等核心数据。
-- **`minio`**: 用于对象存储，例如存放函数代码、依赖或其他文件。
+- **`rustfs`**: 提供 S3 兼容对象存储，例如存放函数代码、依赖或其他文件。Compose 中短期保留 `minio` service name 作为内部 DNS 兼容层。
 
 ## 🛠️ 技术栈
 
 - **后端**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **前端**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
-- **数据库与存储**: MongoDB, MinIO
+- **数据库与存储**: MongoDB, RustFS(S3 兼容)
 - **容器化**: Docker, Docker Compose
 
 ## 🚀 快速开始

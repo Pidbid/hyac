@@ -20,26 +20,30 @@ services:
       retries: 20
       start_period: 15s
   minio:
-    image: minio/minio:latest
-    container_name: hyac_minio
+    image: rustfs/rustfs:latest
+    container_name: hyac_rustfs
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: ["/data"]
     ports:
     - 9000:9000
     - 9001:9001
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-      MINIO_SERVER_URL: "https://oss.${DOMAIN_NAME}"
-      MINIO_SCHEME: 'https'
-      MINIO_BROWSER: "off" # if you want to use minio console please modify to on
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-${MINIO_ACCESS_KEY}}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_SECRET_KEY}}
+      RUSTFS_ADDRESS: "0.0.0.0:9000"
+      RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
     volumes:
     - /etc/localtime:/etc/localtime:ro
-    - minio_data:/data
+    - rustfs_data:/data
     networks:
     - hyac_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test:
+        [
+          "CMD-SHELL",
+          "status=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9000/); test \"$$status\" = \"403\" -o \"$$status\" = \"200\"",
+        ]
       interval: 5s
       timeout: 10s
       retries: 10
@@ -88,6 +92,14 @@ services:
       MONGODB_PASSWORD: ""
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-${MINIO_ACCESS_KEY}}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_SECRET_KEY}}
+      S3_INTERNAL_ENDPOINT: ${S3_INTERNAL_ENDPOINT:-minio:9000}
+      S3_EXTERNAL_ENDPOINT: ${S3_EXTERNAL_ENDPOINT:-oss.${DOMAIN_NAME}}
+      S3_SECURE_INTERNAL: ${S3_SECURE_INTERNAL:-false}
+      S3_SECURE_EXTERNAL: ${S3_SECURE_EXTERNAL:-true}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-https://oss.${DOMAIN_NAME}}
+      S3_REGION: ${S3_REGION:-us-east-1}
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
@@ -172,5 +184,5 @@ networks:
 volumes:
   mongodb_data:
     driver: local
-  minio_data:
+  rustfs_data:
     driver: local

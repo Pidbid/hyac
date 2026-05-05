@@ -18,9 +18,9 @@ class MinioContext:
     def __init__(self, bucket_name: str):
         self.bucket_name = bucket_name.lower()
         self.client = None
-        endpoint = "minio:9000"
-        access_key = settings.MINIO_ACCESS_KEY
-        secret_key = settings.MINIO_SECRET_KEY
+        endpoint = settings.object_storage_internal_endpoint
+        access_key = settings.object_storage_access_key
+        secret_key = settings.object_storage_secret_key
 
         if not all([endpoint, access_key, secret_key]):
             logger.warning(
@@ -33,9 +33,12 @@ class MinioContext:
                 endpoint=endpoint,
                 access_key=access_key,
                 secret_key=secret_key,
-                secure=False,  # Assuming non-secure connection as in server
+                secure=bool(settings.S3_SECURE_INTERNAL),
+                region=settings.S3_REGION,
             )
-            logger.info(f"MinIO client initialized for bucket '{self.bucket_name}'.")
+            logger.info(
+                f"S3-compatible object storage client initialized for bucket '{self.bucket_name}'."
+            )
         except Exception as e:
             logger.error(
                 f"Failed to initialize MinIO client for bucket '{self.bucket_name}': {e}"
