@@ -69,11 +69,11 @@ def _streaming_read(
                 time.sleep(delay)
                 continue
             # For other S3 errors or last retry failure, re-raise
-            raise IOError(f"Could not access S3 object '{file_path}'.") from e
+            raise IOError(f"Could not access S3 object '{file_path}': {e}") from e
         except Exception as e:
             # For non-S3 errors, fail immediately
             logger.error(f"S3 streaming read failed for '{file_path}': {e}")
-            raise IOError(f"Could not access S3 object '{file_path}'.") from e
+            raise IOError(f"Could not access S3 object '{file_path}': {e}") from e
 
     if not response:
         raise FileNotFoundError(
@@ -136,7 +136,7 @@ def _buffered_read_write(
                     raise
     except Exception as e:
         logger.error(f"S3 operation preparation failed for '{file_path}': {e}")
-        raise IOError(f"Could not access S3 object '{file_path}'.") from e
+        raise IOError(f"Could not access S3 object '{file_path}': {e}") from e
 
     # --- Buffer Creation and Management ---
     buffer: Union[io.StringIO, io.BytesIO]
@@ -187,7 +187,7 @@ def _buffered_read_write(
             except Exception as e:
                 logger.error(f"Failed to upload to S3: {e}")
                 raise IOError(
-                    f"Could not write changes to S3 file '{file_path}'."
+                    f"Could not write changes to S3 file '{file_path}': {e}"
                 ) from e
             finally:
                 buffer.close()
@@ -228,6 +228,15 @@ def s3_open(
 
     bucket_name = bucket_name.lower()
     object_name = file_path.lstrip("/")
+
+    # Ensure bucket exists, create if not
+    try:
+        if not s3_manager.client.bucket_exists(bucket_name):
+            logger.info(f"Bucket '{bucket_name}' not found, creating now...")
+            s3_manager.client.make_bucket(bucket_name)
+            logger.info(f"Bucket '{bucket_name}' created successfully.")
+    except S3Error as e:
+        raise IOError(f"Failed to ensure bucket '{bucket_name}' exists: {e}") from e
 
     modes = _parse_mode(mode)
 

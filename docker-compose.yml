@@ -1,32 +1,48 @@
 services:
   mongodb:
-    image: bitnami/mongodb:8.0
+    image: mongo:8.0
     container_name: hyac_mongodb
     hostname: mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
-      MONGODB_ROOT_USER: ${MONGODB_USERNAME}
-      MONGODB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
-      MONGODB_ADVERTISED_HOSTNAME: mongodb
-      MONGODB_REPLICA_SET_MODE: primary
-      MONGODB_REPLICA_SET_NAME: rs0
-      MONGODB_REPLICA_SET_KEY: ${MONGODB_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      - --keyFile
+      - /etc/mongo-keyfile
+      - --bind_ip_all
+      - --auth
     volumes:
-      - mongodb_data:/bitnami/mongodb
+      - mongodb_data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
     networks:
       - hyac_network
     healthcheck:
-      test: |
-        mongosh --host localhost --port 27017 \
-          --authenticationDatabase admin \
-          -u "${MONGODB_USERNAME}" -p "${MONGODB_PASSWORD}" \
-          --eval "if (db.isMaster().ismaster) { quit(0); } else { quit(1); }"
+      test: ["CMD-SHELL", "mongosh --quiet -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$${MONGO_INITDB_ROOT_PASSWORD}\" --eval \"db.adminCommand({ ping: 1 }).ok\" | grep 1 >/dev/null"]
       interval: 5s
-      timeout: 10s
-      retries: 20
-      start_period: 15s
+      timeout: 5s
+      retries: 60
+  mongo-init:
+    image: mongo:8.0
+    container_name: hyac_mongo_init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      MONGODB_RS_HOST: mongodb:27017
+      MONGODB_USERNAME: ${MONGODB_USERNAME}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+    volumes:
+      - ./scripts/init-replset.sh:/init-replset.sh:ro
+    entrypoint: ["/bin/sh", "/init-replset.sh"]
+    networks:
+      - hyac_network
   rustfs:
     image: rustfs/rustfs:latest
     container_name: hyac_rustfs
