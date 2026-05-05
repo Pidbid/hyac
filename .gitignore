@@ -27,11 +27,9 @@ web/src/typings/components.d.ts
 # Traefik
 traefik/*
 !traefik/certs/
-!traefik/dynamic/
 !traefik/dynamic-dev/
 traefik/certs/*
 !traefik/certs/.gitkeep
-!traefik/dynamic/.gitkeep
 traefik/dynamic-dev/*
 !traefik/dynamic-dev/.gitkeep
 !traefik/dynamic-dev/tls.yml
