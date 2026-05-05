@@ -90,7 +90,7 @@ graph TD
 - **`app`**: The function executor service, which dynamically executes user-defined functions in an isolated environment.
 - **`web`**: A Vue 3-based frontend application that provides the user interface.
 - **`mongodb`**: Serves as the primary database, storing core data such as applications, functions, and users.
-- **`rustfs`**: Provides S3-compatible object storage, for instance, to store function code, dependencies, or other files. The Compose service name remains `minio` temporarily as an internal DNS compatibility layer.
+- **`rustfs`**: Provides S3-compatible object storage, for instance, to store function code, dependencies, or other files.
 
 ## 🛠️ Tech Stack
 

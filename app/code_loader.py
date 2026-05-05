@@ -5,7 +5,7 @@ from loguru import logger
 from types import SimpleNamespace
 
 from core.cache import code_cache
-from core.faas_minio import minio_open
+from core.faas_s3 import s3_open
 from models.functions_model import Function, FunctionStatus, FunctionType
 
 
@@ -83,13 +83,13 @@ class CodeLoader:
     ) -> Tuple[dict, Optional[inspect.Signature]]:
         """
         Compiles code into a namespace and extracts the handler's signature.
-        Injects custom functions like 'minio_open' into the execution namespace.
+        Injects custom functions like 's3_open' into the execution namespace.
         Returns the namespace and the signature of the 'handler' function, if it exists.
         """
         try:
             # Use an independent namespace and inject custom functions.
             namespace = {
-                "minio_open": minio_open,
+                "s3_open": s3_open,
             }
             exec(code, namespace)
             handler_func = namespace.get("handler")

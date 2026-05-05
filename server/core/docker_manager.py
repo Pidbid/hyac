@@ -11,7 +11,7 @@ import socket
 
 from core.config import settings
 from models import Application, Function, FunctionTemplate
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 from core.database_dynamic import dynamic_db
 
 
@@ -677,8 +677,6 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
         "S3_SECRET_KEY": settings.object_storage_secret_key,
         "S3_INTERNAL_ENDPOINT": settings.object_storage_internal_endpoint,
         "S3_SECURE_INTERNAL": settings.S3_SECURE_INTERNAL,
-        "MINIO_ACCESS_KEY": settings.MINIO_ACCESS_KEY,
-        "MINIO_SECRET_KEY": settings.MINIO_SECRET_KEY,
         "SECRET_KEY": settings.SECRET_KEY,
         "DEV_MODE": settings.DEV_MODE,
         "DEBUG": True,  # Only for logger level
@@ -959,33 +957,33 @@ async def delete_application_background(app: Application):
     except Exception as e:
         logger.error(f"Error deleting function templates for app '{app.app_id}': {e}")
 
-    # 5. Delete MinIO buckets
+    # 5. Delete S3 buckets
     try:
         # Delete the main app bucket
         bucket_name = app.app_id.lower()
-        if await minio_manager.bucket_exists(bucket_name):
-            objects = await minio_manager.list_objects(bucket_name, recursive=True)
+        if await s3_manager.bucket_exists(bucket_name):
+            objects = await s3_manager.list_objects(bucket_name, recursive=True)
             if objects:
                 for obj in objects:
-                    await minio_manager.delete_object(bucket_name, obj["name"])
-            await minio_manager.remove_bucket(bucket_name)
-            logger.info(f"Deleted MinIO bucket '{bucket_name}'.")
+                    await s3_manager.delete_object(bucket_name, obj["name"])
+            await s3_manager.remove_bucket(bucket_name)
+            logger.info(f"Deleted S3 bucket '{bucket_name}'.")
 
         # Delete the web hosting bucket
         web_bucket_name = f"web-{app.app_id.lower()}"
-        if await minio_manager.bucket_exists(web_bucket_name):
-            objects = await minio_manager.list_objects(web_bucket_name, recursive=True)
+        if await s3_manager.bucket_exists(web_bucket_name):
+            objects = await s3_manager.list_objects(web_bucket_name, recursive=True)
             if objects:
                 for obj in objects:
-                    await minio_manager.delete_object(web_bucket_name, obj["name"])
-            await minio_manager.remove_bucket(web_bucket_name)
-            logger.info(f"Deleted MinIO bucket '{web_bucket_name}'.")
+                    await s3_manager.delete_object(web_bucket_name, obj["name"])
+            await s3_manager.remove_bucket(web_bucket_name)
+            logger.info(f"Deleted S3 bucket '{web_bucket_name}'.")
 
         # Also remove the web hosting Traefik config
         remove_traefik_web_config(app.app_id)
 
     except Exception as e:
-        logger.error(f"Error deleting MinIO buckets for app '{app.app_id}': {e}")
+        logger.error(f"Error deleting S3 buckets for app '{app.app_id}': {e}")
 
     # 6. Drop the application's dedicated database
     try:

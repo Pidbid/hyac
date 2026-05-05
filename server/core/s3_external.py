@@ -1,4 +1,4 @@
-# core/minio_external.py
+# core/s3_external.py
 import asyncio
 from datetime import timedelta
 from typing import Optional
@@ -21,15 +21,15 @@ def _download_response_headers(object_name: str) -> dict[str, str]:
     }
 
 
-class MinioExternalManager:
+class S3ExternalManager:
     """
-    Manages interactions with a Minio server for external-facing operations,
+    Manages interactions with an S3-compatible object storage server for external-facing operations,
     specifically for generating presigned URLs with a public endpoint.
     """
 
     def __init__(self):
         """
-        Initializes the Minio client using settings from the application configuration.
+        Initializes the S3 client using settings from the application configuration.
         """
         self.client = None
         if not all(
@@ -39,7 +39,7 @@ class MinioExternalManager:
             ]
         ):
             logger.warning(
-                "MinIO configuration is incomplete; external client not initialized."
+                "S3 configuration is incomplete; external client not initialized."
             )
             return
 
@@ -67,7 +67,7 @@ class MinioExternalManager:
         Generates a presigned download URL for an object.
         """
         if not self.client:
-            logger.error("External MinIO client is not initialized.")
+            logger.error("External S3 client is not initialized.")
             return None
         try:
             url = await asyncio.to_thread(
@@ -90,4 +90,4 @@ class MinioExternalManager:
             return None
 
 
-minio_external_manager = MinioExternalManager()
+s3_external_manager = S3ExternalManager()

@@ -1,6 +1,4 @@
 # routers/services/storage.py
-import tempfile
-from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -8,9 +6,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core.jwt_auth import get_current_user
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 from core.config import settings
-from core.minio_external import minio_external_manager
+from core.s3_external import s3_external_manager
 from models.applications_model import Application
 from models.common_model import BaseResponse
 from models.users_model import User
@@ -69,7 +67,7 @@ async def create_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await minio_manager.create_folder(data.appId.lower(), data.folder_name)
+    success = await s3_manager.create_folder(data.appId.lower(), data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to create folder")
     return BaseResponse(
@@ -90,7 +88,7 @@ async def delete_file(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await minio_manager.delete_object(data.appId.lower(), data.object_name)
+    success = await s3_manager.delete_object(data.appId.lower(), data.object_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete file")
     return BaseResponse(code=0, msg=f"File '{data.object_name}' deleted successfully.")
@@ -109,7 +107,7 @@ async def delete_files(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    deleted_count, errors = await minio_manager.delete_objects(
+    deleted_count, errors = await s3_manager.delete_objects(
         data.appId.lower(), data.object_names
     )
     if errors:
@@ -145,7 +143,7 @@ async def delete_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await minio_manager.delete_folder(data.appId.lower(), data.folder_name)
+    success = await s3_manager.delete_folder(data.appId.lower(), data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete folder")
     return BaseResponse(
@@ -170,7 +168,7 @@ async def upload_file(
         return BaseResponse(code=404, msg="Application not found")
 
     try:
-        success = await minio_manager.upload_file_stream(
+        success = await s3_manager.upload_file_stream(
             bucket_name=appId.lower(), object_name=object_name, file_stream=file
         )
         if not success:
@@ -196,12 +194,12 @@ async def download_file(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    if not minio_manager.client:
-        raise HTTPException(status_code=500, detail="MinIO client is not initialized")
+    if not s3_manager.client:
+        raise HTTPException(status_code=500, detail="S3 client is not initialized")
 
     response = None
     try:
-        response = minio_manager.client.get_object(data.appId.lower(), data.object_name)
+        response = s3_manager.client.get_object(data.appId.lower(), data.object_name)
         return StreamingResponse(
             response.stream(32 * 1024),
             headers={"Content-Disposition": f"attachment; filename={data.object_name}"},
@@ -229,7 +227,7 @@ async def get_download_url(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    url = await minio_external_manager.get_download_url(
+    url = await s3_external_manager.get_download_url(
         data.appId.lower(), data.object_name
     )
     if not url:
@@ -255,7 +253,7 @@ async def list_objects(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    objects = await minio_manager.list_objects(data.appId.lower(), data.prefix)
+    objects = await s3_manager.list_objects(data.appId.lower(), data.prefix)
     if objects is None:
         return BaseResponse(code=500, msg="Failed to list objects")
 

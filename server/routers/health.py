@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from starlette import status
 
 from core.database import mongodb_manager
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 
 router = APIRouter()
 
@@ -16,10 +16,10 @@ async def health_check():
         # 1. Check MongoDB connection
         await mongodb_manager.db.command("ping")
 
-        # 2. Check MinIO connection
-        if not minio_manager.client:
-            raise Exception("MinIO client not initialized")
-        minio_manager.client.list_buckets()
+        # 2. Check S3 connection
+        if not s3_manager.client:
+            raise Exception("S3 client not initialized")
+        s3_manager.client.list_buckets()
 
         return {"status": "ready"}
 

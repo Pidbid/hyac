@@ -15,7 +15,7 @@ from core.common_model import BaseResponse
 from core.config import settings
 from core.db_manager import db_manager
 from core.exceptions import APIException
-from core.faas_minio import app_id_context
+from core.faas_s3 import app_id_context
 from core.logger import LogType
 from models.applications_model import Application
 from models.functions_model import Function

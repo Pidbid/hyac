@@ -105,9 +105,9 @@ class Application(Document):
     db_password: str = Field(
         description="Password for the database associated with the application."
     )
-    minio_bucket: Optional[str] = Field(
+    s3_bucket: Optional[str] = Field(
         default=None,
-        description="Name of the MinIO bucket associated with the application.",
+        description="Name of the S3 bucket associated with the application.",
     )
     cors: CORSConfig = Field(default_factory=CORSConfig, description="cors config")
     notification: NotificationConfig = Field(
@@ -122,12 +122,12 @@ class Application(Document):
     )
 
     @model_validator(mode="after")
-    def set_minio_bucket(self) -> "Application":
+    def set_s3_bucket(self) -> "Application":
         """
-        Automatically sets the MinIO bucket name based on the app_id.
+        Automatically sets the S3 bucket name based on the app_id.
         """
         if self.app_id:
-            self.minio_bucket = self.app_id.lower()
+            self.s3_bucket = self.app_id.lower()
         return self
 
     class Settings:

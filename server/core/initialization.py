@@ -5,7 +5,7 @@ from typing import List
 from core.config import settings
 from core.docker_manager import create_traefik_console_config
 from core.faas_code import faas_templates
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 from core.utils import create_mongodb_user, generate_short_id
 from models.applications_model import (
     Application,
@@ -75,16 +75,16 @@ class InitializationService:
     @staticmethod
     async def initialize_console_bucket():
         """
-        Initializes the 'console' bucket in MinIO for static website hosting
+        Initializes the 'console' bucket in S3-compatible storage for static website hosting
         and ensures its public read policy is correctly set on every startup.
         """
         bucket_name = "console"
-        logger.info(f"Checking and initializing MinIO bucket: '{bucket_name}'...")
+        logger.info(f"Checking and initializing S3 bucket: '{bucket_name}'...")
         try:
             # Ensure the bucket exists
-            if not await minio_manager.bucket_exists(bucket_name):
+            if not await s3_manager.bucket_exists(bucket_name):
                 logger.info(f"Bucket '{bucket_name}' not found. Creating now...")
-                await minio_manager.make_bucket(bucket_name)
+                await s3_manager.make_bucket(bucket_name)
                 logger.info(f"Bucket '{bucket_name}' created successfully.")
             else:
                 logger.info(f"Bucket '{bucket_name}' already exists.")
@@ -110,7 +110,7 @@ class InitializationService:
             policy_str = json.dumps(public_read_policy)
 
             # Get current policy
-            current_policy_str = await minio_manager.get_bucket_policy(bucket_name)
+            current_policy_str = await s3_manager.get_bucket_policy(bucket_name)
 
             # Compare and set if different
             if current_policy_str:
@@ -129,7 +129,7 @@ class InitializationService:
             logger.info(
                 f"Setting/updating public read policy for bucket '{bucket_name}'."
             )
-            await minio_manager.set_bucket_policy(bucket_name, policy_str)
+            await s3_manager.set_bucket_policy(bucket_name, policy_str)
             logger.info(
                 f"Successfully set public read policy for bucket '{bucket_name}'."
             )
@@ -176,7 +176,7 @@ class InitializationService:
     async def initialize_demo_application():
         """
         Initializes a 'demo' application for testing and demonstration purposes.
-        This includes creating a dedicated MongoDB user and a MinIO bucket.
+        This includes creating a dedicated MongoDB user and an S3 bucket.
         """
         try:
             if not await Application.find_one(Application.app_name == "demo"):
@@ -215,17 +215,17 @@ class InitializationService:
                         f"Failed to create MongoDB user for demo application: {demo_app.app_id}"
                     )
 
-                # Create a dedicated MinIO bucket for the demo application.
-                if minio_manager.client:
+                # Create a dedicated S3 bucket for the demo application.
+                if s3_manager.client:
                     # Create main app bucket
                     app_bucket_name = demo_app.app_id.lower()
-                    await minio_manager.make_bucket(app_bucket_name)
-                    logger.info(f"Created MinIO bucket for demo app: {app_bucket_name}")
+                    await s3_manager.make_bucket(app_bucket_name)
+                    logger.info(f"Created S3 bucket for demo app: {app_bucket_name}")
 
                     # Create and configure web hosting bucket
                     web_bucket_name = f"web-{demo_app.app_id.lower()}"
-                    await minio_manager.make_bucket(web_bucket_name)
-                    await minio_manager.set_bucket_to_public_read(web_bucket_name)
+                    await s3_manager.make_bucket(web_bucket_name)
+                    await s3_manager.set_bucket_to_public_read(web_bucket_name)
                     logger.info(
                         f"Created and configured web hosting bucket: {web_bucket_name}"
                     )
@@ -348,11 +348,11 @@ class InitializationService:
         Checks if initialization is needed and runs all initialization tasks.
         This is triggered if INIT_DEMO_FUNCTION is true and the database is empty or DEBUG is on.
         """
-        # Deprecated: Front-end is now served by Nginx, not MinIO.
+        # Deprecated: Front-end is now served by Nginx, not S3.
         # create_traefik_console_config()
 
         if await cls._is_database_empty():
-            # Deprecated: Front-end is now served by Nginx, not MinIO.
+            # Deprecated: Front-end is now served by Nginx, not S3.
             # await cls.initialize_console_bucket()
             await cls.initialize_default_user()
             await cls.initialize_demo_application()

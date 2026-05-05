@@ -337,26 +337,25 @@ async def handler(ctx, request, x: int = 10, y: int = 3):
 endpoint_template_storage = """from loguru import logger
 from fastapi.responses import StreamingResponse
 
-# Note: The 'ctx' object provides access to 'minio_open'.
-# You don't need to import it directly from 'app.core.faas_minio'.
-# The FaaS environment injects it into the ctx.
+# Note: The 's3_open' function is injected into the execution namespace by the FaaS environment.
+# You don't need to import it directly from 'app.core.faas_s3'.
 
 async def handler(ctx, request, action: str = "read_write"):
     \"\"\"
-    An example demonstrating file operations with MinIO.
+    An example demonstrating file operations with S3-compatible storage.
     - action='read_write': Shows how to write and then read a file.
     - action='stream': Shows how to stream a large file as a response.
-    \"\"\"
+    \"\""
     
     file_path = "demo/my_test_file.txt"
     
     if action == "read_write":
-        logger.info("--- MinIO Read/Write Demo ---")
+        logger.info("--- S3 Read/Write Demo ---")
         
         # 1. Write to a file (buffered)
         content_to_write = "Hello from Hyac FaaS! This is a test."
         try:
-            with ctx.minio_open(file_path, "w", encoding="utf-8") as f:
+            with s3_open(file_path, "w", encoding="utf-8") as f:
                 f.write(content_to_write)
             logger.info(f"Successfully wrote to '{file_path}'")
         except Exception as e:
@@ -366,7 +365,7 @@ async def handler(ctx, request, action: str = "read_write"):
         # 2. Read from the file (buffered)
         read_content = ""
         try:
-            with ctx.minio_open(file_path, "r", encoding="utf-8") as f:
+            with s3_open(file_path, "r", encoding="utf-8") as f:
                 read_content = f.read()
             logger.info(f"Successfully read from '{file_path}'")
         except Exception as e:
@@ -382,11 +381,11 @@ async def handler(ctx, request, action: str = "read_write"):
         }
 
     elif action == "stream":
-        logger.info("--- MinIO Streaming Demo ---")
+        logger.info("--- S3 Streaming Demo ---")
         
         # For demonstration, first ensure a file exists to be streamed.
         large_content = "This is a line in a large file.\\n" * 500
-        with ctx.minio_open(file_path, "w") as f:
+        with s3_open(file_path, "w") as f:
             f.write(large_content)
         logger.info(f"Created a sample large file for streaming at '{file_path}'")
 
@@ -394,7 +393,7 @@ async def handler(ctx, request, action: str = "read_write"):
         def file_streamer(path: str, chunk_size: int = 8192):
             try:
                 # Use streaming=True for efficient, chunked reading
-                with ctx.minio_open(path, "rb", streaming=True) as f:
+                with s3_open(path, "rb", streaming=True) as f:
                     while True:
                         chunk = f.read(chunk_size)
                         if not chunk:
@@ -506,9 +505,9 @@ faas_templates = {
             "description": "Default endpoint template with calling a common function",
         },
         {
-            "name": "Storage Example (MinIO)",
+            "name": "Storage Example (S3)",
             "code": endpoint_template_storage,
-            "description": "Demonstrates buffered and streaming I/O with MinIO.",
+            "description": "Demonstrates buffered and streaming I/O with S3-compatible storage.",
         },
         {
             "name": "Notification Example",

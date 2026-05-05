@@ -19,7 +19,7 @@ services:
       timeout: 10s
       retries: 20
       start_period: 15s
-  minio:
+  rustfs:
     image: rustfs/rustfs:latest
     container_name: hyac_rustfs
     restart: unless-stopped
@@ -28,8 +28,8 @@ services:
     - 9000:9000
     - 9001:9001
     environment:
-      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-${MINIO_ACCESS_KEY}}
-      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_SECRET_KEY}}
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
       RUSTFS_ADDRESS: "0.0.0.0:9000"
       RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
       RUSTFS_CONSOLE_ENABLE: "true"
@@ -50,11 +50,11 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hyac-minio.rule=Host(`oss.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-minio.entrypoints=websecure"
-      - "traefik.http.routers.hyac-minio.tls=true"
-      - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
-      - "traefik.http.services.hyac-minio.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.hyac-rustfs.rule=Host(`oss.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-rustfs.entrypoints=websecure"
+      - "traefik.http.routers.hyac-rustfs.tls=true"
+      - "traefik.http.services.hyac-rustfs.loadbalancer.server.port=9000"
+      - "traefik.http.services.hyac-rustfs.loadbalancer.passhostheader=true"
   traefik:
     image: "traefik:latest"
     container_name: "hyac_traefik"
@@ -90,11 +90,9 @@ services:
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
       MONGODB_USERNAME: ""
       MONGODB_PASSWORD: ""
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-${MINIO_ACCESS_KEY}}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_SECRET_KEY}}
-      S3_INTERNAL_ENDPOINT: ${S3_INTERNAL_ENDPOINT:-minio:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_INTERNAL_ENDPOINT: ${S3_INTERNAL_ENDPOINT:-rustfs:9000}
       S3_EXTERNAL_ENDPOINT: ${S3_EXTERNAL_ENDPOINT:-oss.${DOMAIN_NAME}}
       S3_SECURE_INTERNAL: ${S3_SECURE_INTERNAL:-false}
       S3_SECURE_EXTERNAL: ${S3_SECURE_EXTERNAL:-true}
@@ -113,7 +111,7 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     volumes:
     - /etc/localtime:/etc/localtime:ro

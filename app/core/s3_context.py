@@ -1,4 +1,4 @@
-# app/core/minio.py
+# app/core/s3_context.py
 import os
 import asyncio
 import io
@@ -9,9 +9,9 @@ from minio.error import S3Error
 from core.config import settings
 
 
-class MinioContext:
+class S3Context:
     """
-    Provides a simplified interface for interacting with a MinIO bucket
+    Provides a simplified interface for interacting with an S3-compatible bucket
     associated with the application.
     """
 
@@ -24,7 +24,7 @@ class MinioContext:
 
         if not all([endpoint, access_key, secret_key]):
             logger.warning(
-                "MinIO environment variables not fully set; client not initialized."
+                "S3 environment variables not fully set; client not initialized."
             )
             return
 
@@ -41,13 +41,13 @@ class MinioContext:
             )
         except Exception as e:
             logger.error(
-                f"Failed to initialize MinIO client for bucket '{self.bucket_name}': {e}"
+                f"Failed to initialize S3 client for bucket '{self.bucket_name}': {e}"
             )
             self.client = None
 
     def _check_client(self) -> bool:
         if not self.client:
-            logger.error("MinIO client is not initialized.")
+            logger.error("S3 client is not initialized.")
             return False
         return True
 

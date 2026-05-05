@@ -12,7 +12,7 @@ PRELOAD_CONTENT_HEADER = """
 # fmt:off
 # --- Lsp shim for user code execution ---
 from context import FunctionContext
-from core.faas_minio import minio_open
+from core.faas_s3 import s3_open
 
 context: FunctionContext
 # fmt:on

@@ -23,14 +23,12 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None  # JWT secret key
     S3_ACCESS_KEY: Optional[str] = None
     S3_SECRET_KEY: Optional[str] = None
-    S3_INTERNAL_ENDPOINT: Optional[str] = "minio:9000"
+    S3_INTERNAL_ENDPOINT: Optional[str] = "rustfs:9000"
     S3_EXTERNAL_ENDPOINT: Optional[str] = None
     S3_SECURE_INTERNAL: Optional[bool] = False
     S3_SECURE_EXTERNAL: Optional[bool] = True
     S3_PUBLIC_BASE_URL: Optional[str] = None
     S3_REGION: Optional[str] = "us-east-1"
-    MINIO_ACCESS_KEY: Optional[str] = None
-    MINIO_SECRET_KEY: Optional[str] = None
     DEFAULT_ADMIN_USER: Optional[str] = "admin"
     DEFAULT_ADMIN_PASSWORD: Optional[str] = "admin123"
     DEV_MODE: Optional[bool] = False
@@ -56,18 +54,18 @@ class Settings(BaseSettings):
 
     @property
     def object_storage_access_key(self) -> Optional[str]:
-        """Returns the configured S3 access key, falling back to legacy MinIO vars."""
-        return self.S3_ACCESS_KEY or self.MINIO_ACCESS_KEY
+        """Returns the configured S3 access key."""
+        return self.S3_ACCESS_KEY
 
     @property
     def object_storage_secret_key(self) -> Optional[str]:
-        """Returns the configured S3 secret key, falling back to legacy MinIO vars."""
-        return self.S3_SECRET_KEY or self.MINIO_SECRET_KEY
+        """Returns the configured S3 secret key."""
+        return self.S3_SECRET_KEY
 
     @property
     def object_storage_internal_endpoint(self) -> str:
         """Returns the internal S3 endpoint used inside the Docker network."""
-        return self.S3_INTERNAL_ENDPOINT or "minio:9000"
+        return self.S3_INTERNAL_ENDPOINT or "rustfs:9000"
 
     @property
     def object_storage_external_endpoint(self) -> str:

@@ -1,4 +1,4 @@
-# core/minio_manager.py
+# core/s3_manager.py
 import io
 import json
 import subprocess
@@ -13,14 +13,14 @@ from minio.error import S3Error
 from core.config import settings
 
 
-class MinioManager:
+class S3Manager:
     """
-    Manages interactions with a Minio server, including bucket and object operations.
+    Manages interactions with an S3-compatible object storage server, including bucket and object operations.
     """
 
     def __init__(self):
         """
-        Initializes the Minio client using settings from the application configuration.
+        Initializes the S3 client using settings from the application configuration.
         """
         self.client = None
         if not all(
@@ -29,7 +29,7 @@ class MinioManager:
                 settings.object_storage_secret_key,
             ]
         ):
-            logger.warning("MinIO configuration is incomplete; client not initialized.")
+            logger.warning("S3 configuration is incomplete; client not initialized.")
             return
 
         try:
@@ -49,11 +49,11 @@ class MinioManager:
 
     def _check_client(self) -> bool:
         """
-        Checks if the Minio client is initialized.
+        Checks if the S3 client is initialized.
         """
         if not self.client:
             logger.error(
-                "MinIO client is not initialized. Cannot perform MinIO operations."
+                "S3 client is not initialized. Cannot perform S3 operations."
             )
             return False
         return True
@@ -287,8 +287,8 @@ class MinioManager:
 
     def add_user(self, access_key: str, secret_key: str) -> bool:
         """
-        Adds a new MinIO user using the 'mc' client.
-        Requires the MinIO Client (mc) to be installed and configured.
+        Adds a new S3-compatible storage user using the 'mc' client.
+        Requires the S3 Client (mc) to be installed and configured.
 
         Args:
             access_key: The access key for the new user.
@@ -301,12 +301,12 @@ class MinioManager:
             return False
 
         logger.warning(
-            "The 'mc admin user add' workflow is MinIO-specific and must be "
+            "The 'mc admin user add' workflow is S3-specific and must be "
             "verified before it is used with RustFS in production."
         )
-        # Note: 'myminio' is an alias configured in the mc client.
+        # Note: 'myrustfs' is an alias configured in the mc client.
         # This should be read from config in a production environment.
-        mc_alias = "myminio"
+        mc_alias = "myrustfs"
 
         command = [
             "mc",
@@ -325,7 +325,7 @@ class MinioManager:
             return True
         except FileNotFoundError:
             logger.error(
-                "The 'mc' command was not found. Ensure the MinIO Client is installed and in the system's PATH."
+                "The 'mc' command was not found. Ensure the S3 Client (mc) is installed and in the system's PATH."
             )
             return False
         except subprocess.CalledProcessError as e:
@@ -351,7 +351,7 @@ class MinioManager:
             return False
 
         logger.warning(
-            "The 'mc admin policy' workflow is MinIO-specific and must be "
+            "The 'mc admin policy' workflow is S3-specific and must be "
             "verified before it is used with RustFS in production."
         )
         if permission == "readonly":
@@ -378,7 +378,7 @@ class MinioManager:
             ],
         }
 
-        mc_alias = "myminio"
+        mc_alias = "myrustfs"
 
         with tempfile.NamedTemporaryFile(
             mode="w+", delete=False, suffix=".json", encoding="utf-8"
@@ -447,4 +447,4 @@ class MinioManager:
             os.unlink(tmp_policy_path)
 
 
-minio_manager = MinioManager()
+s3_manager = S3Manager()

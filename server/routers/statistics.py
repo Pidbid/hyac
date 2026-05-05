@@ -18,7 +18,7 @@ from models.statistics_model import (
 )
 from core.jwt_auth import get_current_user
 from core.database_dynamic import dynamic_db
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 
 router = APIRouter(
     prefix="/statistics",
@@ -203,9 +203,9 @@ async def get_statistics_summary(
     # --- Storage Statistics ---
     total_usage_bytes = 0
     try:
-        # MinIO bucket names must be lowercase
+        # S3 bucket names must be lowercase
         bucket_name = data.appId.lower()
-        objects = await minio_manager.list_objects(
+        objects = await s3_manager.list_objects(
             bucket_name=bucket_name, recursive=True
         )
         if objects:

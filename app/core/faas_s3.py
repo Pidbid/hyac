@@ -1,4 +1,4 @@
-# core/faas_minio.py
+# core/faas_s3.py
 import io
 import mimetypes
 import time
@@ -9,7 +9,7 @@ from typing import BinaryIO, Iterator, Optional, TextIO, Union, cast
 from loguru import logger
 from minio.error import S3Error
 
-from core.minio_manager import minio_manager
+from core.s3_manager import s3_manager
 
 # Context variable to store the app_id for bucket resolution.
 app_id_context: ContextVar[str] = ContextVar("app_id_context")
@@ -57,7 +57,7 @@ def _streaming_read(
     last_exception = None
     for attempt in range(retries):
         try:
-            response = minio_manager.client.get_object(bucket_name, object_name)
+            response = s3_manager.client.get_object(bucket_name, object_name)
             # If successful, break the loop and proceed
             break
         except S3Error as e:
@@ -69,11 +69,11 @@ def _streaming_read(
                 time.sleep(delay)
                 continue
             # For other S3 errors or last retry failure, re-raise
-            raise IOError(f"Could not access MinIO object '{file_path}'.") from e
+            raise IOError(f"Could not access S3 object '{file_path}'.") from e
         except Exception as e:
             # For non-S3 errors, fail immediately
-            logger.error(f"MinIO streaming read failed for '{file_path}': {e}")
-            raise IOError(f"Could not access MinIO object '{file_path}'.") from e
+            logger.error(f"S3 streaming read failed for '{file_path}': {e}")
+            raise IOError(f"Could not access S3 object '{file_path}'.") from e
 
     if not response:
         raise FileNotFoundError(
@@ -116,7 +116,7 @@ def _buffered_read_write(
     try:
         if main_mode == "x":
             try:
-                minio_manager.client.stat_object(bucket_name, object_name)
+                s3_manager.client.stat_object(bucket_name, object_name)
                 raise FileExistsError(
                     f"File '{file_path}' already exists, cannot use 'x' mode."
                 )
@@ -125,7 +125,7 @@ def _buffered_read_write(
                     raise
         elif (main_mode in ["r", "a"]) or (modes["update"] and main_mode != "w"):
             try:
-                response = minio_manager.client.get_object(bucket_name, object_name)
+                response = s3_manager.client.get_object(bucket_name, object_name)
                 with response:
                     initial_data = response.read()
             except S3Error as e:
@@ -135,8 +135,8 @@ def _buffered_read_write(
                 else:
                     raise
     except Exception as e:
-        logger.error(f"MinIO operation preparation failed for '{file_path}': {e}")
-        raise IOError(f"Could not access MinIO object '{file_path}'.") from e
+        logger.error(f"S3 operation preparation failed for '{file_path}': {e}")
+        raise IOError(f"Could not access S3 object '{file_path}'.") from e
 
     # --- Buffer Creation and Management ---
     buffer: Union[io.StringIO, io.BytesIO]
@@ -174,7 +174,7 @@ def _buffered_read_write(
                     guessed_type, _ = mimetypes.guess_type(object_name)
                     final_content_type = guessed_type or "application/octet-stream"
 
-                minio_manager.client.put_object(
+                s3_manager.client.put_object(
                     bucket_name,
                     object_name,
                     upload_stream,
@@ -185,9 +185,9 @@ def _buffered_read_write(
                     f"File '{object_name}' successfully written to bucket '{bucket_name}'."
                 )
             except Exception as e:
-                logger.error(f"Failed to upload to MinIO: {e}")
+                logger.error(f"Failed to upload to S3: {e}")
                 raise IOError(
-                    f"Could not write changes to MinIO file '{file_path}'."
+                    f"Could not write changes to S3 file '{file_path}'."
                 ) from e
             finally:
                 buffer.close()
@@ -196,7 +196,7 @@ def _buffered_read_write(
 
 
 @contextmanager
-def minio_open(
+def s3_open(
     file_path: str,
     mode: str = "r",
     encoding: str = "utf-8",
@@ -204,11 +204,11 @@ def minio_open(
     content_type: Optional[str] = None,
 ) -> Iterator[Union[TextIO, BinaryIO]]:
     """
-    A context manager to read from and write to MinIO objects as if they were local files.
+    A context manager to read from and write to S3 objects as if they were local files.
     Supports modes like r, w, a, x, +, and b.
 
     Args:
-        file_path: The full path to the MinIO object.
+        file_path: The full path to the S3 object.
         mode: The file mode, similar to the built-in open() function.
         encoding: The encoding to use in text mode.
         streaming: If True and in read-only mode, streams the file. Otherwise, buffers it.
@@ -217,8 +217,8 @@ def minio_open(
     Yields:
         A file-like object for interaction.
     """
-    if not minio_manager.client:
-        raise IOError("MinIO client is not initialized.")
+    if not s3_manager.client:
+        raise IOError("S3 client is not initialized.")
 
     bucket_name = app_id_context.get(None)
     if not bucket_name:
