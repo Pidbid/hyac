@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 
-from lsp_sidecar.lsp_process import LspProcess, spawn_pylsp
+from lsp_sidecar.lsp_process import LspProcess, spawn_pyright
 
 
 PoolKey = tuple[str, str]
@@ -36,7 +36,7 @@ class LspProcessPool:
                 if entry.process.alive:
                     self._busy[id(entry.process)] = key
                     return entry.process
-            process = await spawn_pylsp(workspace=key[1])
+            process = await spawn_pyright(workspace=key[1])
             self._busy[id(process)] = key
             return process
 
@@ -69,4 +69,3 @@ class LspProcessPool:
                 self._idle[key] = fresh_entries
             else:
                 self._idle.pop(key, None)
-

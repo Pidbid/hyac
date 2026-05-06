@@ -61,7 +61,7 @@ export function lspComplete(
     }
     const timeout = setTimeout(() => resolve([]), 3000);
     send('textDocument/completion', {
-      textDocument: { uri: `file:///${model.uri?.path || 'python.py'}` },
+      textDocument: { uri: `inmemory:///tmp/${model.uri?.path?.replace(/^\//, '') || 'python.py'}` },
       position: {
         line: position.lineNumber - 1,
         character: position.column - 1
@@ -82,26 +82,43 @@ export function lspComplete(
           isSnippet = true;
         }
 
+        // Handle both TextEdit (range) and InsertReplaceEdit (insert/replace)
+        let range: monaco.IRange;
+        if (item.textEdit?.range) {
+          range = {
+            startLineNumber: item.textEdit.range.start.line + 1,
+            startColumn: item.textEdit.range.start.character + 1,
+            endLineNumber: item.textEdit.range.end.line + 1,
+            endColumn: item.textEdit.range.end.character + 1
+          };
+        } else if (item.textEdit?.insert) {
+          range = {
+            startLineNumber: item.textEdit.insert.start.line + 1,
+            startColumn: item.textEdit.insert.start.character + 1,
+            endLineNumber: item.textEdit.insert.end.line + 1,
+            endColumn: item.textEdit.insert.end.character + 1
+          };
+        } else {
+          const word = model!.getWordUntilPosition(position);
+          range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, position.column);
+        }
+
+        // Handle documentation format (MarkupContent vs IMarkdownString)
+        let documentation: any = item.documentation;
+        if (documentation && typeof documentation === 'object' && 'value' in documentation) {
+          documentation = { value: documentation.value };
+        }
+
         const monacoItem: monaco.languages.CompletionItem = {
           label: item.label,
           kind: LSP_KIND_TO_MONACO[item.kind] ?? monaco.languages.CompletionItemKind.Text,
           detail: item.detail || '',
-          documentation: item.documentation,
+          documentation,
           insertText,
           sortText: item.sortText,
           filterText: item.filterText,
           insertTextRules: isSnippet ? 4 : void 0,
-          range: item.textEdit?.range
-            ? {
-                startLineNumber: item.textEdit.range.start.line + 1,
-                startColumn: item.textEdit.range.start.character + 1,
-                endLineNumber: item.textEdit.range.end.line + 1,
-                endColumn: item.textEdit.range.end.character + 1
-              }
-            : (() => {
-                const word = model!.getWordUntilPosition(position);
-                return new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, position.column);
-              })()
+          range
         };
         return monacoItem;
       }));
@@ -120,7 +137,7 @@ export function lspFormat(
     }
     const timeout = setTimeout(() => resolve([]), 5000);
     send('textDocument/formatting', {
-      textDocument: { uri: `file:///${model.uri?.path || 'python.py'}` },
+      textDocument: { uri: `inmemory:///tmp/${model.uri?.path?.replace(/^\//, '') || 'python.py'}` },
       options: { tabSize, insertSpaces }
     }, (result) => {
       clearTimeout(timeout);
@@ -152,7 +169,8 @@ export function connectLsp(url: string, editorModel: monaco.editor.ITextModel) {
   socket = new ReconnectingWebSocket(url);
 
   function uri() {
-    return `file:///${model?.uri?.path || 'python.py'}`;
+    const path = model?.uri?.path?.replace(/^\//, '') || 'python.py';
+    return `inmemory:///tmp/${path}`;
   }
 
   socket.onopen = () => {
@@ -182,17 +200,11 @@ export function connectLsp(url: string, editorModel: monaco.editor.ITextModel) {
       });
     });
 
-    model!.onDidChangeContent((e) => {
+    model!.onDidChangeContent(() => {
       modelVersion++;
       sendNotification('textDocument/didChange', {
         textDocument: { uri: uri(), version: modelVersion },
-        contentChanges: e.changes.map(c => ({
-          range: {
-            start: { line: c.range.startLineNumber - 1, character: c.range.startColumn - 1 },
-            end: { line: c.range.endLineNumber - 1, character: c.range.endColumn - 1 }
-          },
-          text: c.text
-        }))
+        contentChanges: [{ text: model!.getValue() }]
       });
     });
   };
@@ -260,7 +272,7 @@ export function disconnectLsp() {
       socket.send(JSON.stringify({
         jsonrpc: '2.0',
         method: 'textDocument/didClose',
-        params: { textDocument: { uri: `file:///python.py` } }
+        params: { textDocument: { uri: `inmemory:///tmp/${model.uri?.path?.replace(/^\//, '') || 'python.py'}` } }
       }));
     }
     socket.onopen = null;

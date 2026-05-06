@@ -125,6 +125,9 @@ class ShimBridge:
                         + USER_CODE_END_MARKER
                     )
                     change["text"] = shimmed_text
+                    # Remove range to signal full-document replacement
+                    change.pop("range", None)
+                    change.pop("rangeLength", None)
                     self._shim_line_count = _SHIM_HEADER_WITH_MARKERS.count("\n")
                     break
 
@@ -240,12 +243,19 @@ class ShimBridge:
                 items = [item for item in raw_items if isinstance(item, dict)]
 
         for item in items:
-            # Adjust textEdit.range
+            # Adjust textEdit.range (TextEdit format)
             text_edit = item.get("textEdit")
             if isinstance(text_edit, dict):
                 range_obj = text_edit.get("range")
                 if isinstance(range_obj, dict):
                     self._offset_range_lines(range_obj, -shim_offset)
+                # Adjust InsertReplaceEdit format (insert/replace ranges)
+                insert_range = text_edit.get("insert")
+                if isinstance(insert_range, dict):
+                    self._offset_range_lines(insert_range, -shim_offset)
+                replace_range = text_edit.get("replace")
+                if isinstance(replace_range, dict):
+                    self._offset_range_lines(replace_range, -shim_offset)
 
             # Adjust additionalTextEdits ranges
             additional_edits = item.get("additionalTextEdits")
@@ -298,7 +308,7 @@ class ShimBridge:
                 # No shim detected, skip
                 continue
 
-            # Adjust range to client coordinates
+            # Adjust range to client coordinates (subtract shim offset)
             range_obj = item.get("range")
             if isinstance(range_obj, dict):
                 start = range_obj.get("start")
@@ -306,11 +316,7 @@ class ShimBridge:
                 if isinstance(start, dict) and "line" in start:
                     start["line"] = max(0, start["line"] - shim_offset)
                 if isinstance(end, dict) and "line" in end:
-                    user_code_lines = user_code.count("\n") + 1
-                    if isinstance(start, dict):
-                        end["line"] = max(0, start["line"] + user_code_lines - 1)
-                    else:
-                        end["line"] = max(0, end["line"] - shim_offset)
+                    end["line"] = max(0, end["line"] - shim_offset)
 
     def _offset_range_lines(self, range_obj: dict[str, Any], offset: int) -> None:
         """Offset line numbers in a LSP range object."""

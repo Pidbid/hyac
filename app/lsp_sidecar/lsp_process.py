@@ -24,7 +24,7 @@ class LspProcess:
         await self.process.wait()
 
 
-async def spawn_pylsp(workspace: str) -> LspProcess:
+async def spawn_pyright(workspace: str) -> LspProcess:
     workspace_path = Path(workspace).resolve()
     workspace_path.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -33,7 +33,8 @@ async def spawn_pylsp(workspace: str) -> LspProcess:
         f"{workspace_path}:{python_path}" if python_path else str(workspace_path)
     )
     process = await asyncio.create_subprocess_exec(
-        "pylsp",
+        "pyright-langserver",
+        "--stdio",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
