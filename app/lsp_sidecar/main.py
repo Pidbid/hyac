@@ -1,4 +1,5 @@
 import asyncio
+import json
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -6,6 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from loguru import logger
 from starlette.websockets import WebSocketState
 
+from lsp_sidecar.formatter import run_formatter
 from lsp_sidecar.lsp_process import LspProcess, read_lsp_payload, write_lsp_payload
 from lsp_sidecar.pool import LspProcessPool
 
@@ -13,7 +15,7 @@ from lsp_sidecar.pool import LspProcessPool
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pool = LspProcessPool(idle_ttl_seconds=300)
-    logger.info("LSP sidecar started.")
+    logger.info("LSP sidecar started (pyright)")
     yield
 
 
@@ -57,19 +59,20 @@ async def lsp_bridge(websocket: WebSocket):
             try:
                 await websocket.close()
             except RuntimeError:
-                # The websocket may already be closed by the ASGI server.
                 pass
 
 
 async def _bridge_messages(websocket: WebSocket, process: LspProcess) -> None:
     if not process.process.stdin or not process.process.stdout or not process.process.stderr:
-        raise RuntimeError("pylsp stdio streams are not initialized")
+        raise RuntimeError("LSP stdio streams are not initialized")
+
+    docs: dict[str, str] = {}
 
     up_task = asyncio.create_task(
-        _client_to_pylsp(websocket=websocket, stdin=process.process.stdin)
+        _client_to_lsp(websocket=websocket, stdin=process.process.stdin, docs=docs)
     )
     down_task = asyncio.create_task(
-        _pylsp_to_client(websocket=websocket, stdout=process.process.stdout)
+        _lsp_to_client(websocket=websocket, stdout=process.process.stdout)
     )
     err_task = asyncio.create_task(_log_stderr(stderr=process.process.stderr))
 
@@ -84,14 +87,85 @@ async def _bridge_messages(websocket: WebSocket, process: LspProcess) -> None:
             raise exc
 
 
-async def _client_to_pylsp(
-    websocket: WebSocket, stdin: asyncio.StreamWriter
+def _track_document(docs: dict[str, str], payload: str) -> None:
+    """Track document content from didOpen/didChange for formatting support."""
+    try:
+        msg = json.loads(payload)
+    except json.JSONDecodeError:
+        return
+    method = msg.get("method")
+    params = msg.get("params", {})
+
+    if method == "textDocument/didOpen":
+        td = params.get("textDocument", {})
+        uri = td.get("uri", "")
+        text = td.get("text", "")
+        if uri:
+            docs[uri] = text
+    elif method == "textDocument/didChange":
+        td = params.get("textDocument", {})
+        uri = td.get("uri", "")
+        changes = params.get("contentChanges", [])
+        if uri and changes:
+            # Full sync: last change has the full text
+            last = changes[-1]
+            if "text" in last and "range" not in last:
+                docs[uri] = last["text"]
+
+
+def _handle_formatting(payload: str, docs: dict[str, str]) -> str | None:
+    """Intercept textDocument/formatting and run ruff format. Returns response or None."""
+    try:
+        msg = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if msg.get("method") != "textDocument/formatting":
+        return None
+
+    req_id = msg.get("id")
+    params = msg.get("params", {})
+    td = params.get("textDocument", {})
+    uri = td.get("uri", "")
+
+    source = docs.get(uri, "")
+    if not source:
+        return json.dumps({
+            "jsonrpc": "2.0", "id": req_id, "result": []
+        })
+
+    try:
+        result = run_formatter(source)
+        lines = source.split("\n")
+        total_lines = len(lines)
+        last_col = len(lines[-1]) if lines else 0
+        edit = {
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": total_lines - 1, "character": last_col}
+            },
+            "newText": result
+        }
+        return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": [edit]})
+    except Exception as exc:
+        logger.error(f"autopep8 format failed: {exc}")
+        return json.dumps({
+            "jsonrpc": "2.0", "id": req_id, "result": []
+        })
+
+
+async def _client_to_lsp(
+    websocket: WebSocket, stdin: asyncio.StreamWriter, docs: dict[str, str]
 ) -> None:
     async for message in websocket.iter_text():
+        _track_document(docs, message)
+        formatting_resp = _handle_formatting(message, docs)
+        if formatting_resp:
+            await websocket.send_text(formatting_resp)
+            continue
         await write_lsp_payload(stdin=stdin, payload=message)
 
 
-async def _pylsp_to_client(
+async def _lsp_to_client(
     websocket: WebSocket, stdout: asyncio.StreamReader
 ) -> None:
     while not stdout.at_eof():
@@ -104,7 +178,7 @@ async def _log_stderr(stderr: asyncio.StreamReader) -> None:
     while not stderr.at_eof():
         line = await stderr.readline()
         if line:
-            logger.debug(f"[pylsp] {line.decode(errors='ignore').strip()}")
+            logger.debug(f"[pyright] {line.decode(errors='ignore').strip()}")
 
 
 if __name__ == "__main__":
