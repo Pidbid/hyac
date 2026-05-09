@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { fetchFunctionRequests } from '@/service/api/statistics';
 import { useAppStore } from '@/store/modules/app';
+import { useApplicationStore } from '@/store/modules/application';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
-import { fetchFunctionRequests } from '@/service/api/statistics';
-import { useApplicationStore } from '@/store/modules/application';
 
 defineOptions({
   name: 'TrendChart'

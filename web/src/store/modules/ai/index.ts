@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { defineStore } from 'pinia';
 import { fetchChatCompletionStream } from '@/service/api';
 
 interface Message {
@@ -8,9 +8,7 @@ interface Message {
 }
 
 export const useAiStore = defineStore('ai-assistant', () => {
-  const messages = ref<Message[]>([
-    { role: 'assistant', content: '你好！有什么可以帮助你编写代码的吗？' }
-  ]);
+  const messages = ref<Message[]>([{ role: 'assistant', content: '你好！有什么可以帮助你编写代码的吗？' }]);
   const isLoading = ref(false);
 
   async function sendMessage(userMessage: string) {

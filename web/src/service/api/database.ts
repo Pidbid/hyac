@@ -1,4 +1,4 @@
-import { request } from "../request";
+import { request } from '../request';
 
 /**
  * GetCollectionData
@@ -9,11 +9,11 @@ import { request } from "../request";
  */
 export function GetCollectionData(appId: string) {
   return request<Api.Database.GetCollectionData>({
-    url: "/database/collections",
-    method: "post",
+    url: '/database/collections',
+    method: 'post',
     data: {
-      appId,
-    },
+      appId
+    }
   });
 }
 
@@ -25,21 +25,16 @@ export function GetCollectionData(appId: string) {
  * @param page
  * @param length
  */
-export function GetDocumentData(
-  appId: string,
-  colName: string,
-  page: number,
-  length: number,
-) {
+export function GetDocumentData(appId: string, colName: string, page: number, length: number) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/documents",
-    method: "post",
+    url: '/database/documents',
+    method: 'post',
     data: {
       appId,
       colName,
       page,
-      length,
-    },
+      length
+    }
   });
 }
 
@@ -53,13 +48,13 @@ export function GetDocumentData(
  */
 export function DeleteDocument(appId: string, colName: string, docId: string) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/delete_document",
-    method: "post",
+    url: '/database/delete_document',
+    method: 'post',
     data: {
       appId,
       colName,
-      docId,
-    },
+      docId
+    }
   });
 }
 
@@ -70,19 +65,15 @@ export function DeleteDocument(appId: string, colName: string, docId: string) {
  * @param colName
  * @param docIds
  */
-export function DeleteDocuments(
-  appId: string,
-  colName: string,
-  docIds: string[],
-) {
+export function DeleteDocuments(appId: string, colName: string, docIds: string[]) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/delete_documents",
-    method: "post",
+    url: '/database/delete_documents',
+    method: 'post',
     data: {
       appId,
       colName,
-      docIds,
-    },
+      docIds
+    }
   });
 }
 
@@ -96,12 +87,12 @@ export function DeleteDocuments(
  */
 export function DeleteCollection(appId: string, colName: string) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/delete_collection",
-    method: "post",
+    url: '/database/delete_collection',
+    method: 'post',
     data: {
       appId,
-      colName,
-    },
+      colName
+    }
   });
 }
 
@@ -115,12 +106,12 @@ export function DeleteCollection(appId: string, colName: string) {
  */
 export function ClearCollection(appId: string, colName: string) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/clear_collection",
-    method: "post",
+    url: '/database/clear_collection',
+    method: 'post',
     data: {
       appId,
-      colName,
-    },
+      colName
+    }
   });
 }
 
@@ -134,12 +125,12 @@ export function ClearCollection(appId: string, colName: string) {
  */
 export function CreateCollection(appId: string, colName: string) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/create_collection",
-    method: "post",
+    url: '/database/create_collection',
+    method: 'post',
     data: {
       appId,
-      colName,
-    },
+      colName
+    }
   });
 }
 
@@ -151,19 +142,15 @@ export function CreateCollection(appId: string, colName: string) {
  * @param page
  * @param length
  */
-export function CreateDocument(
-  appId: string,
-  colName: string,
-  docData: object,
-) {
+export function CreateDocument(appId: string, colName: string, docData: object) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/insert_document",
-    method: "post",
+    url: '/database/insert_document',
+    method: 'post',
     data: {
       appId,
       colName,
-      docData,
-    },
+      docData
+    }
   });
 }
 
@@ -175,20 +162,15 @@ export function CreateDocument(
  * @param page
  * @param length
  */
-export function UpdateDocument(
-  appId: string,
-  colName: string,
-  docId: string,
-  docData: object,
-) {
+export function UpdateDocument(appId: string, colName: string, docId: string, docData: object) {
   return request<Api.Function.GetFunctionData>({
-    url: "/database/update_document",
-    method: "post",
+    url: '/database/update_document',
+    method: 'post',
     data: {
       appId,
       colName,
       docId,
-      docData,
-    },
+      docData
+    }
   });
 }

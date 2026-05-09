@@ -1,65 +1,20 @@
-<template>
-  <n-card :title="$t('page.setting.systemUpdate.title')" :bordered="false">
-    <n-grid :x-gap="16" :y-gap="16" :cols="3">
-      <n-gi :span="1">
-        <n-card :title="$t('page.setting.systemUpdate.versionInfo')">
-          <n-spin :show="versionsLoading">
-            <n-descriptions label-placement="left" :column="1" bordered>
-              <n-descriptions-item :label="$t('page.setting.systemUpdate.currentServerVersion')">
-                {{ versions.server_version || 'N/A' }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="$t('page.setting.systemUpdate.currentAppVersion')">
-                {{ versions.app_version || 'N/A' }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="$t('page.setting.systemUpdate.currentWebVersion')">
-                {{ versions.web_version || 'N/A' }}
-              </n-descriptions-item>
-            </n-descriptions>
-          </n-spin>
-        </n-card>
-      </n-gi>
-      <n-gi :span="2">
-        <n-card :title="$t('page.setting.systemUpdate.changelogTab')">
-          <n-spin :show="changelogLoading">
-            <n-timeline>
-              <n-timeline-item v-for="log in changelogs" :key="log.version" type="success">
-                <template #header>
-                  <p class="font-bold">{{ log.version }}</p>
-                  <p class="text-sm text-gray-500">{{ new Date(log.published_at).toLocaleString() }}</p>
-                </template>
-                <template #default>
-                  <n-collapse>
-                    <n-collapse-item :title="$t('page.setting.systemUpdate.changelog')" name="1">
-                      <div v-html="renderMarkdown(log.changelog)" class="prose dark:prose-invert"></div>
-                    </n-collapse-item>
-                  </n-collapse>
-                </template>
-              </n-timeline-item>
-            </n-timeline>
-          </n-spin>
-        </n-card>
-      </n-gi>
-    </n-grid>
-  </n-card>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import {
   NCard,
-  NSpin,
   NCollapse,
   NCollapseItem,
-  useNotification,
-  NTimeline,
-  NTimelineItem,
   NDescriptions,
   NDescriptionsItem,
+  NGi,
   NGrid,
-  NGi
+  NSpin,
+  NTimeline,
+  NTimelineItem,
+  useNotification
 } from 'naive-ui';
-import { fetchChangelogs, fetchSystemVersions } from '@/service/api/settings';
 import MarkdownIt from 'markdown-it';
+import { fetchChangelogs, fetchSystemVersions } from '@/service/api/settings';
 import { $t } from '@/locales';
 
 defineOptions({
@@ -126,6 +81,51 @@ onMounted(() => {
   loadVersions();
 });
 </script>
+
+<template>
+  <NCard :title="$t('page.setting.systemUpdate.title')" :bordered="false">
+    <NGrid :x-gap="16" :y-gap="16" :cols="3">
+      <NGi :span="1">
+        <NCard :title="$t('page.setting.systemUpdate.versionInfo')">
+          <NSpin :show="versionsLoading">
+            <NDescriptions label-placement="left" :column="1" bordered>
+              <NDescriptionsItem :label="$t('page.setting.systemUpdate.currentServerVersion')">
+                {{ versions.server_version || 'N/A' }}
+              </NDescriptionsItem>
+              <NDescriptionsItem :label="$t('page.setting.systemUpdate.currentAppVersion')">
+                {{ versions.app_version || 'N/A' }}
+              </NDescriptionsItem>
+              <NDescriptionsItem :label="$t('page.setting.systemUpdate.currentWebVersion')">
+                {{ versions.web_version || 'N/A' }}
+              </NDescriptionsItem>
+            </NDescriptions>
+          </NSpin>
+        </NCard>
+      </NGi>
+      <NGi :span="2">
+        <NCard :title="$t('page.setting.systemUpdate.changelogTab')">
+          <NSpin :show="changelogLoading">
+            <NTimeline>
+              <NTimelineItem v-for="log in changelogs" :key="log.version" type="success">
+                <template #header>
+                  <p class="font-bold">{{ log.version }}</p>
+                  <p class="text-sm text-gray-500">{{ new Date(log.published_at).toLocaleString() }}</p>
+                </template>
+                <template #default>
+                  <NCollapse>
+                    <NCollapseItem :title="$t('page.setting.systemUpdate.changelog')" name="1">
+                      <div class="prose dark:prose-invert" v-html="renderMarkdown(log.changelog)"></div>
+                    </NCollapseItem>
+                  </NCollapse>
+                </template>
+              </NTimelineItem>
+            </NTimeline>
+          </NSpin>
+        </NCard>
+      </NGi>
+    </NGrid>
+  </NCard>
+</template>
 
 <style scoped>
 .prose {

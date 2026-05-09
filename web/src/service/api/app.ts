@@ -15,7 +15,6 @@ export function AppInfo(appId: string) {
   });
 }
 
-
 /**
  * getApps
  *
@@ -28,7 +27,6 @@ export function getApps(data: any) {
     data
   });
 }
-
 
 /**
  * CreateApp
@@ -46,7 +44,6 @@ export function createApp(appName: string, description: string) {
     }
   });
 }
-
 
 /**
  * DeleteApp

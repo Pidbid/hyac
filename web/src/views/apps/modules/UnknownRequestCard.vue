@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NCard, NIcon, NSkeleton, NSpace, NStatistic, NText } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
-import { NCard, NStatistic, NText, NIcon, NSkeleton, NSpace } from 'naive-ui';
 
 interface Props {
   loading: boolean;

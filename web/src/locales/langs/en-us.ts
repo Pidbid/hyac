@@ -244,7 +244,8 @@ const local: App.I18n.Schema = {
       emptyApp: 'No application, please create one first',
       createApp: 'Create Application',
       welcome: 'Hello 👋, {userName}, Welcome to the Hyac cloud development platform!',
-      welcomeDescription: 'Here, you can develop any application as a full-stack, backend,\ncloud development user, Python developer, independent\ndeveloper, etc., for example:',
+      welcomeDescription:
+        'Here, you can develop any application as a full-stack, backend,\ncloud development user, Python developer, independent\ndeveloper, etc., for example:',
       miniProgram: 'WeChat Mini Program/Public Account',
       androidOrIos: 'Android or iOS app',
       blogOrWebsite: 'Personal blog, corporate official website',
@@ -285,7 +286,8 @@ const local: App.I18n.Schema = {
         title: 'Unknown Request Monitoring',
         label: 'Potential abnormal or attack requests',
         unit: 'times',
-        description: 'The target functions for these requests no longer exist. They may be residual calls to deleted functions or malicious probes.'
+        description:
+          'The target functions for these requests no longer exist. They may be residual calls to deleted functions or malicious probes.'
       },
       requestTrend: 'Request Trend',
       coreMetrics: 'Core Metrics',
@@ -321,9 +323,11 @@ const local: App.I18n.Schema = {
       deleteDocumentConfirm: 'Are you sure you want to delete document ID: {id}?',
       deleteSuccess: 'Deleted successfully',
       deleteCancelled: 'Delete cancelled',
-      deleteCollectionConfirm: 'Are you sure you want to delete the collection: {name}? This action is irreversible, please operate with caution!',
+      deleteCollectionConfirm:
+        'Are you sure you want to delete the collection: {name}? This action is irreversible, please operate with caution!',
       confirmClear: 'Confirm Clear',
-      clearCollectionConfirm: 'Are you sure you want to clear the collection: {name}? This action is irreversible, please operate with caution!',
+      clearCollectionConfirm:
+        'Are you sure you want to clear the collection: {name}? This action is irreversible, please operate with caution!',
       clearSuccess: 'Cleared successfully',
       saveSuccess: 'Saved successfully',
       saveFailed: 'Save failed, please check the data format',
@@ -578,7 +582,8 @@ const local: App.I18n.Schema = {
       },
       dependencies: 'Dependencies',
       dependenciesTipTitle: 'Dependency Management Guide',
-      dependenciesTipContent: 'Dependencies managed here will be available to all functions within this application. A restart is required for changes to take effect.',
+      dependenciesTipContent:
+        'Dependencies managed here will be available to all functions within this application. A restart is required for changes to take effect.',
       userDependencies: 'User Dependencies',
       systemDependencies: 'System Dependencies',
       addDependency: 'Add Dependency',
@@ -586,7 +591,8 @@ const local: App.I18n.Schema = {
       dependencyNamePlaceholder: 'Enter PyPI package name',
       dependencyVersionPlaceholder: 'Enter version (or leave blank for latest)',
       confirmDelete: 'Confirm Deletion',
-      deleteDependencyConfirm: 'Are you sure you want to delete the dependency "{name}"? This may require an application restart.',
+      deleteDependencyConfirm:
+        'Are you sure you want to delete the dependency "{name}"? This may require an application restart.',
       restartRequired: 'Restart Required',
       dependencyChangeRestartPrompt: 'Dependencies have changed. A restart is required to apply the new changes.',
       restartNow: 'Restart Now',
@@ -597,23 +603,27 @@ const local: App.I18n.Schema = {
       key: 'Key',
       value: 'Value',
       envTipTitle: 'Environment Variables Guide',
-      envTipContent: 'Environment variables managed here will be injected into the application\'s runtime. A restart is required for changes to take effect.',
+      envTipContent:
+        "Environment variables managed here will be injected into the application's runtime. A restart is required for changes to take effect.",
       userEnv: 'User Variables',
       systemEnv: 'System Variables',
       addEnv: 'Add Environment Variable',
       editEnv: 'Edit Environment Variable',
       keyPlaceholder: 'Enter variable name',
       valuePlaceholder: 'Enter variable value',
-      deleteEnvConfirm: 'Are you sure you want to delete the environment variable "{key}"? This action requires an application restart.',
+      deleteEnvConfirm:
+        'Are you sure you want to delete the environment variable "{key}"? This action requires an application restart.',
       envChangeRestartPrompt: 'Environment variables have changed. A restart is required to apply the new changes.',
       corsTipTitle: 'Cross-Origin Resource Sharing (CORS) Guide',
-      corsTipContent: 'Configure the CORS policy for your application to allow web frontend requests from different origins. Use "*" as a wildcard.',
+      corsTipContent:
+        'Configure the CORS policy for your application to allow web frontend requests from different origins. Use "*" as a wildcard.',
       corsTipDynamicInput: 'Click the "+" button on the right to add multiple values.',
       originPlaceholder: 'e.g., https://example.com',
       methodPlaceholder: 'e.g., GET, POST',
       headerPlaceholder: 'e.g., Content-Type',
       notificationTipTitle: 'Notification Channel Guide',
-      notificationTipContent: 'Configure how the application sends notifications for specific events, such as function execution failures, custom notifications, etc.',
+      notificationTipContent:
+        'Configure how the application sends notifications for specific events, such as function execution failures, custom notifications, etc.',
       sendTest: 'Send Test Notification',
       dangerZone: 'Danger Zone',
       confirmRestart: 'Confirm Restart',
@@ -630,7 +640,8 @@ const local: App.I18n.Schema = {
       deleteApp: 'Delete Application',
       deleteAppDesc: 'This action is irreversible and will permanently delete the application and all its data.',
       deleteAppConfirm1: 'This is an irreversible action.',
-      deleteAppConfirm2: 'All related data, including functions, logs, and storage buckets, will be permanently deleted.',
+      deleteAppConfirm2:
+        'All related data, including functions, logs, and storage buckets, will be permanently deleted.',
       deleteAppConfirm3: 'Please type the application ID',
       deleteAppConfirm4: 'to confirm.',
       deleteAppInputPlaceholder: 'Please type the application ID',
@@ -746,7 +757,8 @@ const local: App.I18n.Schema = {
       }
     },
     index: {
-      branchDesc: 'For the convenience of everyone in developing and updating the merge, we have streamlined the code of the main branch, only retaining the homepage menu, and the rest of the content has been moved to the example branch for maintenance. The preview address displays the content of the example branch.',
+      branchDesc:
+        'For the convenience of everyone in developing and updating the merge, we have streamlined the code of the main branch, only retaining the homepage menu, and the rest of the content has been moved to the example branch for maintenance. The preview address displays the content of the example branch.',
       greeting: 'Good morning, {userName}, today is another day full of vitality!',
       weatherDesc: 'Today is cloudy to clear, 20℃ - 25℃!',
       projectCount: 'Project Count',

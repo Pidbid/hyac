@@ -1,40 +1,48 @@
 <script setup lang="ts">
-import { ref, computed, h, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { useI18n } from 'vue-i18n';
-import JsonEditor from '@/components/custom/jsonEditor.vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
-  NCard,
-  NButton,
-  NIcon,
-  NSpace,
-  NDataTable,
+  type DataTableColumns,
   NBreadcrumb,
   NBreadcrumbItem,
-  useDialog,
-  useMessage,
-  NInput,
+  NButton,
+  NCard,
+  NDataTable,
   NDescriptions,
   NDescriptionsItem,
-  NTag,
   NEmpty,
+  NIcon,
+  NInput,
+  NSpace,
   NSplit,
-  type DataTableColumns
+  NTag,
+  useDialog,
+  useMessage
 } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
 import {
-  FolderOutline,
-  DocumentTextOutline,
-  TrashOutline,
-  CloudUploadOutline,
-  CloudDownloadOutline,
-  FolderOpenOutline,
-  ImageOutline,
-  VideocamOutline,
-  CodeSlashOutline,
   ChevronForwardOutline,
-  MusicalNotesOutline
+  CloudDownloadOutline,
+  CloudUploadOutline,
+  CodeSlashOutline,
+  DocumentTextOutline,
+  FolderOpenOutline,
+  FolderOutline,
+  ImageOutline,
+  MusicalNotesOutline,
+  TrashOutline,
+  VideocamOutline
 } from '@vicons/ionicons5';
-import { listObjects, getDownloadUrl, uploadFile, deleteFile, deleteFiles, deleteFolder, createFolder } from "@/service/api";
+import {
+  createFolder,
+  deleteFile,
+  deleteFiles,
+  deleteFolder,
+  getDownloadUrl,
+  listObjects,
+  uploadFile
+} from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
+import JsonEditor from '@/components/custom/jsonEditor.vue';
 
 const { t } = useI18n();
 const message = useMessage();
@@ -56,7 +64,6 @@ const previewUrl = ref<string | null>(null);
 const previewContent = ref<any>(null);
 const previewType = ref<'image' | 'video' | 'json' | 'other' | 'audio' | null>(null);
 
-
 // 表格高度计算
 const tableContainerRef = ref<HTMLElement | null>(null);
 
@@ -68,20 +75,19 @@ const formatBytes = (bytes: number, decimals = 2) => {
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
+  return `${Number.parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
+};
 
 const pathArrayToString = () => {
   if (breadcrumbPath.value.length >= 1) {
-    return breadcrumbPath.value.map(p => p.name).join('/') + "/";
-  } else {
-    return '';
+    return `${breadcrumbPath.value.map(p => p.name).join('/')}/`;
   }
-}
+  return '';
+};
 
 const handleDataInit = async () => {
   const currentPath = pathArrayToString();
-  console.info('currentPath', currentPath, breadcrumbPath.value)
+  console.info('currentPath', currentPath, breadcrumbPath.value);
   try {
     const { data, error } = await listObjects(applicationStore.appId, currentPath);
     if (error) {
@@ -164,7 +170,6 @@ const updatePreview = async (file: any) => {
     previewType.value = 'other';
   }
 };
-
 
 // --- 事件处理 ---
 
@@ -365,7 +370,6 @@ const handleDownloadFile = async (row: any) => {
   }
 };
 
-
 // --- 表格定义 ---
 
 const getFileIcon = (fileName: string) => {
@@ -437,12 +441,12 @@ const createColumns = (): DataTableColumns<any> => [
   {
     title: t('page.storage.size'),
     key: 'size',
-    width: 120,
+    width: 120
   },
   {
     title: t('page.storage.modifiedDate'),
     key: 'modified',
-    width: 200,
+    width: 200
   },
   {
     title: t('common.action._self'),
@@ -456,7 +460,10 @@ const createColumns = (): DataTableColumns<any> => [
           circle: true,
           size: 'small',
           title: t('page.storage.download'),
-          onClick: (e) => { e.stopPropagation(); handleDownloadFile(row); }
+          onClick: e => {
+            e.stopPropagation();
+            handleDownloadFile(row);
+          }
         },
         { default: () => h(NIcon, null, { default: () => h(CloudDownloadOutline) }) }
       );
@@ -469,15 +476,16 @@ const createColumns = (): DataTableColumns<any> => [
           size: 'small',
           type: 'error',
           title: t('common.delete'),
-          onClick: (e) => { e.stopPropagation(); handleDeleteFile(row); }
+          onClick: e => {
+            e.stopPropagation();
+            handleDeleteFile(row);
+          }
         },
         { default: () => h(NIcon, null, { default: () => h(TrashOutline) }) }
       );
 
-      return h(
-        NSpace,
-        { justify: 'center' },
-        () => row.type === 'file' ? [downloadButton, deleteButton] : [deleteButton]
+      return h(NSpace, { justify: 'center' }, () =>
+        row.type === 'file' ? [downloadButton, deleteButton] : [deleteButton]
       );
     }
   }
@@ -494,32 +502,34 @@ const rowProps = (row: any) => {
   };
 };
 
-const handleBakToRootPath = async() =>{
+const handleBakToRootPath = async () => {
   breadcrumbPath.value = [];
   await handleDataInit();
   checkedRowKeys.value = [];
-}
+};
 
 // --- 生命周期钩子 ---
 onMounted(async () => {
   await handleDataInit();
 });
 
-onBeforeUnmount(() => {
-});
+onBeforeUnmount(() => {});
 </script>
 
 <template>
-  <div class="h-full flex flex-col p-4 bg-gray-100 dark:bg-gray-800">
+  <div class="h-full flex flex-col bg-gray-100 p-4 dark:bg-gray-800">
     <!-- 头部操作栏 -->
-    <header class="flex items-center justify-between mb-4">
+    <header class="mb-4 flex items-center justify-between">
       <NBreadcrumb class="path-breadcrumb">
         <NBreadcrumbItem @click="handleBakToRootPath">
           <NIcon :component="FolderOutline" class="mr-1" />
           <span>{{ t('page.storage.root') }}</span>
         </NBreadcrumbItem>
-        <NBreadcrumbItem v-for="(path, index) in breadcrumbPath" :key="path.key"
-          @click="handleBreadcrumbClick(path, index)">
+        <NBreadcrumbItem
+          v-for="(path, index) in breadcrumbPath"
+          :key="path.key"
+          @click="handleBreadcrumbClick(path, index)"
+        >
           <NIcon :component="FolderOutline" class="mr-1" />
           {{ path.name }}
         </NBreadcrumbItem>
@@ -547,32 +557,48 @@ onBeforeUnmount(() => {
     </header>
 
     <!-- 主内容区: 左侧列表 + 右侧详情 -->
-    <NSplit class="flex-1 min-h-0" :default-size="0.85" resizable>
+    <NSplit class="min-h-0 flex-1" :default-size="0.85" resizable>
       <template #1>
         <!-- 左侧: 文件列表 -->
-        <NCard ref="tableContainerRef" class="h-full rounded-lg shadow-md" :bordered="false"
-          :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }">
-          <NDataTable :columns="columns" :data="files" :pagination="pagination" :bordered="false" :single-line="false"
-            :row-props="rowProps" :row-key="(row: any) => row.name" v-model:checked-row-keys="checkedRowKeys" />
+        <NCard
+          ref="tableContainerRef"
+          class="h-full rounded-lg shadow-md"
+          :bordered="false"
+          :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }"
+        >
+          <NDataTable
+            v-model:checked-row-keys="checkedRowKeys"
+            :columns="columns"
+            :data="files"
+            :pagination="pagination"
+            :bordered="false"
+            :single-line="false"
+            :row-props="rowProps"
+            :row-key="(row: any) => row.name"
+          />
         </NCard>
       </template>
       <template #2>
         <!-- 右侧: 详情区域 -->
-        <NCard :title="t('page.storage.detail')" class="h-full rounded-lg shadow-md" :bordered="false"
-          :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
+        <NCard
+          :title="t('page.storage.detail')"
+          class="h-full rounded-lg shadow-md"
+          :bordered="false"
+          :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }"
+        >
           <div v-if="selectedFile" class="h-full flex flex-col gap-4">
             <!-- Preview Area -->
             <div class="preview-area flex-shrink-0">
               <!-- Image Preview -->
               <div v-if="previewType === 'image' && previewUrl" class="flex-center">
-                <img :src="previewUrl" alt="Image Preview" class="max-w-full max-h-48 object-contain">
+                <img :src="previewUrl" alt="Image Preview" class="max-h-48 max-w-full object-contain" />
               </div>
               <!-- Media Player Preview -->
               <div v-else-if="(previewType === 'video' || previewType === 'audio') && previewUrl">
                 <div :key="previewUrl">
                   <!-- Video Player -->
                   <div v-if="previewType === 'video'">
-                    <video :src="previewUrl" controls class="max-w-full max-h-48"></video>
+                    <video :src="previewUrl" controls class="max-h-48 max-w-full"></video>
                   </div>
                   <!-- Native Audio Player -->
                   <audio v-else-if="previewType === 'audio'" :src="previewUrl" controls class="w-full"></audio>
@@ -580,7 +606,7 @@ onBeforeUnmount(() => {
               </div>
               <!-- JSON Preview -->
               <div v-else-if="previewType === 'json' && previewContent !== null">
-                <jsonEditor v-model="previewContent" :height="200" />
+                <JsonEditor v-model="previewContent" :height="200" />
               </div>
             </div>
 
@@ -588,9 +614,13 @@ onBeforeUnmount(() => {
             <div class="details-area flex-grow">
               <NSpace vertical :size="16">
                 <div class="text-center">
-                  <NIcon v-if="!previewType || previewType === 'other'" :component="getFileIcon(selectedFile.name)"
-                    size="48" :color="selectedFile.type === 'folder' ? '#ffca28' : '#607d8b'" />
-                  <div class="font-bold mt-2 break-all">{{ selectedFile.name }}</div>
+                  <NIcon
+                    v-if="!previewType || previewType === 'other'"
+                    :component="getFileIcon(selectedFile.name)"
+                    size="48"
+                    :color="selectedFile.type === 'folder' ? '#ffca28' : '#607d8b'"
+                  />
+                  <div class="mt-2 break-all font-bold">{{ selectedFile.name }}</div>
                 </div>
                 <NDescriptions label-placement="left" :column="1" bordered size="small">
                   <NDescriptionsItem :label="t('page.storage.type')">
@@ -599,10 +629,16 @@ onBeforeUnmount(() => {
                     </NTag>
                   </NDescriptionsItem>
                   <NDescriptionsItem :label="t('page.storage.size')">{{ selectedFile.size }}</NDescriptionsItem>
-                  <NDescriptionsItem :label="t('page.storage.modifiedDate')">{{ selectedFile.modified }}</NDescriptionsItem>
+                  <NDescriptionsItem :label="t('page.storage.modifiedDate')">
+                    {{ selectedFile.modified }}
+                  </NDescriptionsItem>
                 </NDescriptions>
-                <NButton type="primary" block @click="handleDownloadFile(selectedFile)"
-                  v-if="selectedFile.type === 'file'">
+                <NButton
+                  v-if="selectedFile.type === 'file'"
+                  type="primary"
+                  block
+                  @click="handleDownloadFile(selectedFile)"
+                >
                   <template #icon>
                     <NIcon :component="CloudDownloadOutline" />
                   </template>

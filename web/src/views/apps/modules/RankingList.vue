@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 import { $t } from '@/locales';
 
 defineOptions({
@@ -35,9 +35,7 @@ const rankingData = computed(() => {
 });
 
 const title = computed(() => {
-  return rankingType.value === 'count'
-    ? $t('page.apps.top5FunctionsByCount')
-    : $t('page.apps.top5FunctionsByTime');
+  return rankingType.value === 'count' ? $t('page.apps.top5FunctionsByCount') : $t('page.apps.top5FunctionsByTime');
 });
 </script>
 
@@ -51,10 +49,10 @@ const title = computed(() => {
     </template>
     <NList>
       <NListItem v-for="(item, index) in rankingData" :key="index">
-        <div class="flex justify-between items-center">
+        <div class="flex items-center justify-between">
           <span>
             <span class="mr-8px">{{ index + 1 }}.</span>
-            <a class="text-primary hover:underline cursor-pointer">{{ item.name }}</a>
+            <a class="cursor-pointer text-primary hover:underline">{{ item.name }}</a>
           </span>
           <span class="font-bold">{{ item.value }}</span>
         </div>

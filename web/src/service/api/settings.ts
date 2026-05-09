@@ -2,11 +2,12 @@ import { request } from '../request';
 
 /**
  * 搜索依赖
+ *
  * @param appId - 应用ID
  * @param name - 依赖名称
  * @param forceUpdate - 是否强制更新
  */
-export function dependenceSearch(appId: string, name:string, forceUpdate: boolean = false) {
+export function dependenceSearch(appId: string, name: string, forceUpdate: boolean = false) {
   return request<Api.Settings.PackageInfo[]>({
     url: '/settings/dependence_search',
     method: 'post',
@@ -20,6 +21,7 @@ export function dependenceSearch(appId: string, name:string, forceUpdate: boolea
 
 /**
  * 获取包信息
+ *
  * @param appId - 应用ID
  * @param name - 包名称
  */
@@ -36,6 +38,7 @@ export function packageInfo(appId: string, name: string) {
 
 /**
  * 添加包
+ *
  * @param appId - 应用ID
  * @param name - 包名称
  * @param version - 包版本
@@ -56,6 +59,7 @@ export function packageAdd(appId: string, name: string, version: string, restart
 
 /**
  * 移除包
+ *
  * @param appId - 应用ID
  * @param name - 包名称
  * @param restart - 是否重启容器
@@ -74,6 +78,7 @@ export function packageRemove(appId: string, name: string, restart: boolean = fa
 
 /**
  * 更新依赖
+ *
  * @param appId - 应用ID
  */
 export function dependenceUpdate(appId: string) {
@@ -88,6 +93,7 @@ export function dependenceUpdate(appId: string) {
 
 /**
  * 获取应用依赖数据
+ *
  * @param appId - 应用ID
  */
 export function dependenciesData(appId: string) {
@@ -100,6 +106,7 @@ export function dependenciesData(appId: string) {
 
 /**
  * Get environment variables for an application.
+ *
  * @param appId - The ID of the application.
  */
 export function getEnvsData(appId: string) {
@@ -112,6 +119,7 @@ export function getEnvsData(appId: string) {
 
 /**
  * Add or update an environment variable for an application.
+ *
  * @param appId - The ID of the application.
  * @param key - The key of the environment variable.
  * @param value - The value of the environment variable.
@@ -126,6 +134,7 @@ export function addEnv(appId: string, key: string, value: string) {
 
 /**
  * Remove an environment variable from an application.
+ *
  * @param appId - The ID of the application.
  * @param key - The key of the environment variable to remove.
  */
@@ -139,6 +148,7 @@ export function removeEnv(appId: string, key: string) {
 
 /**
  * 获取CORS配置
+ *
  * @param appId - 应用ID
  */
 export function corsData(data: { appId: string }) {
@@ -151,6 +161,7 @@ export function corsData(data: { appId: string }) {
 
 /**
  * 更新CORS配置
+ *
  * @param appId - 应用ID
  * @param config - CORS配置
  */
@@ -164,6 +175,7 @@ export function corsUpdate(data: { appId: string; config: Api.Settings.CorsConfi
 
 /**
  * 获取通知配置
+ *
  * @param data - 请求数据
  */
 export function notificationData(data: { appId: string }) {
@@ -176,6 +188,7 @@ export function notificationData(data: { appId: string }) {
 
 /**
  * 更新通知配置
+ *
  * @param data - 请求数据
  */
 export function notificationUpdate(data: { appId: string; config: Api.Settings.NotificationConfig }) {
@@ -188,21 +201,20 @@ export function notificationUpdate(data: { appId: string; config: Api.Settings.N
 
 /**
  * 获取APP状态
+ *
  * @param data - 请求数据
  */
 export function applicationStatus(appId: string) {
   return request<Api.Settings.ApplicationStatus>({
     url: '/settings/application_status',
     method: 'post',
-    data:{
+    data: {
       appId
     }
   });
 }
 
-/**
- * 获取域名
- */
+/** 获取域名 */
 export function getDomain() {
   return request<string>({
     url: '/settings/domain',
@@ -212,6 +224,7 @@ export function getDomain() {
 
 /**
  * 获取AI配置
+ *
  * @param data - 请求数据
  */
 export function fetchAiConfig(data: { appId: string }) {
@@ -224,6 +237,7 @@ export function fetchAiConfig(data: { appId: string }) {
 
 /**
  * 更新AI配置
+ *
  * @param data - 请求数据
  */
 export function updateAiConfig(data: { appId: string; config: Api.Settings.AIConfig }) {
@@ -236,6 +250,7 @@ export function updateAiConfig(data: { appId: string; config: Api.Settings.AICon
 
 /**
  * Fetch system changelogs.
+ *
  * @returns
  */
 export function fetchChangelogs() {
@@ -247,6 +262,7 @@ export function fetchChangelogs() {
 
 /**
  * Get system versions.
+ *
  * @returns
  */
 export function fetchSystemVersions() {
@@ -258,6 +274,7 @@ export function fetchSystemVersions() {
 
 /**
  * Get system settings.
+ *
  * @returns
  */
 export function fetchGetSystemSetting() {

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { watch } from 'vue';
 import { useAppStore } from '@/store/modules/app';
+import { useApplicationStore } from '@/store/modules/application';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
-import { useApplicationStore } from '@/store/modules/application';
 
 defineOptions({
   name: 'PieChart'
@@ -19,7 +19,7 @@ const applicationStore = useApplicationStore();
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
-    trigger: 'item',
+    trigger: 'item'
   },
   legend: {
     bottom: '1%',

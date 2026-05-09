@@ -16,7 +16,6 @@ const appStore = useAppStore();
 const themeStore = useThemeStore();
 const { childLevelMenus, isActiveFirstLevelMenuHasChildren } = setupMixMenuContext();
 
-
 const layoutMode = computed(() => {
   const vertical: LayoutMode = 'vertical';
   const horizontal: LayoutMode = 'horizontal';
@@ -58,9 +57,7 @@ const isVerticalMix = computed(() => themeStore.layout.mode === 'vertical-mix');
 
 const isHorizontalMix = computed(() => themeStore.layout.mode === 'horizontal-mix');
 
-
 const siderCollapsedWidth = computed(() => getSiderCollapsedWidth());
-
 
 function getSiderCollapsedWidth() {
   const { reverseHorizontalMix } = themeStore.layout;

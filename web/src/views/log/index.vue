@@ -1,32 +1,40 @@
 <script setup lang="ts">
-import { ref, h, onMounted, reactive, computed, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import {
-  NCard,
   NButton,
-  NIcon,
-  NSpace,
+  NCard,
+  NCode,
   NDataTable,
-  NSelect,
   NDatePicker,
-  NTag,
-  NEmpty,
-  NSwitch,
   NDescriptions,
   NDescriptionsItem,
-  useMessage,
+  NEmpty,
+  NIcon,
   NLog,
-  NCode
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTag,
+  useMessage
 } from 'naive-ui';
-import { SearchOutline, SyncOutline, InformationCircleOutline, WarningOutline, CloseCircleOutline, BugOutline, ReloadOutline } from '@vicons/ionicons5';
-import { getAppLogs, getFunctionLogs } from "@/service/api/logs";
-import { GetFunctionData } from "@/service/api/function";
+import { format } from 'date-fns';
+import { useI18n } from 'vue-i18n';
+import {
+  BugOutline,
+  CloseCircleOutline,
+  InformationCircleOutline,
+  ReloadOutline,
+  SearchOutline,
+  SyncOutline,
+  WarningOutline
+} from '@vicons/ionicons5';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import { getAppLogs, getFunctionLogs } from '@/service/api/logs';
+import { GetFunctionData } from '@/service/api/function';
 import { useApplicationStore } from '@/store/modules/application';
 import { useAppStore } from '@/store/modules/app';
-import { format } from 'date-fns';
-import hljs from 'highlight.js/lib/core'
-import javascript from 'highlight.js/lib/languages/javascript'
-hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('javascript', javascript);
 
 const { t } = useI18n();
 const message = useMessage();
@@ -43,7 +51,7 @@ const filters = reactive({
   funcId: null,
   level: null,
   logtype: null,
-  dateRange: null as [number, number] | null,
+  dateRange: null as [number, number] | null
 });
 
 const pagination = reactive({
@@ -66,12 +74,12 @@ const levelOptions = computed(() => [
   { label: t('page.log.info'), value: 'INFO' },
   { label: t('page.log.warning'), value: 'WARNING' },
   { label: t('page.log.error'), value: 'ERROR' },
-  { label: t('page.log.critical'), value: 'CRITICAL' },
+  { label: t('page.log.critical'), value: 'CRITICAL' }
 ]);
 
 const logTypeOptions = computed(() => [
   { label: t('page.log.system'), value: 'system' },
-  { label: t('page.log.function'), value: 'function' },
+  { label: t('page.log.function'), value: 'function' }
 ]);
 
 // --- 数据获取 ---
@@ -106,7 +114,7 @@ const handleSearch = async () => {
       level: filters.level || undefined,
       logtype: filters.logtype || undefined,
       dateStart: filters.dateRange ? format(filters.dateRange[0], "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
-      dateEnd: filters.dateRange ? format(filters.dateRange[1], "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined,
+      dateEnd: filters.dateRange ? format(filters.dateRange[1], "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : undefined
     };
 
     const apiCall = filters.funcId
@@ -134,12 +142,12 @@ const handleSearch = async () => {
   }
 };
 
-const levelConfig: Record<string, { type: 'info' | 'warning' | 'error' | 'default', icon: any }> = {
+const levelConfig: Record<string, { type: 'info' | 'warning' | 'error' | 'default'; icon: any }> = {
   info: { type: 'info', icon: InformationCircleOutline },
   warning: { type: 'warning', icon: WarningOutline },
   error: { type: 'error', icon: CloseCircleOutline },
   critical: { type: 'error', icon: CloseCircleOutline },
-  debug: { type: 'default', icon: BugOutline },
+  debug: { type: 'default', icon: BugOutline }
 };
 
 const createColumns = () => [
@@ -187,7 +195,9 @@ const columns = computed(() => createColumns());
 const rowProps = (row: Api.Log.LogEntry) => {
   return {
     style: 'cursor: pointer;',
-    onClick: () => { selectedLog.value = row; },
+    onClick: () => {
+      selectedLog.value = row;
+    },
     class: selectedLog.value?._id === row._id ? 'selected-row' : ''
   };
 };
@@ -197,69 +207,106 @@ onMounted(async () => {
   await fetchFunctions();
   await handleSearch();
 });
-
 </script>
 
 <template>
-    <div class="h-full flex flex-col p-4 bg-gray-100 dark:bg-gray-800">
-      <!-- 头部筛选与操作栏 -->
-      <header class="flex items-center justify-between mb-4">
-        <NSpace align="center">
-          <NSelect v-model:value="filters.funcId" :options="functions" :placeholder="t('page.log.allFunctions')" clearable class="w-48"
-            size="small" />
-          <NSelect v-model:value="filters.level" :options="levelOptions" :placeholder="t('page.log.allLevels')" clearable class="w-36"
-            size="small" />
-          <NSelect v-model:value="filters.logtype" :options="logTypeOptions" :placeholder="t('page.log.allTypes')" clearable class="w-36"
-            size="small" />
-          <NDatePicker v-model:value="filters.dateRange" type="datetimerange" clearable size="small" class="w-96" />
-          <NButton type="default" size="small" @click="appStore.reloadPage(500)">
-            <template #icon>
-              <NIcon :component="ReloadOutline" />
-            </template>
-          </NButton>
-          <NButton type="primary" size="small" @click="handleSearch">
-            <template #icon>
-              <NIcon :component="SearchOutline" />
-            </template>
-            {{ t('page.log.query') }}
-          </NButton>
-        </NSpace>
-      </header>
+  <div class="h-full flex flex-col bg-gray-100 p-4 dark:bg-gray-800">
+    <!-- 头部筛选与操作栏 -->
+    <header class="mb-4 flex items-center justify-between">
+      <NSpace align="center">
+        <NSelect
+          v-model:value="filters.funcId"
+          :options="functions"
+          :placeholder="t('page.log.allFunctions')"
+          clearable
+          class="w-48"
+          size="small"
+        />
+        <NSelect
+          v-model:value="filters.level"
+          :options="levelOptions"
+          :placeholder="t('page.log.allLevels')"
+          clearable
+          class="w-36"
+          size="small"
+        />
+        <NSelect
+          v-model:value="filters.logtype"
+          :options="logTypeOptions"
+          :placeholder="t('page.log.allTypes')"
+          clearable
+          class="w-36"
+          size="small"
+        />
+        <NDatePicker v-model:value="filters.dateRange" type="datetimerange" clearable size="small" class="w-96" />
+        <NButton type="default" size="small" @click="appStore.reloadPage(500)">
+          <template #icon>
+            <NIcon :component="ReloadOutline" />
+          </template>
+        </NButton>
+        <NButton type="primary" size="small" @click="handleSearch">
+          <template #icon>
+            <NIcon :component="SearchOutline" />
+          </template>
+          {{ t('page.log.query') }}
+        </NButton>
+      </NSpace>
+    </header>
 
-      <!-- 主内容区: 左侧列表 + 右侧详情 -->
-      <div class="flex-1 flex gap-4 min-h-0">
-        <!-- 左侧: 日志列表 -->
-        <NCard class="flex-1 rounded-lg shadow-md" :bordered="false"
-          :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }">
-          <NDataTable :columns="columns" :data="logs" :pagination="pagination" :loading="loading" :bordered="false"
-            :single-line="false" :row-props="rowProps" :row-key="(row: Api.Log.LogEntry) => row._id" remote />
-        </NCard>
-        <!-- 右侧: 详情区域 -->
-        <NCard :title="t('page.log.logDetail')" class="w-96 rounded-lg shadow-md" :bordered="false"
-          :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }">
-          <div v-if="selectedLog" class="h-full flex flex-col gap-4">
-            <NDescriptions label-placement="left" :column="1" bordered size="small">
-              <NDescriptionsItem :label="t('page.log.time')">{{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
-              </NDescriptionsItem>
-              <NDescriptionsItem :label="t('page.log.level')">
-                <NTag :type="levelConfig[selectedLog.level.toLowerCase()]?.type || 'default'" size="small">{{
-                  selectedLog.level }}</NTag>
-              </NDescriptionsItem>
-              <NDescriptionsItem :label="t('page.log.type')">{{ selectedLog.logtype === 'function' ? t('page.log.function') : t('page.log.system') }}</NDescriptionsItem>
-              <NDescriptionsItem v-if="selectedLog.extra.function_name" :label="t('page.log.functionName')">{{ selectedLog.extra.function_name
-                }}
-              </NDescriptionsItem>
-            </NDescriptions>
-            <div class="flex-grow min-h-0">
-              <NScrollbar class="h-full">
-                <NLog :hljs="hljs" :log="selectedLog.message" :rows="30" language="json" trim class="h-full" />
-              </NScrollbar>
-            </div>
+    <!-- 主内容区: 左侧列表 + 右侧详情 -->
+    <div class="min-h-0 flex flex-1 gap-4">
+      <!-- 左侧: 日志列表 -->
+      <NCard
+        class="flex-1 rounded-lg shadow-md"
+        :bordered="false"
+        :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }"
+      >
+        <NDataTable
+          :columns="columns"
+          :data="logs"
+          :pagination="pagination"
+          :loading="loading"
+          :bordered="false"
+          :single-line="false"
+          :row-props="rowProps"
+          :row-key="(row: Api.Log.LogEntry) => row._id"
+          remote
+        />
+      </NCard>
+      <!-- 右侧: 详情区域 -->
+      <NCard
+        :title="t('page.log.logDetail')"
+        class="w-96 rounded-lg shadow-md"
+        :bordered="false"
+        :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }"
+      >
+        <div v-if="selectedLog" class="h-full flex flex-col gap-4">
+          <NDescriptions label-placement="left" :column="1" bordered size="small">
+            <NDescriptionsItem :label="t('page.log.time')">
+              {{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
+            </NDescriptionsItem>
+            <NDescriptionsItem :label="t('page.log.level')">
+              <NTag :type="levelConfig[selectedLog.level.toLowerCase()]?.type || 'default'" size="small">
+                {{ selectedLog.level }}
+              </NTag>
+            </NDescriptionsItem>
+            <NDescriptionsItem :label="t('page.log.type')">
+              {{ selectedLog.logtype === 'function' ? t('page.log.function') : t('page.log.system') }}
+            </NDescriptionsItem>
+            <NDescriptionsItem v-if="selectedLog.extra.function_name" :label="t('page.log.functionName')">
+              {{ selectedLog.extra.function_name }}
+            </NDescriptionsItem>
+          </NDescriptions>
+          <div class="min-h-0 flex-grow">
+            <NScrollbar class="h-full">
+              <NLog :hljs="hljs" :log="selectedLog.message" :rows="30" language="json" trim class="h-full" />
+            </NScrollbar>
           </div>
-          <NEmpty v-else :description="t('page.log.selectLogToView')" class="h-full flex-center" />
-        </NCard>
-      </div>
+        </div>
+        <NEmpty v-else :description="t('page.log.selectLogToView')" class="h-full flex-center" />
+      </NCard>
     </div>
+  </div>
 </template>
 
 <style scoped>

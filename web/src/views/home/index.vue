@@ -1,37 +1,45 @@
 <script setup lang="ts">
-import { reactive, h, ref, watch, onUnmounted, computed, onMounted } from 'vue';
+import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
   NButton,
-  NPopconfirm,
   NCard,
   NDataTable,
+  NDropdown,
   NEmpty,
-  NIcon,
+  NForm,
+  NFormItem,
   NGi,
   NGrid,
   NH1,
-  NP,
-  NModal,
-  NForm,
-  NFormItem,
+  NIcon,
   NInput,
-  useMessage,
+  NModal,
+  NP,
+  NPopconfirm,
   NSpace,
   NTag,
-  NDropdown,
-  useDialog
+  useDialog,
+  useMessage
 } from 'naive-ui';
-import { AddCircleOutline, AddOutline as AddIcon, CreateOutline, TrashBinOutline, StopCircleOutline, RocketOutline, EllipsisHorizontal } from '@vicons/ionicons5';
+import type { DataTableColumn as TableColumn } from 'naive-ui';
+import {
+  AddCircleOutline,
+  AddOutline as AddIcon,
+  CreateOutline,
+  EllipsisHorizontal,
+  RocketOutline,
+  StopCircleOutline,
+  TrashBinOutline
+} from '@vicons/ionicons5';
 import { useHookTable } from '@sa/hooks';
-import { getApps, createApp, deleteApp, startApp, stopApp, restartApp } from '@/service/api/app';
+import { createApp, deleteApp, getApps, restartApp, startApp, stopApp } from '@/service/api/app';
 import { applicationStatus } from '@/service/api/settings';
-import { useRouterPush } from '@/hooks/common/router';
-import HomeLayout from '@/layouts/home-layout/index.vue';
-import { $t } from '@/locales';
-import { localStg } from '@/utils/storage';
 import { useAuthStore } from '@/store/modules/auth';
 import { useAppStore } from '@/store/modules/app';
-import type { DataTableColumn as TableColumn } from 'naive-ui';
+import { useRouterPush } from '@/hooks/common/router';
+import { localStg } from '@/utils/storage';
+import HomeLayout from '@/layouts/home-layout/index.vue';
+import { $t } from '@/locales';
 
 const { routerPush } = useRouterPush();
 const authStore = useAuthStore();
@@ -103,7 +111,7 @@ const tableColumns = (): TableColumn<any>[] => [
     key: 'description',
     title: $t('page.home.appDesc'),
     align: 'left',
-    minWidth: 220,
+    minWidth: 220
   },
   {
     key: 'status',
@@ -180,7 +188,12 @@ const tableColumns = (): TableColumn<any>[] => [
           disabled: isDeleting || isStarting || isStopping,
           onClick: () => (isRunning ? handleStopApp(row.app_id) : handleStartApp(row.app_id))
         },
-        { default: () => (isRunning ? [h(NIcon, { component: StopCircleOutline }), $t('page.home.pause')] : [h(NIcon, { component: RocketOutline }), $t('page.home.start')]) }
+        {
+          default: () =>
+            isRunning
+              ? [h(NIcon, { component: StopCircleOutline }), $t('page.home.pause')]
+              : [h(NIcon, { component: RocketOutline }), $t('page.home.start')]
+        }
       );
 
       const moreButton = h(
@@ -236,7 +249,13 @@ const transformer = (response: any) => ({
 const isSilentLoading = ref(false);
 const displayLoading = computed(() => loading.value && !isSilentLoading.value);
 
-const { loading, empty, data, getData: fetchData, columns } = useHookTable({
+const {
+  loading,
+  empty,
+  data,
+  getData: fetchData,
+  columns
+} = useHookTable({
   apiFn: getApps,
   apiParams,
   transformer,
@@ -301,10 +320,10 @@ const handleCreateApp = async () => {
         message.error($t('page.home.errorCreatingApp'));
       }
     } else {
-      console.log(errors)
-      message.error($t('page.home.fillInCompletely'))
+      console.log(errors);
+      message.error($t('page.home.fillInCompletely'));
     }
-  })
+  });
 };
 
 const handleDeleteApp = (appId: string) => {
@@ -401,7 +420,7 @@ const handleRestartApp = async (appId: string) => {
             <NH1 class="text-3xl! font-bold!">
               {{ $t('page.home.welcome', { userName }) }}
             </NH1>
-            <NP class="text-16px text-gray-500 mt-4 text-center">
+            <NP class="mt-4 text-center text-16px text-gray-500">
               {{ $t('page.home.welcomeDescription') }}
             </NP>
 
@@ -409,14 +428,14 @@ const handleRestartApp = async (appId: string) => {
               <NGi v-for="(item, index) in cardData" :key="index">
                 <NCard hoverable class="h-full! rounded-lg!">
                   <div class="flex items-center">
-                    <div class="h-30px w-4px bg-primary mr-12px"></div>
+                    <div class="mr-12px h-30px w-4px bg-primary"></div>
                     <span class="text-16px">{{ item.title }}</span>
                   </div>
                 </NCard>
               </NGi>
             </NGrid>
 
-            <NP class="text-14px text-gray-400 mt-8">
+            <NP class="mt-8 text-14px text-gray-400">
               {{ $t('page.home.createYourApp') }}
             </NP>
 
@@ -432,7 +451,14 @@ const handleRestartApp = async (appId: string) => {
     </NGrid>
 
     <NModal v-model:show="showCreateModal" preset="card" :title="$t('page.home.newApplication')" style="width: 600px">
-      <NForm ref="formRef" :model="createAppForm" :rules="rules" label-placement="left" label-width="auto" @keyup.enter="handleCreateApp">
+      <NForm
+        ref="formRef"
+        :model="createAppForm"
+        :rules="rules"
+        label-placement="left"
+        label-width="auto"
+        @keyup.enter="handleCreateApp"
+      >
         <NFormItem :label="$t('page.home.appName')" path="appName">
           <NInput v-model:value="createAppForm.appName" :placeholder="$t('page.home.appNamePlaceholder')" />
         </NFormItem>

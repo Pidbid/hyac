@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { fetchStatisticsSummary } from '@/service/api/statistics';
 import { useApplicationStore } from '@/store/modules/application';
 import { useAppStore } from '@/store/modules/app';
-import { fetchStatisticsSummary } from '@/service/api/statistics';
 import SummaryCard from './modules/SummaryCard.vue';
 import TrendChart from './modules/TrendChart.vue';
 import RankingList from './modules/RankingList.vue';

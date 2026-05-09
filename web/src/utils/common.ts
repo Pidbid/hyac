@@ -59,6 +59,7 @@ export function toggleHtmlClass(className: string) {
 
 /**
  * 将 server.domain.name/ 格式的域名转换为指定协议和前缀的格式
+ *
  * @param originalDomain - 原始域名，格式如 server.domain.name/ 或 http://server.domain.name/
  * @param protocol - 请求方式 http https ws wss
  * @param prefix - 前缀
@@ -69,9 +70,7 @@ export function convertDomain(originalDomain: string, protocol: string, prefix: 
     throw new Error('Invalid protocol format. Should be like http, https, ws, wss');
   }
 
-  const normalized = /^[a-zA-Z]+:\/\//.test(originalDomain)
-    ? originalDomain
-    : `http://${originalDomain}`;
+  const normalized = /^[a-zA-Z]+:\/\//.test(originalDomain) ? originalDomain : `http://${originalDomain}`;
 
   let parsed: URL;
   try {
@@ -98,16 +97,14 @@ export function convertDomain(originalDomain: string, protocol: string, prefix: 
     throw new Error('Invalid domain format.');
   }
 
-  const baseDomain =
-    parts[0] === 'server' && parts.length > 1 ? parts.slice(1).join('.') : parts.join('.');
+  const baseDomain = parts[0] === 'server' && parts.length > 1 ? parts.slice(1).join('.') : parts.join('.');
 
   return `${protocol}://${prefix}.${baseDomain}${port}`;
 }
 
 /**
- * 获取后端服务的 Base URL。
- * 在生产环境中，它会从 window.APP_CONFIG 读取（由 Docker entrypoint 注入）。
- * 在开发环境中，它会回退到 Vite 的 import.meta.env。
+ * 获取后端服务的 Base URL。 在生产环境中，它会从 window.APP_CONFIG 读取（由 Docker entrypoint 注入）。 在开发环境中，它会回退到 Vite 的 import.meta.env。
+ *
  * @returns 后端服务的 URL
  */
 export function getServiceBaseUrl(): string {

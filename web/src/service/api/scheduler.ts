@@ -2,6 +2,7 @@ import { request } from '../request';
 
 /**
  * Get the scheduled task for a specific function.
+ *
  * @param appId - The ID of the application.
  * @param functionId - The ID of the function.
  */
@@ -15,6 +16,7 @@ export function getTaskForFunction(appId: string, functionId: string) {
 
 /**
  * Create or update the scheduled task for a specific function.
+ *
  * @param data - The task data to upsert.
  */
 export function upsertTaskForFunction(data: Api.Scheduler.ScheduledTaskUpsert) {
@@ -27,6 +29,7 @@ export function upsertTaskForFunction(data: Api.Scheduler.ScheduledTaskUpsert) {
 
 /**
  * Delete the scheduled task for a specific function.
+ *
  * @param appId - The ID of the application.
  * @param functionId - The ID of the function.
  */
@@ -40,13 +43,14 @@ export function deleteTaskForFunction(appId: string, functionId: string) {
 
 /**
  * Manually trigger the scheduled task for a function.
+ *
  * @param appId - The ID of the application.
  * @param functionId - The ID of the function.
  */
 export function triggerTaskForFunction(appId: string, functionId: string) {
-    return request({
-        url: '/scheduler/trigger',
-        method: 'post',
-        data: { appId, functionId }
-    });
+  return request({
+    url: '/scheduler/trigger',
+    method: 'post',
+    data: { appId, functionId }
+  });
 }

@@ -2,8 +2,8 @@ import { effectScope, nextTick, onScopeDispose, ref, watch } from 'vue';
 import { breakpointsTailwind, useBreakpoints, useEventListener, useTitle } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { useBoolean } from '@sa/hooks';
-import { fetchGetSystemSetting } from '@/service/api';
 import { router } from '@/router';
+import { fetchGetSystemSetting } from '@/service/api';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
 import { $t, setLocale } from '@/locales';
@@ -31,8 +31,8 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
 
   const isDemoMode = ref(false);
 
-   /** Is mobile layout */
-   const isMobile = breakpoints.smaller('sm');
+  /** Is mobile layout */
+  const isMobile = breakpoints.smaller('sm');
 
   /**
    * Reload page

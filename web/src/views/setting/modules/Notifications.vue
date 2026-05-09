@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
+  NAlert,
+  NButton,
   NCard,
   NForm,
   NFormItem,
-  NSwitch,
-  NButton,
   NInput,
   NInputNumber,
   NSelect,
   NSpace,
-  useMessage,
-  NAlert,
+  NSwitch,
+  NTabPane,
   NTabs,
-  NTabPane
+  useMessage
 } from 'naive-ui';
-import { $t } from '@/locales';
-import { useApplicationStore } from '@/store/modules/application';
 import { notificationData, notificationUpdate } from '@/service/api/settings';
+import { useApplicationStore } from '@/store/modules/application';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'NotificationsSettings'
@@ -112,7 +112,13 @@ onMounted(fetchData);
               <NInput v-model:value="settings.webhook.url" />
             </NFormItem>
             <NFormItem :label="$t('page.setting.requestMethod')">
-              <NSelect v-model:value="settings.webhook.method" :options="[{label: 'POST', value: 'POST'}, {label: 'GET', value: 'GET'}]" />
+              <NSelect
+                v-model:value="settings.webhook.method"
+                :options="[
+                  { label: 'POST', value: 'POST' },
+                  { label: 'GET', value: 'GET' }
+                ]"
+              />
             </NFormItem>
             <NButton type="info" ghost @click="handleTest('webhook')">{{ $t('page.setting.sendTest') }}</NButton>
           </NForm>
@@ -120,7 +126,7 @@ onMounted(fetchData);
 
         <!-- WeChat -->
         <NTabPane name="wechat" :tab="$t('page.setting.wechatNotifications')">
-           <NForm :model="settings.wechat" label-placement="left" label-width="auto" :disabled="isLoading">
+          <NForm :model="settings.wechat" label-placement="left" label-width="auto" :disabled="isLoading">
             <NFormItem :label="$t('common.switch')">
               <NSwitch v-model:value="settings.wechat.enabled" />
             </NFormItem>
@@ -132,7 +138,7 @@ onMounted(fetchData);
         </NTabPane>
       </NTabs>
 
-      <NButton type="primary" @click="handleSave" :loading="isLoading" class="mt-4">
+      <NButton type="primary" :loading="isLoading" class="mt-4" @click="handleSave">
         {{ $t('common.save') }}
       </NButton>
     </NSpace>

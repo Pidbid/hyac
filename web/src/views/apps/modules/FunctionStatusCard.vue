@@ -52,12 +52,12 @@ const stats = computed(() => {
 </script>
 
 <template>
-  <NCard :title="t('page.apps.requestCount')" :bordered="false" class="card-wrapper h-full">
+  <NCard :title="t('page.apps.requestCount')" :bordered="false" class="h-full card-wrapper">
     <NSpin :show="loading">
       <NGrid :cols="4" :x-gap="16">
         <NGi v-for="(item, index) in stats" :key="index" class="flex-col-center">
           <SvgIcon :icon="item.icon" class="text-32px" :class="item.color" />
-          <p class="text-xl font-bold mt-4px">{{ item.value }}</p>
+          <p class="mt-4px text-xl font-bold">{{ item.value }}</p>
           <p class="text-gray-500">{{ item.label }}</p>
         </NGi>
       </NGrid>

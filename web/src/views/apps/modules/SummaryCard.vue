@@ -59,7 +59,7 @@ const summaryData = computed<SummaryData[]>(() => {
 </script>
 
 <template>
-  <NCard :title="$t('page.apps.coreMetrics')" :loading="props.loading" :bordered="false" class="card-wrapper h-full">
+  <NCard :title="$t('page.apps.coreMetrics')" :loading="props.loading" :bordered="false" class="h-full card-wrapper">
     <NGrid :cols="12" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
       <NGi v-for="item in summaryData" :key="item.key" span="12 s:6 m:4 l:3">
         <div class="flex items-center">

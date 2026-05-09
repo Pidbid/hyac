@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, h, defineAsyncComponent, onMounted } from 'vue';
-import { NLayout, NLayoutSider, NLayoutContent, NMenu, NCard, NSplit, NIcon } from 'naive-ui';
+import { computed, defineAsyncComponent, h, onMounted, ref } from 'vue';
+import { NCard, NIcon, NLayout, NLayoutContent, NLayoutSider, NMenu, NSplit } from 'naive-ui';
 import {
+  CloudUploadOutline,
   CodeSlashOutline,
+  HardwareChipOutline,
+  KeyOutline,
+  NotificationsOutline,
+  PersonCircleOutline,
   ServerOutline,
   ShareSocialOutline,
-  NotificationsOutline,
-  WarningOutline,
-  KeyOutline,
-  HardwareChipOutline,
-  CloudUploadOutline,
-  PersonCircleOutline
+  WarningOutline
 } from '@vicons/ionicons5';
-import { $t } from '@/locales';
 import { useAppStore } from '@/store/modules/app';
+import { $t } from '@/locales';
 
- defineOptions({
+defineOptions({
   name: 'SettingIndex'
 });
 
@@ -114,7 +114,7 @@ onMounted(() => {
         </div>
       </template>
       <template #2>
-        <div class="p-4 sm:p-6 md:p-8 h-full overflow-y-auto">
+        <div class="h-full overflow-y-auto p-4 md:p-8 sm:p-6">
           <component :is="currentComponent" />
         </div>
       </template>

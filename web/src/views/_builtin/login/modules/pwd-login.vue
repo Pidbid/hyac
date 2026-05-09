@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, computed } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { loginModuleRecord } from '@/constants/app';
 import { fetchCaptcha } from '@/service/api/auth';
 import { useAuthStore } from '@/store/modules/auth';
@@ -87,8 +87,12 @@ onMounted(async () => {
       <NInput v-model:value="model.username" :placeholder="$t('page.login.common.userNamePlaceholder')" />
     </NFormItem>
     <NFormItem path="password">
-      <NInput v-model:value="model.password" type="password" show-password-on="click"
-        :placeholder="$t('page.login.common.passwordPlaceholder')" />
+      <NInput
+        v-model:value="model.password"
+        type="password"
+        show-password-on="click"
+        :placeholder="$t('page.login.common.passwordPlaceholder')"
+      />
     </NFormItem>
     <NFormItem path="captcha">
       <NGrid cols="4">
@@ -96,7 +100,7 @@ onMounted(async () => {
           <NInput v-model:value="model.captcha" :placeholder="$t('page.login.common.captchaPlaceholder')" />
         </NGi>
         <NGi>
-          <div v-if="captcha.loading" class="flex-center h-full bg-gray-100/40">
+          <div v-if="captcha.loading" class="h-full flex-center bg-gray-100/40">
             <NSpin :show="true" />
           </div>
           <NImage
@@ -113,14 +117,17 @@ onMounted(async () => {
     <NSpace vertical :size="24">
       <div class="flex-y-center justify-between">
         <NCheckbox>{{ $t('page.login.pwdLogin.rememberMe') }}</NCheckbox>
-        <!-- <NButton quaternary @click="toggleLoginModule('reset-pwd')">
+        <!--
+ <NButton quaternary @click="toggleLoginModule('reset-pwd')">
           {{ $t('page.login.pwdLogin.forgetPassword') }}
-        </NButton> -->
+        </NButton> 
+-->
       </div>
       <NButton type="primary" size="large" round block :loading="authStore.loginLoading" @click="handleSubmit">
         {{ $t('common.confirm') }}
       </NButton>
-      <!-- <div class="flex-y-center justify-between gap-12px">
+      <!--
+ <div class="flex-y-center justify-between gap-12px">
         <NButton class="flex-1" block @click="toggleLoginModule('code-login')">
           {{ $t(loginModuleRecord['code-login']) }}
         </NButton>
@@ -133,7 +140,8 @@ onMounted(async () => {
         <NButton v-for="item in accounts" :key="item.key" type="primary" @click="handleAccountLogin(item)">
           {{ item.label }}
         </NButton>
-      </div> -->
+      </div> 
+-->
     </NSpace>
   </NForm>
 </template>

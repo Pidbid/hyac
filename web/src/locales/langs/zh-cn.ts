@@ -244,7 +244,8 @@ const local: App.I18n.Schema = {
       emptyApp: '暂无应用，请先创建应用',
       createApp: '创建应用',
       welcome: 'Hello 👋, {userName}, 欢迎来到 Hyac 云开发平台!',
-      welcomeDescription: '在这里，你可以作为全栈、后端、\n云开发用户、Python开发者、独立\n开发者等，开发任何应用，例如：',
+      welcomeDescription:
+        '在这里，你可以作为全栈、后端、\n云开发用户、Python开发者、独立\n开发者等，开发任何应用，例如：',
       miniProgram: '微信小程序/公众号',
       androidOrIos: 'Android或iOS app',
       blogOrWebsite: '个人博客、企业官网',
@@ -578,7 +579,8 @@ const local: App.I18n.Schema = {
       },
       dependencies: '依赖管理',
       dependenciesTipTitle: '依赖管理说明',
-      dependenciesTipContent: '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
+      dependenciesTipContent:
+        '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
       userDependencies: '用户依赖',
       systemDependencies: '系统依赖',
       addDependency: '添加依赖',
@@ -746,7 +748,8 @@ const local: App.I18n.Schema = {
       }
     },
     index: {
-      branchDesc: '为了方便大家开发和更新合并，我们对主分支的代码进行了精简，只保留了首页菜单，其余内容已移至示例分支进行维护。预览地址显示的是示例分支的内容。',
+      branchDesc:
+        '为了方便大家开发和更新合并，我们对主分支的代码进行了精简，只保留了首页菜单，其余内容已移至示例分支进行维护。预览地址显示的是示例分支的内容。',
       greeting: '早上好，{userName}，今天又是充满活力的一天！',
       weatherDesc: '今天多云转晴，20℃ - 25℃！',
       projectCount: '项目数',

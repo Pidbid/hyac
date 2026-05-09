@@ -948,22 +948,22 @@ declare namespace App {
             providerPlaceholder: string;
             model: string;
             modelPlaceholder: string;
-                apiKey: string;
-                apiKeyPlaceholder: string;
-                endpointUrl: string;
-                endpointUrlPlaceholder: string;
-                proxy: string;
-                proxyPlaceholder: string;
-                success: {
-                  update: string;
-                };
-                error: {
-                  noAppSelected: string;
-                  fetch: string;
-                  update: string;
-                  empty: string;
-                };
-              };
+            apiKey: string;
+            apiKeyPlaceholder: string;
+            endpointUrl: string;
+            endpointUrlPlaceholder: string;
+            proxy: string;
+            proxyPlaceholder: string;
+            success: {
+              update: string;
+            };
+            error: {
+              noAppSelected: string;
+              fetch: string;
+              update: string;
+              empty: string;
+            };
+          };
           systemUpdate: {
             title: string;
             changelog: string;
@@ -976,24 +976,24 @@ declare namespace App {
             changelogErrorContent: string;
             versionInfo: string;
           };
-              userProfile: {
-                title: string;
-                username: string;
-                usernamePlaceholder: string;
-                usernameHelp: string;
-                password: string;
-                passwordPlaceholder: string;
-                passwordHelp: string;
-                confirmPassword: string;
-                confirmPasswordPlaceholder: string;
-                passwordsDoNotMatch: string;
-                noChanges: string;
-                confirmUpdate: string;
-                demoModeTip: string;
-              };
-      };
-      index: {
-        branchDesc: string;
+          userProfile: {
+            title: string;
+            username: string;
+            usernamePlaceholder: string;
+            usernameHelp: string;
+            password: string;
+            passwordPlaceholder: string;
+            passwordHelp: string;
+            confirmPassword: string;
+            confirmPasswordPlaceholder: string;
+            passwordsDoNotMatch: string;
+            noChanges: string;
+            confirmUpdate: string;
+            demoModeTip: string;
+          };
+        };
+        index: {
+          branchDesc: string;
           greeting: string;
           weatherDesc: string;
           projectCount: string;

@@ -1,9 +1,10 @@
-import { request } from '../request';
-import { getToken } from '@/store/modules/auth/shared';
 import axios from 'axios';
+import { getToken } from '@/store/modules/auth/shared';
+import { request } from '../request';
 
 /**
  * Create a folder in a bucket
+ *
  * @param appId - The application ID (bucket name).
  * @param folderName - The name of the folder to create.
  */
@@ -17,6 +18,7 @@ export function createFolder(appId: string, folderName: string) {
 
 /**
  * Delete a folder from a bucket
+ *
  * @param appId - The application ID (bucket name).
  * @param folderName - The name of the folder to delete.
  */
@@ -30,6 +32,7 @@ export function deleteFolder(appId: string, folderName: string) {
 
 /**
  * Delete a file from a bucket.
+ *
  * @param appId - The application ID (bucket name).
  * @param objectName - The name of the object to delete.
  */
@@ -43,6 +46,7 @@ export function deleteFile(appId: string, objectName: string) {
 
 /**
  * Deletes multiple files from a bucket.
+ *
  * @param appId - The application ID (bucket name).
  * @param objectNames - A list of object names to delete.
  */
@@ -56,6 +60,7 @@ export function deleteFiles(appId: string, objectNames: string[]) {
 
 /**
  * List objects (files and folders) in a bucket/prefix.
+ *
  * @param appId - The application ID (bucket name).
  * @param prefix - The prefix to filter objects (optional).
  */
@@ -69,6 +74,7 @@ export async function listObjects(appId: string, prefix?: string) {
 
 /**
  * Upload a file to a bucket.
+ *
  * @param appId - The application ID (bucket name).
  * @param objectName - The full path and name of the object in the bucket.
  * @param file - The file to upload.
@@ -92,6 +98,7 @@ export function uploadFile(appId: string, objectName: string, file: File) {
 
 /**
  * Download a file from a bucket.
+ *
  * @param appId - The application ID (bucket name).
  * @param objectName - The name of the object to download.
  */
@@ -111,6 +118,7 @@ export function downloadFile(appId: string, objectName: string) {
 
 /**
  * Get a presigned download URL for a file.
+ *
  * @param appId - The application ID (bucket name).
  * @param objectName - The name of the object to get the URL for.
  */

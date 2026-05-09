@@ -88,8 +88,7 @@ watch(
         :theme-color="themeStore.themeColor"
         @select="handleSelectMixMenu"
         @toggle-sider-collapse="appStore.toggleSiderCollapse"
-      >
-      </FirstLevelMenu>
+      ></FirstLevelMenu>
       <div
         class="relative h-full transition-width-300"
         :style="{ width: appStore.mixSiderFixed && hasChildMenus ? themeStore.sider.mixChildMenuWidth + 'px' : '0px' }"

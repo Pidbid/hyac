@@ -73,7 +73,15 @@ export function UpdateFunctionMeta(appId: string, id: string, name: string, desc
  * @param description
  * @param tags
  */
-export function CreateFunction(appId: string, name:string, type:string, description: string, tags: string[], language: string, template_id?: string) {
+export function CreateFunction(
+  appId: string,
+  name: string,
+  type: string,
+  description: string,
+  tags: string[],
+  language: string,
+  template_id?: string
+) {
   return request<Api.Function.GetFunctionData>({
     url: '/function/create',
     method: 'post',
@@ -106,7 +114,6 @@ export function DeleteFunction(appId: string, id: string) {
   });
 }
 
-
 export function functionTest(url: string, method: string, headers: object, query: object = {}, body: object = {}) {
   return request({
     url: '/function/proxy_test',
@@ -120,7 +127,6 @@ export function functionTest(url: string, method: string, headers: object, query
     }
   });
 }
-
 
 /**
  * Function history

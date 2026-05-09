@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { h, onMounted, ref } from 'vue';
 import {
+  NAlert,
+  NButton,
   NCard,
   NDataTable,
-  NButton,
-  NSpace,
-  NModal,
-  NInput,
-  useMessage,
-  NSelect,
-  NTabs,
-  NTabPane,
-  NAlert,
   NIcon,
+  NInput,
+  NInputGroup,
+  NModal,
+  NSelect,
+  NSpace,
+  NTabPane,
+  NTabs,
   useDialog,
-  NInputGroup
+  useMessage
 } from 'naive-ui';
-import { AddOutline, CubeOutline, TrashOutline, SearchOutline, BrushOutline, LinkOutline } from '@vicons/ionicons5';
-import { $t } from '@/locales';
-import { useApplicationStore } from '@/store/modules/application';
-import { dependenciesData, packageAdd, packageRemove, dependenceSearch, packageInfo } from '@/service/api/settings';
+import { AddOutline, BrushOutline, CubeOutline, LinkOutline, SearchOutline, TrashOutline } from '@vicons/ionicons5';
+import { dependenceSearch, dependenciesData, packageAdd, packageInfo, packageRemove } from '@/service/api/settings';
 import { restartApp } from '@/service/api/app';
+import { useApplicationStore } from '@/store/modules/application';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'DependenciesSettings'
@@ -338,7 +338,14 @@ onMounted(fetchData);
       preset="card"
       :title="$t('page.setting.addDependency')"
       style="width: 600px"
-      @after-leave="() => { newPackageName = ''; newPackageVersion = ''; searchResults = []; versionOptions = []; }"
+      @after-leave="
+        () => {
+          newPackageName = '';
+          newPackageVersion = '';
+          searchResults = [];
+          versionOptions = [];
+        }
+      "
     >
       <NSpace vertical>
         <NInput
