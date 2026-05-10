@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { NButton, NCard, NEmpty, NGrid, NGridItem, NList, NListItem, NModal, NScrollbar, NThing } from 'naive-ui';
 import dayjs from 'dayjs';
-import { NModal, NCard, NGrid, NGridItem, NScrollbar, NList, NListItem, NThing, NEmpty, NButton } from 'naive-ui';
 import { CodeDiff } from 'v-code-diff';
 import { $t } from '@/locales';
 
@@ -12,34 +12,49 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:show', 'rollback']);
 
-const selectedHistory = ref<Api.Function.FunctionHistoryInfo | undefined>(props.historyData.length > 0 ? props.historyData[0] : undefined);
+const selectedHistory = ref<Api.Function.FunctionHistoryInfo | undefined>(
+  props.historyData.length > 0 ? props.historyData[0] : undefined
+);
 
-watch(() => props.historyData, (newData) => {
-  if (newData.length > 0 && !selectedHistory.value) {
-    selectedHistory.value = newData[0];
+watch(
+  () => props.historyData,
+  newData => {
+    if (newData.length > 0 && !selectedHistory.value) {
+      selectedHistory.value = newData[0];
+    }
   }
-});
+);
 
 const handleRollback = () => {
   if (selectedHistory.value) {
     emit('rollback', selectedHistory.value);
   }
 };
-
 </script>
 
 <template>
-  <NModal :show="show" @update:show="(value) => emit('update:show', value)" preset="card" :title="$t('page.function.functionHistory')"
-    style="width: 60%; height: 80vh" :bordered="false" :segmented="{ content: 'soft' }">
+  <NModal
+    :show="show"
+    preset="card"
+    :title="$t('page.function.functionHistory')"
+    style="width: 60%; height: 80vh"
+    :bordered="false"
+    :segmented="{ content: 'soft' }"
+    @update:show="value => emit('update:show', value)"
+  >
     <div class="h-full flex flex-col">
-      <div class="flex-1 min-h-0">
+      <div class="min-h-0 flex-1">
         <NGrid x-gap="12" :cols="24" class="h-full">
           <NGridItem :span="4" class="h-full">
             <NCard :bordered="false" class="h-full" :content-style="{ padding: 0, height: '100%' }">
               <NScrollbar class="h-full">
                 <NList hoverable clickable bordered>
-                  <NListItem v-for="history in historyData" :key="history._id" @click="selectedHistory = history"
-                    :class="{ 'selected-history-item': selectedHistory?._id === history._id }">
+                  <NListItem
+                    v-for="history in historyData"
+                    :key="history._id"
+                    :class="{ 'selected-history-item': selectedHistory?._id === history._id }"
+                    @click="selectedHistory = history"
+                  >
                     <NThing :content="dayjs(history.updated_at).format('YYYY-MM-DD HH:mm:ss')"></NThing>
                   </NListItem>
                 </NList>
@@ -47,12 +62,21 @@ const handleRollback = () => {
             </NCard>
           </NGridItem>
           <NGridItem :span="20" class="h-full">
-            <NCard :bordered="false" class="h-full"
-              :content-style="{ padding: 0, height: '100%', overflow: 'hidden' }">
-              <CodeDiff v-if="selectedHistory" :old-string="selectedHistory.old_code"
-                :new-string="selectedHistory.new_code" output-format="side-by-side" language="python" :context="50"
-                maxHeight="calc(80vh - 180px)" />
-              <NEmpty v-else :description="$t('page.function.selectHistory')" class="h-full flex items-center justify-center" />
+            <NCard :bordered="false" class="h-full" :content-style="{ padding: 0, height: '100%', overflow: 'hidden' }">
+              <CodeDiff
+                v-if="selectedHistory"
+                :old-string="selectedHistory.old_code"
+                :new-string="selectedHistory.new_code"
+                output-format="side-by-side"
+                language="python"
+                :context="50"
+                max-height="calc(80vh - 180px)"
+              />
+              <NEmpty
+                v-else
+                :description="$t('page.function.selectHistory')"
+                class="h-full flex items-center justify-center"
+              />
             </NCard>
           </NGridItem>
         </NGrid>
@@ -61,7 +85,9 @@ const handleRollback = () => {
     <template #footer>
       <div class="flex justify-end gap-2">
         <NButton @click="emit('update:show', false)">{{ $t('common.cancel') }}</NButton>
-        <NButton type="primary" :disabled="!selectedHistory" @click="handleRollback">{{ $t('page.function.rollbackToThisVersion') }}</NButton>
+        <NButton type="primary" :disabled="!selectedHistory" @click="handleRollback">
+          {{ $t('page.function.rollbackToThisVersion') }}
+        </NButton>
       </div>
     </template>
   </NModal>

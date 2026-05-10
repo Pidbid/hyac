@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { Console } from 'node:console';
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue';
 import {
   NButton,
+  NButtonGroup,
   NCard,
   NDataTable,
   NEmpty,
+  NFlex,
   NForm,
   NFormItem,
   NIcon,
@@ -12,15 +15,14 @@ import {
   NList,
   NListItem,
   NPagination,
+  NScrollbar,
   NSpace,
+  NSplit,
   NThing,
   useDialog,
-  useMessage,
-  NSplit,
-  NButtonGroup,
-  NScrollbar,
-  NFlex
+  useMessage
 } from 'naive-ui';
+import type { DataTableColumns } from 'naive-ui';
 import {
   AddOutline,
   BanOutline,
@@ -30,23 +32,33 @@ import {
   RefreshOutline,
   TrashOutline
 } from '@vicons/ionicons5';
-import { Console } from 'console';
-import { GetCollectionData, CreateCollection, GetDocumentData, CreateDocument, DeleteCollection, ClearCollection, DeleteDocument, UpdateDocument, DeleteDocuments } from "@/service/api"
+import {
+  ClearCollection,
+  CreateCollection,
+  CreateDocument,
+  DeleteCollection,
+  DeleteDocument,
+  DeleteDocuments,
+  GetCollectionData,
+  GetDocumentData,
+  UpdateDocument
+} from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { $t } from '@/locales';
 
+// 表格列定义
+
 const message = useMessage();
 const dialog = useDialog();
 
-const applicationStore = useApplicationStore()
+const applicationStore = useApplicationStore();
 
 // 模拟集合（表）数据
-const collections = ref<string[]>([])
+const collections = ref<string[]>([]);
 const selectedCollection = ref(collections.value[0] || '');
 
-const documents = ref<object[]>([
-]);
+const documents = ref<object[]>([]);
 
 // 分页相关
 const pageSize = ref(15);
@@ -55,13 +67,13 @@ const totalDocuments = ref(0);
 const paginatedDocuments = computed(() => {
   const start = (page.value - 1) * pageSize.value;
   const end = start + pageSize.value;
-  console.info(documents.value.slice(start, end))
+  console.info(documents.value.slice(start, end));
   return documents.value.slice(start, end);
 });
 
 // 选中的文档用于编辑
 const editingDocument = ref<any>(null);
-const editingDocumentJson = ref<string>("{}");
+const editingDocumentJson = ref<string>('{}');
 const checkedRowKeys = ref<string[]>([]);
 
 // 监听选中集合变化，重置文档和页码
@@ -72,28 +84,28 @@ watch(selectedCollection, () => {
   checkedRowKeys.value = [];
 });
 
-
 // 操作函数
 const handleCreateCollection = () => {
   const collectionName = ref('');
   dialog.info({
     title: $t('page.database.createCollection'),
-    content: () => h(NInput, {
-      placeholder: $t('page.database.collectionNamePlaceholder'),
-      value: collectionName.value,
-      onUpdateValue: (v: string) => {
-        collectionName.value = v;
-      }
-    }),
+    content: () =>
+      h(NInput, {
+        placeholder: $t('page.database.collectionNamePlaceholder'),
+        value: collectionName.value,
+        onUpdateValue: (v: string) => {
+          collectionName.value = v;
+        }
+      }),
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       if (collectionName.value) {
-        const { data, error } = await CreateCollection(applicationStore.appId, collectionName.value)
+        const { data, error } = await CreateCollection(applicationStore.appId, collectionName.value);
         if (!error) {
-          await getApplicationCollections()
+          await getApplicationCollections();
           selectedCollection.value = collectionName.value;
-          message.success($t('page.database.createSuccess'))
+          message.success($t('page.database.createSuccess'));
           collectionName.value = '';
         }
       }
@@ -102,7 +114,7 @@ const handleCreateCollection = () => {
 };
 
 const handleCreateDocument = () => {
-  const documentContent = ref<string>("{}");
+  const documentContent = ref<string>('{}');
   dialog.info({
     title: $t('page.database.insertDocument'),
     content: () =>
@@ -126,10 +138,10 @@ const handleCreateDocument = () => {
         );
         if (!error) {
           nextTick(async () => {
-            await getCollectionDocuments(selectedCollection.value, 1, 15)
-          })
+            await getCollectionDocuments(selectedCollection.value, 1, 15);
+          });
           page.value = 1;
-          message.success($t('page.database.createDocumentSuccess'))
+          message.success($t('page.database.createDocumentSuccess'));
           documentContent.value = '{}';
         }
       } catch {
@@ -152,10 +164,10 @@ const handleDeleteDocument = (doc: any) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await DeleteDocument(applicationStore.appId, selectedCollection.value, doc._id)
+      const { data, error } = await DeleteDocument(applicationStore.appId, selectedCollection.value, doc._id);
       if (!error) {
-        await getCollectionDocuments(selectedCollection.value, 1, 15)
-        message.success($t('page.database.deleteSuccess'))
+        await getCollectionDocuments(selectedCollection.value, 1, 15);
+        message.success($t('page.database.deleteSuccess'));
       }
     },
     onNegativeClick: () => {
@@ -192,11 +204,11 @@ const handleDeleteCollection = (colName: string) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await DeleteCollection(applicationStore.appId, colName)
+      const { data, error } = await DeleteCollection(applicationStore.appId, colName);
       if (!error) {
-        await getApplicationCollections()
+        await getApplicationCollections();
         selectedCollection.value = collections.value[0];
-        message.success($t('page.database.deleteSuccess'))
+        message.success($t('page.database.deleteSuccess'));
       }
     }
   });
@@ -209,10 +221,10 @@ const handleClearCollection = (colName: string) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await ClearCollection(applicationStore.appId, colName)
+      const { data, error } = await ClearCollection(applicationStore.appId, colName);
       if (!error) {
-        await getCollectionDocuments(selectedCollection.value, 1, 15)
-        message.success($t('page.database.clearSuccess'))
+        await getCollectionDocuments(selectedCollection.value, 1, 15);
+        message.success($t('page.database.clearSuccess'));
       }
     },
     onNegativeClick: () => {
@@ -224,12 +236,17 @@ const handleClearCollection = (colName: string) => {
 const handleSaveDocument = async () => {
   try {
     // The v-model from JsonEditor should always be an object
-    const { data, error } = await UpdateDocument(applicationStore.appId, selectedCollection.value, editingDocument.value._id, JSON.parse(editingDocumentJson.value))
+    const { data, error } = await UpdateDocument(
+      applicationStore.appId,
+      selectedCollection.value,
+      editingDocument.value._id,
+      JSON.parse(editingDocumentJson.value)
+    );
     if (!error) {
-      await getCollectionDocuments(selectedCollection.value, 1, 15)
+      await getCollectionDocuments(selectedCollection.value, 1, 15);
       editingDocument.value = null; // 保存后清空编辑状态
-      editingDocumentJson.value = "";
-      message.success($t('page.database.saveSuccess'))
+      editingDocumentJson.value = '';
+      message.success($t('page.database.saveSuccess'));
     }
   } catch (e) {
     message.error($t('page.database.saveFailed'));
@@ -242,16 +259,14 @@ const handleCancelEdit = () => {
   message.info($t('page.database.cancelEdit'));
 };
 
-
 const handleRefreshDocuments = async () => {
   if (!selectedCollection.value) {
     message.warning($t('page.database.noCollections'));
     return;
   }
-  await getCollectionDocuments(selectedCollection.value, 1, 15)
-  message.success($t('page.database.refreshSuccess'))
+  await getCollectionDocuments(selectedCollection.value, 1, 15);
+  message.success($t('page.database.refreshSuccess'));
 };
-
 
 // JSON格式化显示
 const formatJson = (data: any) => {
@@ -262,12 +277,9 @@ const formatJson = (data: any) => {
   }
 };
 
-// 表格列定义
-import type { DataTableColumns } from 'naive-ui';
-
 const documentColumns: DataTableColumns<any> = [
   {
-    type: 'selection',
+    type: 'selection'
   },
   {
     title: $t('page.database.idColumn'),
@@ -279,9 +291,8 @@ const documentColumns: DataTableColumns<any> = [
     title: $t('page.database.contentColumn'),
     key: 'content',
     minWidth: 200,
-    render: (row: any) => h(
-      NInput,
-      {
+    render: (row: any) =>
+      h(NInput, {
         type: 'textarea',
         value: formatJson(row),
         rows: 5,
@@ -300,17 +311,14 @@ const documentColumns: DataTableColumns<any> = [
           '--n-text-color': 'var(--n-text-color)',
           '--n-caret-color': 'var(--n-caret-color)'
         }
-      }
-    )
+      })
   },
   {
     title: $t('common.action._self'),
     key: 'actions',
     width: 120,
-    render: (row: any) => h(
-      NSpace,
-      { justify: 'center' },
-      () => [
+    render: (row: any) =>
+      h(NSpace, { justify: 'center' }, () => [
         h(
           NButton,
           {
@@ -332,34 +340,33 @@ const documentColumns: DataTableColumns<any> = [
           },
           { default: () => h(NIcon, null, { default: () => h(TrashOutline) }) }
         )
-      ]
-    )
+      ])
   }
 ];
 
 const handleCheck = (rowKeys: any) => {
   checkedRowKeys.value = rowKeys;
-}
+};
 
 const handleCollectionClick = async (collection: string) => {
   selectedCollection.value = collection;
-  await getCollectionDocuments(selectedCollection.value, 1, 15)
-}
+  await getCollectionDocuments(selectedCollection.value, 1, 15);
+};
 
 const getCollectionDocuments = async (docName: string, page: number, length: number) => {
-  const { data, error } = await GetDocumentData(applicationStore.appId, docName, page, length)
+  const { data, error } = await GetDocumentData(applicationStore.appId, docName, page, length);
   if (!error) {
-    documents.value = data.data
+    documents.value = data.data;
     totalDocuments.value = data.total; // 更新总文档数
   }
-}
+};
 
 const getApplicationCollections = async () => {
-  const { data, error } = await GetCollectionData(applicationStore.appId)
+  const { data, error } = await GetCollectionData(applicationStore.appId);
   if (!error) {
-    collections.value = data.data
+    collections.value = data.data;
   }
-}
+};
 
 const paginationUpPage = (newPage: number) => {
   page.value = newPage;
@@ -375,18 +382,23 @@ const paginationUpSize = (newSize: number) => {
 onMounted(async () => {
   await getApplicationCollections();
   if (collections.value.length > 0) {
-    selectedCollection.value = collections.value[0]
-    await getCollectionDocuments(collections.value[0], 1, 15)
+    selectedCollection.value = collections.value[0];
+    await getCollectionDocuments(collections.value[0], 1, 15);
   }
 });
 </script>
 
 <template>
-  <div class="h-full flex w-full">
+  <div class="h-full w-full flex">
     <NSplit :size="0.1" :min="0.1" :max="0.3">
       <template #1>
-        <NCard :title="$t('page.database.collection')" :bordered="false" size="small" class="h-full flex flex-col card-wrapper"
-          :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }">
+        <NCard
+          :title="$t('page.database.collection')"
+          :bordered="false"
+          size="small"
+          class="h-full flex flex-col card-wrapper"
+          :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }"
+        >
           <template #header-extra>
             <NButton type="primary" size="small" @click="handleCreateCollection">
               <template #icon>
@@ -396,20 +408,33 @@ onMounted(async () => {
           </template>
           <NScrollbar v-if="collections.length > 0" class="h-full">
             <NList hoverable clickable>
-              <NListItem v-for="collection in collections" :key="collection"
+              <NListItem
+                v-for="collection in collections"
+                :key="collection"
                 :class="{ 'selected-collection-item': selectedCollection === collection }"
-                @click="handleCollectionClick(collection)">
+                @click="handleCollectionClick(collection)"
+              >
                 <NThing :title="collection">
                   <template #header-extra>
                     <NButtonGroup>
-                      <NButton quaternary circle size="small" type="warning"
-                        @click.stop="handleClearCollection(collection)">
+                      <NButton
+                        quaternary
+                        circle
+                        size="small"
+                        type="warning"
+                        @click.stop="handleClearCollection(collection)"
+                      >
                         <template #icon>
                           <NIcon :component="BanOutline" />
                         </template>
                       </NButton>
-                      <NButton quaternary circle size="small" type="error"
-                        @click.stop="handleDeleteCollection(collection)">
+                      <NButton
+                        quaternary
+                        circle
+                        size="small"
+                        type="error"
+                        @click.stop="handleDeleteCollection(collection)"
+                      >
                         <template #icon>
                           <NIcon :component="TrashOutline" />
                         </template>
@@ -434,9 +459,13 @@ onMounted(async () => {
       <template #2>
         <NSplit :size="0.85" :min="0.4" :max="0.9">
           <template #1>
-            <NCard :title="selectedCollection || $t('page.database.document')" :bordered="false" size="small"
+            <NCard
+              :title="selectedCollection || $t('page.database.document')"
+              :bordered="false"
+              size="small"
               class="h-full flex flex-col card-wrapper"
-              :content-style="{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }">
+              :content-style="{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }"
+            >
               <template #header-extra>
                 <NSpace>
                   <NButton quaternary circle size="small" @click="handleRefreshDocuments">
@@ -444,14 +473,23 @@ onMounted(async () => {
                       <NIcon :component="RefreshOutline" />
                     </template>
                   </NButton>
-                  <NButton size="small" type="primary" :disabled="collections.length == 0" @click="handleCreateDocument">
+                  <NButton
+                    size="small"
+                    type="primary"
+                    :disabled="collections.length == 0"
+                    @click="handleCreateDocument"
+                  >
                     <template #icon>
                       <NIcon :component="AddOutline" />
                     </template>
                     {{ $t('page.database.insertDocument') }}
                   </NButton>
-                  <NButton size="small" type="error" @click="handleDeleteSelected"
-                    :disabled="checkedRowKeys.length === 0">
+                  <NButton
+                    size="small"
+                    type="error"
+                    :disabled="checkedRowKeys.length === 0"
+                    @click="handleDeleteSelected"
+                  >
                     <template #icon>
                       <NIcon :component="TrashOutline" />
                     </template>
@@ -459,30 +497,52 @@ onMounted(async () => {
                   </NButton>
                 </NSpace>
               </template>
-              <div class="flex-grow-1" style="overflow: hidden;">
-                <NDataTable :columns="documentColumns" :data="documents" :bordered="false" flex-height
-                  :single-line="false" :row-key="(row: any) => row._id" style="height:100%;"
-                  @update:checked-row-keys="handleCheck" />
+              <div class="flex-grow-1" style="overflow: hidden">
+                <NDataTable
+                  :columns="documentColumns"
+                  :data="documents"
+                  :bordered="false"
+                  flex-height
+                  :single-line="false"
+                  :row-key="(row: any) => row._id"
+                  style="height: 100%"
+                  @update:checked-row-keys="handleCheck"
+                />
               </div>
-              <div class="flex justify-center p-4 border-t border-gray-200">
-                <NPagination v-model:page="page" v-model:page-size="pageSize" :item-count="totalDocuments"
-                  :page-sizes="[10, 15, 20, 50]" show-size-picker :on-update:page="paginationUpPage"
-                  :on-update:page-size="paginationUpSize" />
+              <div class="flex justify-center border-t border-gray-200 p-4">
+                <NPagination
+                  v-model:page="page"
+                  v-model:page-size="pageSize"
+                  :item-count="totalDocuments"
+                  :page-sizes="[10, 15, 20, 50]"
+                  show-size-picker
+                  :on-update:page="paginationUpPage"
+                  :on-update:page-size="paginationUpSize"
+                />
               </div>
             </NCard>
           </template>
           <template #2>
-            <NCard :title="$t('page.database.documentOperations')" :bordered="false" size="small" class="h-full flex flex-col card-wrapper">
-              <div class="flex-1 min-h-0 p-4">
+            <NCard
+              :title="$t('page.database.documentOperations')"
+              :bordered="false"
+              size="small"
+              class="h-full flex flex-col card-wrapper"
+            >
+              <div class="min-h-0 flex-1 p-4">
                 <div v-if="editingDocument">
                   <NThing :title="$t('page.database.editContent')"></NThing>
-                  <jsonEditor v-model="editingDocumentJson" :height="400" />
-                  <div class="flex flex-row gap-2 flex-row-reverse">
+                  <JsonEditor v-model="editingDocumentJson" :height="400" />
+                  <div class="flex flex-row flex-row-reverse gap-2">
                     <NButton type="primary" @click="handleSaveDocument">{{ $t('page.database.save') }}</NButton>
                     <NButton type="error" @click="handleCancelEdit">{{ $t('page.database.cancel') }}</NButton>
                   </div>
                 </div>
-                <NEmpty v-else :description="$t('page.database.emptyDescription')" class="h-full flex items-center justify-center">
+                <NEmpty
+                  v-else
+                  :description="$t('page.database.emptyDescription')"
+                  class="h-full flex items-center justify-center"
+                >
                   <template #icon>
                     <NIcon :component="DocumentTextOutline" />
                   </template>

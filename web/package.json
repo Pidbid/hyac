@@ -50,6 +50,8 @@
     "@better-scroll/core": "2.5.1",
     "@codingame/monaco-vscode-api": "^18.4.0",
     "@codingame/monaco-vscode-base-service-override": "^18.2.0",
+    "@codingame/monaco-vscode-configuration-service-override": "^18.2.0",
+    "@codingame/monaco-vscode-environment-service-override": "^18.2.0",
     "@codingame/monaco-vscode-extensions-service-override": "^18.2.0",
     "@codingame/monaco-vscode-files-service-override": "^18.2.0",
     "@codingame/monaco-vscode-host-service-override": "^18.2.0",
@@ -128,18 +130,26 @@
     "vue-eslint-parser": "10.1.3",
     "vue-tsc": "2.2.10"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild", "simple-git-hooks", "v-code-diff", "vue-demi"],
+    "overrides": {
+      "vscode": "npm:@codingame/monaco-vscode-extension-api@18.4.0",
+      "@codingame/monaco-vscode-api": "18.4.0",
+      "@codingame/monaco-vscode-editor-api": "18.4.0",
+      "@codingame/monaco-vscode-extension-api": "18.4.0",
+      "@codingame/monaco-vscode-extensions-service-override": "18.4.0",
+      "@codingame/monaco-vscode-configuration-service-override": "18.4.0",
+      "@codingame/monaco-vscode-editor-service-override": "18.4.0",
+      "@codingame/monaco-vscode-environment-service-override": "18.4.0",
+      "@codingame/monaco-vscode-languages-service-override": "18.4.0",
+      "@codingame/monaco-vscode-localization-service-override": "18.4.0",
+      "@codingame/monaco-vscode-log-service-override": "18.4.0",
+      "@codingame/monaco-vscode-model-service-override": "18.4.0"
+    }
+  },
   "simple-git-hooks": {
     "commit-msg": "pnpm sa git-commit-verify",
     "pre-commit": "pnpm typecheck && pnpm lint && git diff --exit-code"
   },
-  "website": "https://admin.soybeanjs.cn",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "esbuild",
-      "simple-git-hooks",
-      "v-code-diff",
-      "vue-demi"
-    ]
-  }
+  "website": "https://admin.soybeanjs.cn"
 }

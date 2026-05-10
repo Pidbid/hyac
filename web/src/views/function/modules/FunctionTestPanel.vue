@@ -1,10 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useClipboard } from '@vueuse/core';
-import { NCard, NScrollbar, NSpace, NInputGroup, NInput, NButton, NIcon, NTabs, NTabPane, NText, NSelect, NButtonGroup, useMessage, NCode } from 'naive-ui';
-import { CopyOutline, TrashBinOutline, AddOutline } from '@vicons/ionicons5';
-import jsonEditor from '@/components/custom/jsonEditor.vue';
+import {
+  NButton,
+  NButtonGroup,
+  NCard,
+  NCode,
+  NIcon,
+  NInput,
+  NInputGroup,
+  NScrollbar,
+  NSelect,
+  NSpace,
+  NTabPane,
+  NTabs,
+  NText,
+  useMessage
+} from 'naive-ui';
+import { AddOutline, CopyOutline, TrashBinOutline } from '@vicons/ionicons5';
 import { functionTest } from '@/service/api';
+import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { $t } from '@/locales';
 
 const props = defineProps<{
@@ -24,19 +39,25 @@ const testResultHeaders = ref<Record<string, string> | null>(null);
 const testResultContent = ref<string>($t('page.function.clickToSend'));
 
 const handleTestRequest = async () => {
-  const headers = testHeadersList.value.reduce((acc, cur) => {
-    if (cur.key) {
-      acc[cur.key] = cur.value;
-    }
-    return acc;
-  }, {} as Record<string, string>);
+  const headers = testHeadersList.value.reduce(
+    (acc, cur) => {
+      if (cur.key) {
+        acc[cur.key] = cur.value;
+      }
+      return acc;
+    },
+    {} as Record<string, string>
+  );
 
-  const query = testQueryParamsList.value.reduce((acc, cur) => {
-    if (cur.key) {
-      acc[cur.key] = cur.value;
-    }
-    return acc;
-  }, {} as Record<string, string>);
+  const query = testQueryParamsList.value.reduce(
+    (acc, cur) => {
+      if (cur.key) {
+        acc[cur.key] = cur.value;
+      }
+      return acc;
+    },
+    {} as Record<string, string>
+  );
 
   let body = {};
   if (testMethod.value === 'POST' && testJsonBody.value) {
@@ -151,28 +172,34 @@ const statusCodeClass = computed(() => {
   return '';
 });
 
-watch(testMethod, (newMethod) => {
-  const contentTypeHeader = { key: 'Content-Type', value: 'application/json', disabled: true };
-  const existingContentTypeIndex = testHeadersList.value.findIndex(h => h.key === 'Content-Type');
+watch(
+  testMethod,
+  newMethod => {
+    const contentTypeHeader = { key: 'Content-Type', value: 'application/json', disabled: true };
+    const existingContentTypeIndex = testHeadersList.value.findIndex(h => h.key === 'Content-Type');
 
-  if (newMethod === 'POST') {
-    if (existingContentTypeIndex === -1) {
-      testHeadersList.value.unshift(contentTypeHeader);
-    } else {
-      testHeadersList.value[existingContentTypeIndex] = contentTypeHeader;
-    }
-  } else {
-    if (existingContentTypeIndex !== -1 && testHeadersList.value[existingContentTypeIndex].disabled) {
+    if (newMethod === 'POST') {
+      if (existingContentTypeIndex === -1) {
+        testHeadersList.value.unshift(contentTypeHeader);
+      } else {
+        testHeadersList.value[existingContentTypeIndex] = contentTypeHeader;
+      }
+    } else if (existingContentTypeIndex !== -1 && testHeadersList.value[existingContentTypeIndex].disabled) {
       testHeadersList.value.splice(existingContentTypeIndex, 1);
     }
-  }
-}, { immediate: true });
-
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
-  <NCard :title="$t('page.function.functionTest')" :bordered="false" size="small" class="h-full"
-    :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }">
+  <NCard
+    :title="$t('page.function.functionTest')"
+    :bordered="false"
+    size="small"
+    class="h-full"
+    :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }"
+  >
     <NScrollbar class="h-full p-4">
       <NSpace vertical class="h-full">
         <NInputGroup>
@@ -191,16 +218,29 @@ watch(testMethod, (newMethod) => {
 
         <div class="flex flex-col gap-2">
           <NText class="mb-2">Headers</NText>
-          <div v-for="(header, index) in testHeadersList" :key="index" class="flex gap-2 items-center">
-            <NSelect v-model:value="header.key" :options="[
-              { label: 'User-Agent', value: 'User-Agent' },
-              { label: 'Host', value: 'Host' },
-              { label: 'Content-Type', value: 'Content-Type' },
-              { label: 'Accept', value: 'Accept' },
-              { label: 'Authorization', value: 'Authorization' },
-            ]" :placeholder="$t('page.function.headerPlaceholder')" style="width: 120px" filterable tag
-              @update:value="(value) => handleHeaderSelect(value, index)" :disabled="header.disabled" />
-            <NInput v-model:value="header.value" :placeholder="$t('page.function.headerValuePlaceholder')" class="flex-1" :disabled="header.disabled" />
+          <div v-for="(header, index) in testHeadersList" :key="index" class="flex items-center gap-2">
+            <NSelect
+              v-model:value="header.key"
+              :options="[
+                { label: 'User-Agent', value: 'User-Agent' },
+                { label: 'Host', value: 'Host' },
+                { label: 'Content-Type', value: 'Content-Type' },
+                { label: 'Accept', value: 'Accept' },
+                { label: 'Authorization', value: 'Authorization' }
+              ]"
+              :placeholder="$t('page.function.headerPlaceholder')"
+              style="width: 120px"
+              filterable
+              tag
+              :disabled="header.disabled"
+              @update:value="value => handleHeaderSelect(value, index)"
+            />
+            <NInput
+              v-model:value="header.value"
+              :placeholder="$t('page.function.headerValuePlaceholder')"
+              class="flex-1"
+              :disabled="header.disabled"
+            />
             <NButton v-if="!header.disabled" quaternary circle @click="removeHeader(index)">
               <template #icon>
                 <NIcon :component="TrashBinOutline" />
@@ -217,7 +257,7 @@ watch(testMethod, (newMethod) => {
 
         <div v-if="testMethod === 'GET'" class="flex flex-col gap-2">
           <NText class="mb-2">{{ $t('page.function.queryParameters') }}</NText>
-          <div v-for="(param, index) in testQueryParamsList" :key="index" class="flex gap-2 items-center">
+          <div v-for="(param, index) in testQueryParamsList" :key="index" class="flex items-center gap-2">
             <NInput v-model:value="param.key" :placeholder="$t('page.function.keyPlaceholder')" style="width: 120px" />
             <NInput v-model:value="param.value" :placeholder="$t('page.function.valuePlaceholder')" class="flex-1" />
             <NButton quaternary circle @click="removeQueryParam(index)">
@@ -236,24 +276,33 @@ watch(testMethod, (newMethod) => {
 
         <div v-else class="flex flex-col gap-2">
           <NText class="mb-2">{{ $t('page.function.bodyJson') }}</NText>
-          <jsonEditor v-model:modelValue="testJsonBody" :height="300"></jsonEditor>
+          <JsonEditor v-model:model-value="testJsonBody" :height="300"></JsonEditor>
         </div>
 
-        <NButton type="primary" size="large" block @click="handleTestRequest">{{ $t('page.function.sendRequest') }}</NButton>
+        <NButton type="primary" size="large" block @click="handleTestRequest">
+          {{ $t('page.function.sendRequest') }}
+        </NButton>
 
         <div class="min-h-0 flex flex-col flex-1">
-          <div class="flex justify-between items-center mb-2">
+          <div class="mb-2 flex items-center justify-between">
             <NText>{{ $t('page.function.response') }}</NText>
-            <NText v-if="testResultStatusCode" :class="statusCodeClass">
-              Status: {{ testResultStatusCode }}
-            </NText>
+            <NText v-if="testResultStatusCode" :class="statusCodeClass">Status: {{ testResultStatusCode }}</NText>
           </div>
 
-          <NTabs type="card" class="flex-1 flex flex-col" :content-style="{ flex: 1, minHeight: 0 }">
-            <NTabPane name="body" tab="Body" class="flex-1 flex flex-col">
-              <NInput v-model:value="testResultContent" type="textarea" :placeholder="$t('page.function.responsePlaceholder')" readonly class="flex-1" style="min-height: 200px" :input-props="{ style: { height: '100%' } }" resizable />
+          <NTabs type="card" class="flex flex-col flex-1" :content-style="{ flex: 1, minHeight: 0 }">
+            <NTabPane name="body" tab="Body" class="flex flex-col flex-1">
+              <NInput
+                v-model:value="testResultContent"
+                type="textarea"
+                :placeholder="$t('page.function.responsePlaceholder')"
+                readonly
+                class="flex-1"
+                style="min-height: 200px"
+                :input-props="{ style: { height: '100%' } }"
+                resizable
+              />
             </NTabPane>
-            <NTabPane name="headers" tab="Headers" class="flex-1 flex flex-col">
+            <NTabPane name="headers" tab="Headers" class="flex flex-col flex-1">
               <NScrollbar class="flex-1">
                 <NCode :code="JSON.stringify(testResultHeaders, null, 2)" language="json" />
               </NScrollbar>
@@ -278,5 +327,4 @@ watch(testMethod, (newMethod) => {
   </NCard>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

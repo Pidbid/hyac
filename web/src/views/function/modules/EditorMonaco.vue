@@ -1,57 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import '@/utils/monaco-worker';
+import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
 import * as monaco from 'monaco-editor';
-import { connectLsp, disconnectLsp, lspComplete, lspFormat } from '@/utils/lsp';
-import { getServiceBaseUrl, convertDomain } from '@/utils/common';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
-
-monaco.languages.register({ id: 'python', extensions: ['.py'], aliases: ['Python', 'python', 'py'] });
-
-monaco.languages.setLanguageConfiguration('python', {
-  comments: { lineComment: '#', blockComment: ['"""', '"""'] },
-  brackets: [['{', '}'], ['[', ']'], ['(', ')']],
-  autoClosingPairs: [
-    { open: '{', close: '}' },
-    { open: '[', close: ']' },
-    { open: '(', close: ')' },
-    { open: '"', close: '"', notIn: ['string'] },
-    { open: "'", close: "'", notIn: ['string'] },
-    { open: '`', close: '`', notIn: ['string'] }
-  ],
-  surroundingPairs: [
-    { open: '{', close: '}' }, { open: '[', close: ']' },
-    { open: '(', close: ')' }, { open: '"', close: '"' },
-    { open: "'", close: "'" }, { open: '`', close: '`' }
-  ],
-  folding: { offSide: true }
-});
-
-monaco.languages.setMonarchTokensProvider('python', {
-  defaultToken: '',
-  tokenizer: {
-    root: [
-      [/\b(import|from|as|def|class|lambda|return|yield|raise|if|elif|else|for|while|try|except|finally|with|pass|break|continue|in|is|not|and|or|global|nonlocal|del|assert|async|await)\b/, 'keyword'],
-      [/\b(True|False|None)\b/, 'number'],
-      [/\b(self|cls)\b/, 'variable'],
-      [/\b(print|len|range|type|int|float|str|list|dict|tuple|set|bool|enumerate|zip|map|filter|sorted|reversed|isinstance|hasattr|getattr|setattr|super|open|input|abs|all|any|bin|chr|dir|divmod|eval|exec|format|hex|id|max|min|next|oct|ord|pow|repr|round|sum|vars)\b/, 'keyword'],
-      [/@\w+/, 'tag'],
-      [/0[xX][0-9a-fA-F]+/, 'number'],
-      [/0[oO][0-7]+/, 'number'],
-      [/0[bB][01]+/, 'number'],
-      [/\b\d+(\.\d+)?([eE][+-]?\d+)?\b/, 'number'],
-      [/[rfb]?(?:'''|"""|'|")/, { token: 'string', next: '@stringState' }],
-      [/#.*/, 'comment'],
-      [/[{}()[\]]/, 'delimiter'],
-      [/[+\-*/%=<>!&|^~]+/, 'operator']
-    ],
-    stringState: [
-      [/[^\\'"]+/, 'string'],
-      [/\\./, 'string.escape'],
-      [/('''|"""|'|")/, { token: 'string', next: '@pop' }]
-    ]
-  }
-});
+import { connectLsp, disconnectLsp } from '@/utils/lsp';
+import { convertDomain, getServiceBaseUrl } from '@/utils/common';
 
 interface Props {
   code?: string;
@@ -92,72 +47,151 @@ const hyacContextOptions = [
   { label: 'minio', detail: 'MinioContext' }
 ];
 
-monaco.languages.registerCompletionItemProvider('python', {
-  triggerCharacters: ['.'],
-  provideCompletionItems: async (model, position) => {
-    const textUntilPosition = model.getValueInRange({
-      startLineNumber: position.lineNumber,
-      startColumn: 1,
-      endLineNumber: position.lineNumber,
-      endColumn: position.column
-    });
-
-    const match = textUntilPosition.match(/(?:ctx|context)\.(\w*)$/);
-    if (match) {
-      const wordStart = position.column - match[1].length;
-      return {
-        suggestions: hyacContextOptions.map(item => ({
-          label: item.label,
-          kind: monaco.languages.CompletionItemKind.Property,
-          detail: item.detail,
-          insertText: item.label,
-          range: new monaco.Range(position.lineNumber, wordStart, position.lineNumber, position.column)
-        }))
-      };
-    }
-
-    const lspItems = await lspComplete(position);
-    return { suggestions: lspItems };
-  }
-});
-
-monaco.languages.registerDocumentFormattingEditProvider('python', {
-  async provideDocumentFormattingEdits(model) {
-    return await lspFormat(props.tabSize, true);
-  }
-});
-
 const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
+
+let monacoRegistered = false;
+
+function registerPythonLanguage() {
+  if (monacoRegistered) return;
+  monacoRegistered = true;
+
+  try {
+    monaco.languages.register({ id: 'python', extensions: ['.py'], aliases: ['Python', 'python', 'py'] });
+  } catch {
+    // ignore
+  }
+
+  try {
+    monaco.languages.setLanguageConfiguration('python', {
+      comments: { lineComment: '#', blockComment: ['"""', '"""'] },
+      brackets: [
+        ['{', '}'],
+        ['[', ']'],
+        ['(', ')']
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"', notIn: ['string'] },
+        { open: "'", close: "'", notIn: ['string'] },
+        { open: '`', close: '`', notIn: ['string'] }
+      ],
+      surroundingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+        { open: "'", close: "'" },
+        { open: '`', close: '`' }
+      ],
+      folding: { offSide: true }
+    });
+  } catch {
+    // Monaco internal services may not be fully available; skip gracefully.
+  }
+
+  try {
+    monaco.languages.setMonarchTokensProvider('python', {
+      defaultToken: '',
+      tokenizer: {
+        root: [
+          [
+            /\b(import|from|as|def|class|lambda|return|yield|raise|if|elif|else|for|while|try|except|finally|with|pass|break|continue|in|is|not|and|or|global|nonlocal|del|assert|async|await)\b/,
+            'keyword'
+          ],
+          [/\b(True|False|None)\b/, 'number'],
+          [/\b(self|cls)\b/, 'variable'],
+          [
+            /\b(print|len|range|type|int|float|str|list|dict|tuple|set|bool|enumerate|zip|map|filter|sorted|reversed|isinstance|hasattr|getattr|setattr|super|open|input|abs|all|any|bin|chr|dir|divmod|eval|exec|format|hex|id|max|min|next|oct|ord|pow|repr|round|sum|vars)\b/,
+            'keyword'
+          ],
+          [/@\w+/, 'tag'],
+          [/0[xX][0-9a-fA-F]+/, 'number'],
+          [/0[oO][0-7]+/, 'number'],
+          [/0[bB][01]+/, 'number'],
+          [/\b\d+(\.\d+)?([eE][+-]?\d+)?\b/, 'number'],
+          [/[rfb]?(?:'''|"""|'|")/, { token: 'string', next: '@stringState' }],
+          [/#.*/, 'comment'],
+          [/[{}()[\]]/, 'delimiter'],
+          [/[+\-*/%=<>!&|^~]+/, 'operator']
+        ],
+        stringState: [
+          [/[^\\'"]+/, 'string'],
+          [/\\./, 'string.escape'],
+          [/('''|"""|'|")/, { token: 'string', next: '@pop' }]
+        ]
+      }
+    });
+  } catch {
+    // Monaco internal services may not be fully available; skip gracefully.
+  }
+
+  try {
+    monaco.languages.registerCompletionItemProvider('python', {
+      triggerCharacters: ['.'],
+      provideCompletionItems: async (model, position) => {
+        const textUntilPosition = model.getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column
+        });
+
+        const match = textUntilPosition.match(/(?:ctx|context)\.(\w*)$/);
+        if (match) {
+          const wordStart = position.column - match[1].length;
+          return {
+            suggestions: hyacContextOptions.map(item => ({
+              label: item.label,
+              kind: monaco.languages.CompletionItemKind.Property,
+              detail: item.detail,
+              insertText: item.label,
+              range: new monaco.Range(position.lineNumber, wordStart, position.lineNumber, position.column)
+            }))
+          };
+        }
+
+        return undefined;
+      }
+    });
+  } catch {
+    // Monaco internal services may not be fully available; skip gracefully.
+  }
+}
 
 onMounted(() => {
   if (!editorRef.value) return;
 
+  ensureVscodeServicesInitialized();
+  registerPythonLanguage();
+
   editor = monaco.editor.create(editorRef.value, {
-    value: props.code,
-    language: 'python',
-    theme: props.themeName,
-    fontSize: props.fontSize,
-    tabSize: props.tabSize,
-    insertSpaces: true,
-    minimap: { enabled: props.showMinimap },
-    lineNumbers: props.showLineNumbers ? 'on' : 'off',
-    automaticLayout: true,
-    scrollBeyondLastLine: false,
-    wordWrap: 'on',
-    fontFamily: "'Courier New', monospace",
-    bracketPairColorization: { enabled: true },
-    folding: true,
-    renderLineHighlight: 'all',
-    matchBrackets: 'always',
-    autoClosingBrackets: 'always',
-    autoClosingQuotes: 'always',
-    autoSurround: 'brackets',
-    acceptSuggestionOnEnter: 'on',
-    suggestOnTriggerCharacters: true,
-    suggest: { snippetsPreventQuickSuggestions: false },
-    quickSuggestions: { other: true, comments: false, strings: false }
-  });
+      value: props.code,
+      language: 'python',
+      theme: props.themeName,
+      fontSize: props.fontSize,
+      tabSize: props.tabSize,
+      insertSpaces: true,
+      minimap: { enabled: props.showMinimap },
+      lineNumbers: props.showLineNumbers ? 'on' : 'off',
+      automaticLayout: true,
+      scrollBeyondLastLine: false,
+      wordWrap: 'on',
+      fontFamily: "'Courier New', monospace",
+      bracketPairColorization: { enabled: true },
+      folding: true,
+      renderLineHighlight: 'all',
+      matchBrackets: 'always',
+      autoClosingBrackets: 'always',
+      autoClosingQuotes: 'always',
+      autoSurround: 'brackets',
+      acceptSuggestionOnEnter: 'on',
+      suggestOnTriggerCharacters: true,
+      suggest: { snippetsPreventQuickSuggestions: false },
+      quickSuggestions: { other: true, comments: false, strings: false }
+    });
 
   editor.onDidChangeModelContent(() => {
     emit('update:code', editor?.getValue() || '');
@@ -166,7 +200,7 @@ onMounted(() => {
   const baseUrl = getServiceBaseUrl();
   if (applicationStore.appId && editor) {
     const lspUri = `${convertDomain(baseUrl, 'wss', applicationStore.appId)}/__lsp__`;
-    connectLsp(lspUri, editor.getModel()!);
+    connectLsp(lspUri);
   }
 });
 
@@ -178,11 +212,36 @@ onBeforeUnmount(() => {
   }
 });
 
-watch(() => props.fontSize, val => { editor?.updateOptions({ fontSize: val }); });
-watch(() => props.tabSize, val => { editor?.updateOptions({ tabSize: val }); });
-watch(() => props.themeName, val => { monaco.editor.setTheme(val); });
-watch(() => props.showMinimap, val => { editor?.updateOptions({ minimap: { enabled: val } }); });
-watch(() => props.showLineNumbers, val => { editor?.updateOptions({ lineNumbers: val ? 'on' : 'off' }); });
+watch(
+  () => props.fontSize,
+  val => {
+    editor?.updateOptions({ fontSize: val });
+  }
+);
+watch(
+  () => props.tabSize,
+  val => {
+    editor?.updateOptions({ tabSize: val });
+  }
+);
+watch(
+  () => props.themeName,
+  val => {
+    monaco.editor.setTheme(val);
+  }
+);
+watch(
+  () => props.showMinimap,
+  val => {
+    editor?.updateOptions({ minimap: { enabled: val } });
+  }
+);
+watch(
+  () => props.showLineNumbers,
+  val => {
+    editor?.updateOptions({ lineNumbers: val ? 'on' : 'off' });
+  }
+);
 </script>
 
 <template>
