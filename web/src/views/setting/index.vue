@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, h, onMounted, ref } from 'vue';
-import { NCard, NIcon, NLayout, NLayoutContent, NLayoutSider, NMenu, NSplit } from 'naive-ui';
+import { NCard, NIcon, NMenu, NSplit } from 'naive-ui';
 import {
   CloudUploadOutline,
   CodeSlashOutline,
@@ -8,7 +8,6 @@ import {
   KeyOutline,
   NotificationsOutline,
   PersonCircleOutline,
-  ServerOutline,
   ShareSocialOutline,
   WarningOutline
 } from '@vicons/ionicons5';

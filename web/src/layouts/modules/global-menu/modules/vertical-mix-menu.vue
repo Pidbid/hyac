@@ -11,7 +11,6 @@ import { useRouterPush } from '@/hooks/common/router';
 import { $t } from '@/locales';
 import { useMenu, useMixMenuContext } from '../../../context';
 import FirstLevelMenu from '../components/first-level-menu.vue';
-import GlobalLogo from '../../global-logo/index.vue';
 
 defineOptions({
   name: 'VerticalMixMenu'

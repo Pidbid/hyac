@@ -1,7 +1,7 @@
 import getConfigurationServiceOverride, {
-  initUserConfiguration,
+  ConfigurationScope,
   configurationRegistry,
-  ConfigurationScope
+  initUserConfiguration
 } from '@codingame/monaco-vscode-configuration-service-override';
 import getFilesServiceOverride from '@codingame/monaco-vscode-files-service-override';
 import getExtensionsServiceOverride from '@codingame/monaco-vscode-extensions-service-override';
@@ -79,7 +79,8 @@ async function registerEditorConfiguration() {
         'editor.suggest.shareSuggestSelections': {
           type: 'boolean',
           default: false,
-          description: 'Controls whether remembered suggestion selections are shared between multiple workspaces and windows.'
+          description:
+            'Controls whether remembered suggestion selections are shared between multiple workspaces and windows.'
         },
         'editor.suggestSelection': {
           type: 'string',

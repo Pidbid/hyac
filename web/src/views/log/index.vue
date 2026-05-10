@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+/* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import {
   NButton,
   NCard,
-  NCode,
   NDataTable,
   NDatePicker,
   NDescriptions,
@@ -13,7 +13,6 @@ import {
   NLog,
   NSelect,
   NSpace,
-  NSwitch,
   NTag,
   useMessage
 } from 'naive-ui';
@@ -25,7 +24,6 @@ import {
   InformationCircleOutline,
   ReloadOutline,
   SearchOutline,
-  SyncOutline,
   WarningOutline
 } from '@vicons/ionicons5';
 import hljs from 'highlight.js/lib/core';

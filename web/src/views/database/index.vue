@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { Console } from 'node:console';
-import { computed, h, nextTick, onMounted, ref, watch } from 'vue';
+/* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
+import { h, nextTick, onMounted, ref, watch } from 'vue';
 import {
   NButton,
   NButtonGroup,
   NCard,
   NDataTable,
   NEmpty,
-  NFlex,
-  NForm,
-  NFormItem,
   NIcon,
   NInput,
   NList,
@@ -28,7 +25,6 @@ import {
   BanOutline,
   CreateOutline,
   DocumentTextOutline,
-  PencilOutline,
   RefreshOutline,
   TrashOutline
 } from '@vicons/ionicons5';
@@ -64,13 +60,6 @@ const documents = ref<object[]>([]);
 const pageSize = ref(15);
 const page = ref(1);
 const totalDocuments = ref(0);
-const paginatedDocuments = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  console.info(documents.value.slice(start, end));
-  return documents.value.slice(start, end);
-});
-
 // 选中的文档用于编辑
 const editingDocument = ref<any>(null);
 const editingDocumentJson = ref<string>('{}');
@@ -101,7 +90,7 @@ const handleCreateCollection = () => {
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       if (collectionName.value) {
-        const { data, error } = await CreateCollection(applicationStore.appId, collectionName.value);
+        const { error } = await CreateCollection(applicationStore.appId, collectionName.value);
         if (!error) {
           await getApplicationCollections();
           selectedCollection.value = collectionName.value;
@@ -131,7 +120,7 @@ const handleCreateDocument = () => {
     },
     onPositiveClick: async () => {
       try {
-        const { data, error } = await CreateDocument(
+        const { error } = await CreateDocument(
           applicationStore.appId,
           selectedCollection.value,
           JSON.parse(documentContent.value)
@@ -164,7 +153,7 @@ const handleDeleteDocument = (doc: any) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await DeleteDocument(applicationStore.appId, selectedCollection.value, doc._id);
+      const { error } = await DeleteDocument(applicationStore.appId, selectedCollection.value, doc._id);
       if (!error) {
         await getCollectionDocuments(selectedCollection.value, 1, 15);
         message.success($t('page.database.deleteSuccess'));
@@ -204,7 +193,7 @@ const handleDeleteCollection = (colName: string) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await DeleteCollection(applicationStore.appId, colName);
+      const { error } = await DeleteCollection(applicationStore.appId, colName);
       if (!error) {
         await getApplicationCollections();
         selectedCollection.value = collections.value[0];
@@ -221,7 +210,7 @@ const handleClearCollection = (colName: string) => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
-      const { data, error } = await ClearCollection(applicationStore.appId, colName);
+      const { error } = await ClearCollection(applicationStore.appId, colName);
       if (!error) {
         await getCollectionDocuments(selectedCollection.value, 1, 15);
         message.success($t('page.database.clearSuccess'));
@@ -236,7 +225,7 @@ const handleClearCollection = (colName: string) => {
 const handleSaveDocument = async () => {
   try {
     // The v-model from JsonEditor should always be an object
-    const { data, error } = await UpdateDocument(
+    const { error } = await UpdateDocument(
       applicationStore.appId,
       selectedCollection.value,
       editingDocument.value._id,
@@ -248,7 +237,7 @@ const handleSaveDocument = async () => {
       editingDocumentJson.value = '';
       message.success($t('page.database.saveSuccess'));
     }
-  } catch (e) {
+  } catch {
     message.error($t('page.database.saveFailed'));
   }
 };
@@ -285,7 +274,7 @@ const documentColumns: DataTableColumns<any> = [
     title: $t('page.database.idColumn'),
     key: 'id',
     width: 100,
-    render: (row: any, index: number) => h('span', {}, (page.value - 1) * pageSize.value + index + 1)
+    render: (_row: any, index: number) => h('span', {}, (page.value - 1) * pageSize.value + index + 1)
   },
   {
     title: $t('page.database.contentColumn'),
@@ -353,8 +342,8 @@ const handleCollectionClick = async (collection: string) => {
   await getCollectionDocuments(selectedCollection.value, 1, 15);
 };
 
-const getCollectionDocuments = async (docName: string, page: number, length: number) => {
-  const { data, error } = await GetDocumentData(applicationStore.appId, docName, page, length);
+const getCollectionDocuments = async (docName: string, pageNum: number, length: number) => {
+  const { data, error } = await GetDocumentData(applicationStore.appId, docName, pageNum, length);
   if (!error) {
     documents.value = data.data;
     totalDocuments.value = data.total; // 更新总文档数

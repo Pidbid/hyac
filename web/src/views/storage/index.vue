@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   type DataTableColumns,
   NBreadcrumb,
@@ -245,7 +245,7 @@ const handleCreateFolder = () => {
   });
 };
 
-const handleRowClick = async (row: any, rowIndex: number) => {
+const handleRowClick = async (row: any) => {
   if (row.type === 'folder') {
     breadcrumbPath.value.push({ key: row.name, name: row.name, isFolder: true });
     await handleDataInit(); // 重新获取数据
@@ -372,6 +372,7 @@ const handleDownloadFile = async (row: any) => {
 
 // --- 表格定义 ---
 
+// eslint-disable-next-line complexity
 const getFileIcon = (fileName: string) => {
   const extension = fileName.split('.').pop()?.toLowerCase();
   if (!extension) return DocumentTextOutline;
@@ -497,7 +498,7 @@ const pagination = { pageSize: 20 };
 const rowProps = (row: any) => {
   return {
     style: 'cursor: pointer;',
-    onClick: () => handleRowClick(row, 0), // rowIndex is not critical here
+    onClick: () => handleRowClick(row),
     class: selectedFile.value?.name === row.name ? 'selected-row' : ''
   };
 };

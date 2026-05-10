@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 import { readonly, ref } from 'vue';
 import { defineStore } from 'pinia';
 import dayjs from 'dayjs';
@@ -14,7 +15,7 @@ export const useLogStore = defineStore('log-store', () => {
   const messageQueue = ref<string[]>([]);
 
   // Actions
-  function _sendMessage(message: object) {
+  function sendMessage(message: object) {
     const messageStr = JSON.stringify(message);
     if (ws.value && isConnected.value) {
       ws.value.send(messageStr);
@@ -109,18 +110,18 @@ export const useLogStore = defineStore('log-store', () => {
 
     // If we were subscribed to a different function, unsubscribe from it first.
     if (currentFuncId.value) {
-      _sendMessage({ type: 'unsubscribe' });
+      sendMessage({ type: 'unsubscribe' });
     }
 
     // Now, subscribe to the new function.
     currentFuncId.value = funcId;
     logs.value = []; // Clear logs for the new function
-    _sendMessage({ type: 'subscribe', funcId });
+    sendMessage({ type: 'subscribe', funcId });
   }
 
   function unsubscribe() {
     if (currentFuncId.value) {
-      _sendMessage({ type: 'unsubscribe' });
+      sendMessage({ type: 'unsubscribe' });
       currentFuncId.value = null;
       logs.value = [];
     }

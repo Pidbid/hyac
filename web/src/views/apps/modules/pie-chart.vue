@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue';
 import { useAppStore } from '@/store/modules/app';
-import { useApplicationStore } from '@/store/modules/application';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
 
@@ -15,7 +14,6 @@ interface Props {
 const props = defineProps<Props>();
 
 const appStore = useAppStore();
-const applicationStore = useApplicationStore();
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {

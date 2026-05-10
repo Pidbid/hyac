@@ -108,11 +108,13 @@ export function convertDomain(originalDomain: string, protocol: string, prefix: 
  * @returns 后端服务的 URL
  */
 export function getServiceBaseUrl(): string {
+  const injectedPlaceholder = String.raw`\${VITE_SERVICE_BASE_URL}`;
+
   // 生产环境：window.APP_CONFIG 存在且 VITE_SERVICE_BASE_URL 有效
   if (
     (window as any).APP_CONFIG &&
     (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL &&
-    (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL !== '${VITE_SERVICE_BASE_URL}'
+    (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL !== injectedPlaceholder
   ) {
     return (window as any).APP_CONFIG.VITE_SERVICE_BASE_URL;
   }

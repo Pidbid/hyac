@@ -11,10 +11,11 @@ defineOptions({
 });
 
 interface Props {
+  // eslint-disable-next-line vue/no-unused-properties
   summary: Api.Statistics.Summary | null;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 const appStore = useAppStore();
 const applicationStore = useApplicationStore();

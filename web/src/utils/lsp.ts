@@ -34,7 +34,8 @@ function sendNotification(method: string, params?: any) {
 }
 
 function sendRequest(method: string, params?: any) {
-  const id = requestId++;
+  const id = requestId;
+  requestId += 1;
   send({ id, method, ...(params === undefined ? {} : { params }) });
 
   return new Promise<any>((resolve, reject) => {
@@ -134,7 +135,12 @@ function getInsertText(item: any) {
 }
 
 function mapCompletionItems(result: any, model: monaco.editor.ITextModel, position: monaco.Position) {
-  const items = Array.isArray(result) ? result : Array.isArray(result?.items) ? result.items : [];
+  let items: any[] = [];
+  if (Array.isArray(result)) {
+    items = result;
+  } else if (Array.isArray(result?.items)) {
+    items = result.items;
+  }
   const fallbackWord = model.getWordUntilPosition(position);
   const fallbackRange = new monaco.Range(
     position.lineNumber,
@@ -215,10 +221,12 @@ export async function connectLsp(url: string, getText?: () => string) {
       }
     };
     socket.onopen = () => {
-      initializeSession().then(resolve).catch(error => {
-        lspStatus.value = 'error';
-        reject(error);
-      });
+      initializeSession()
+        .then(resolve)
+        .catch(error => {
+          lspStatus.value = 'error';
+          reject(error);
+        });
     };
   });
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
   NButton,
@@ -299,7 +300,7 @@ const handleCreateApp = async () => {
   formRef.value?.validate(async (errors: any) => {
     if (!errors) {
       try {
-        const { data: responseData, error } = await createApp(createAppForm.appName, createAppForm.description);
+        const { error } = await createApp(createAppForm.appName, createAppForm.description);
         if (!error) {
           message.success($t('page.home.appCreationRequestSent'));
           showCreateModal.value = false;
@@ -309,11 +310,10 @@ const handleCreateApp = async () => {
         } else {
           message.error($t('page.home.failedToCreateApp'));
         }
-      } catch (e) {
+      } catch {
         message.error($t('page.home.errorCreatingApp'));
       }
     } else {
-      console.log(errors);
       message.error($t('page.home.fillInCompletely'));
     }
   });
@@ -334,7 +334,7 @@ const handleDeleteApp = (appId: string) => {
         } else {
           message.error($t('page.home.failedToDeleteApp'));
         }
-      } catch (e) {
+      } catch {
         message.error($t('page.home.errorDeletingApp'));
       }
     }
@@ -350,7 +350,7 @@ const handleStartApp = async (appId: string) => {
     } else {
       message.error($t('page.home.failedToStartApp'));
     }
-  } catch (e) {
+  } catch {
     message.error($t('page.home.errorStartingApp'));
   }
 };
@@ -364,7 +364,7 @@ const handleStopApp = async (appId: string) => {
     } else {
       message.error($t('page.home.failedToStopApp'));
     }
-  } catch (e) {
+  } catch {
     message.error($t('page.home.errorStoppingApp'));
   }
 };
@@ -378,7 +378,7 @@ const handleRestartApp = async (appId: string) => {
     } else {
       message.error($t('page.home.failedToRestartApp'));
     }
-  } catch (e) {
+  } catch {
     message.error($t('page.home.errorRestartingApp'));
   }
 };

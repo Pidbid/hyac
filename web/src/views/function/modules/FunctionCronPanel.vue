@@ -16,7 +16,6 @@ import {
   NSpin,
   NSwitch,
   NTag,
-  NText,
   useDialog,
   useMessage
 } from 'naive-ui';
@@ -129,7 +128,7 @@ const handleSave = async () => {
         },
         {} as Record<string, string>
       );
-    } catch (e) {
+    } catch {
       message.error($t('page.function.invalidJsonFormat'));
       return;
     }

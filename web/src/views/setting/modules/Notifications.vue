@@ -62,7 +62,6 @@ async function handleSave() {
 }
 
 function handleTest(type: 'email' | 'webhook' | 'wechat') {
-  // TODO: Implement test logic
   message.info(`Test for ${type} is not implemented yet.`);
 }
 

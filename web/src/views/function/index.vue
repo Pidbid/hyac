@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
 import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
@@ -53,7 +54,6 @@ import {
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
 import { useLogStore } from '@/store/modules/log';
-import { useThemeStore } from '@/store/modules/theme';
 import { useAppStore } from '@/store/modules/app';
 import { $t } from '@/locales';
 import FunctionList from './modules/FunctionList.vue';
@@ -70,7 +70,6 @@ const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
 const appStore = useAppStore();
 const logStore = useLogStore();
-const themeStore = useThemeStore();
 const router = useRouter();
 
 const isDependenceLoading = ref(false);

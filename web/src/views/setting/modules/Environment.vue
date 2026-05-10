@@ -16,7 +16,7 @@ import {
   useDialog,
   useMessage
 } from 'naive-ui';
-import { AddOutline, EyeOffOutline, EyeOutline, KeyOutline, TrashOutline } from '@vicons/ionicons5';
+import { AddOutline, EyeOffOutline, EyeOutline, KeyOutline } from '@vicons/ionicons5';
 import { addEnv, getEnvsData, removeEnv } from '@/service/api/settings';
 import { useApplicationStore } from '@/store/modules/application';
 import { $t } from '@/locales';

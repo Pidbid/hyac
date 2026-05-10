@@ -7,7 +7,6 @@ import {
   NDataTable,
   NIcon,
   NInput,
-  NInputGroup,
   NModal,
   NSelect,
   NSpace,

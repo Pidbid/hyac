@@ -1,7 +1,9 @@
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 
-self.MonacoEnvironment = {
+const EditorWorker = editorWorker;
+
+globalThis.MonacoEnvironment = {
   getWorker() {
-    return new editorWorker();
+    return new EditorWorker();
   }
 };

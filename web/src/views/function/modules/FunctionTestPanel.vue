@@ -19,7 +19,6 @@ import {
 } from 'naive-ui';
 import { AddOutline, CopyOutline, TrashBinOutline } from '@vicons/ionicons5';
 import { functionTest } from '@/service/api';
-import jsonEditor from '@/components/custom/jsonEditor.vue';
 import { $t } from '@/locales';
 
 const props = defineProps<{
@@ -63,7 +62,7 @@ const handleTestRequest = async () => {
   if (testMethod.value === 'POST' && testJsonBody.value) {
     try {
       body = JSON.parse(testJsonBody.value);
-    } catch (e) {
+    } catch {
       message.error($t('page.function.postFormatError'));
       return;
     }

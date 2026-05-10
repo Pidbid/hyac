@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import '@/utils/monaco-worker';
-import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
 import * as monaco from 'monaco-editor';
 import { useApplicationStore } from '@/store/modules/application';
-import { useFunctionStore } from '@/store/modules/function';
+import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
 import { connectLsp, disconnectLsp, requestLspCompletionItems } from '@/utils/lsp';
 import { convertDomain, getServiceBaseUrl } from '@/utils/common';
 import { localStg } from '@/utils/storage';
@@ -51,7 +50,6 @@ const hyacContextOptions = [
 ];
 
 const applicationStore = useApplicationStore();
-const functionStore = useFunctionStore();
 
 let monacoRegistered = false;
 
@@ -200,30 +198,30 @@ onMounted(async () => {
   registerPythonLanguage();
 
   editor = monaco.editor.create(editorRef.value, {
-      model: createPythonModel(props.code),
-      theme: props.themeName,
-      fontSize: props.fontSize,
-      tabSize: props.tabSize,
-      insertSpaces: true,
-      minimap: { enabled: props.showMinimap },
-      lineNumbers: props.showLineNumbers ? 'on' : 'off',
-      automaticLayout: true,
-      scrollBeyondLastLine: false,
-      wordWrap: 'on',
-      fontFamily: "'Courier New', monospace",
-      bracketPairColorization: { enabled: true },
-      folding: true,
-      renderLineHighlight: 'all',
-      matchBrackets: 'always',
-      autoClosingBrackets: 'always',
-      autoClosingQuotes: 'always',
-      autoSurround: 'brackets',
-      acceptSuggestionOnEnter: 'on',
-      wordBasedSuggestions: 'currentDocument',
-      suggestOnTriggerCharacters: true,
-      suggest: { snippetsPreventQuickSuggestions: false, selectionMode: 'always' },
-      quickSuggestions: { other: true, comments: false, strings: false }
-    });
+    model: createPythonModel(props.code),
+    theme: props.themeName,
+    fontSize: props.fontSize,
+    tabSize: props.tabSize,
+    insertSpaces: true,
+    minimap: { enabled: props.showMinimap },
+    lineNumbers: props.showLineNumbers ? 'on' : 'off',
+    automaticLayout: true,
+    scrollBeyondLastLine: false,
+    wordWrap: 'on',
+    fontFamily: "'Courier New', monospace",
+    bracketPairColorization: { enabled: true },
+    folding: true,
+    renderLineHighlight: 'all',
+    matchBrackets: 'always',
+    autoClosingBrackets: 'always',
+    autoClosingQuotes: 'always',
+    autoSurround: 'brackets',
+    acceptSuggestionOnEnter: 'on',
+    wordBasedSuggestions: 'currentDocument',
+    suggestOnTriggerCharacters: true,
+    suggest: { snippetsPreventQuickSuggestions: false, selectionMode: 'always' },
+    quickSuggestions: { other: true, comments: false, strings: false }
+  });
 
   editor.onDidChangeModelContent(() => {
     emit('update:code', editor?.getValue() || '');

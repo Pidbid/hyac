@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue';
 import { NButton, NCard, NForm, NFormItem, NInput, NSelect, useMessage } from 'naive-ui';
 import { fetchAiConfig, updateAiConfig } from '@/service/api';
-import { useAppStore } from '@/store/modules/app';
 import { localStg } from '@/utils/storage';
 import { $t } from '@/locales';
 
@@ -10,7 +9,6 @@ defineOptions({
   name: 'AiSettings'
 });
 
-const appStore = useAppStore();
 const message = useMessage();
 
 const formValue = ref({
@@ -81,7 +79,7 @@ async function getConfig() {
     if (data) {
       formValue.value = data;
     }
-  } catch (error) {
+  } catch {
     message.error($t('page.setting.ai.error.fetch'));
   } finally {
     loading.value = false;
@@ -105,7 +103,7 @@ async function handleUpdate() {
   try {
     await updateAiConfig({ appId, config: formValue.value });
     message.success($t('page.setting.ai.success.update'));
-  } catch (error) {
+  } catch {
     message.error($t('page.setting.ai.error.update'));
   } finally {
     loading.value = false;

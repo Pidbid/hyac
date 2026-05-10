@@ -45,7 +45,7 @@ async function loadChangelogs() {
   try {
     const { data } = await fetchChangelogs();
     changelogs.value = data || [];
-  } catch (error) {
+  } catch {
     notification.error({
       title: $t('page.setting.systemUpdate.changelogError'),
       content: $t('page.setting.systemUpdate.changelogErrorContent'),
@@ -65,7 +65,7 @@ async function loadVersions() {
       versions.web_version = data.web_version;
       versions.app_version = data.app_version;
     }
-  } catch (error) {
+  } catch {
     notification.error({
       title: 'Error',
       content: 'Failed to fetch system versions.',

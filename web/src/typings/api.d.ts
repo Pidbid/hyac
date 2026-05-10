@@ -134,7 +134,7 @@ declare namespace Api {
       app_id: string;
     }
 
-    interface DeleteAppResponse {}
+    type DeleteAppResponse = Record<string, never>;
 
     interface StartAppResponse {
       app_id: string;
@@ -474,7 +474,7 @@ declare namespace Api {
       shared?: boolean;
     }
 
-    interface GetFunctionTemplateResponse extends FunctionTemplateRecord {}
+    type GetFunctionTemplateResponse = FunctionTemplateRecord;
   }
 
   /**

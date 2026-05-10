@@ -23,7 +23,6 @@ interface SummaryData {
 
 const summaryData = computed<SummaryData[]>(() => {
   const functions = props.summary?.functions;
-  const requests = functions?.requests;
 
   return [
     {
