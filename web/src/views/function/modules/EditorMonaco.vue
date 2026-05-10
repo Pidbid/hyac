@@ -5,8 +5,9 @@ import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
 import * as monaco from 'monaco-editor';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
-import { connectLsp, disconnectLsp } from '@/utils/lsp';
+import { connectLsp, disconnectLsp, requestLspCompletionItems } from '@/utils/lsp';
 import { convertDomain, getServiceBaseUrl } from '@/utils/common';
+import { localStg } from '@/utils/storage';
 
 interface Props {
   code?: string;
@@ -32,6 +33,8 @@ const emit = defineEmits<{
 
 const editorRef = ref<HTMLElement | null>(null);
 let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+let editorModel: monaco.editor.ITextModel | null = null;
+let connectedLspUri = '';
 
 const hyacContextOptions = [
   { label: 'app_id', detail: 'str' },
@@ -51,6 +54,31 @@ const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
 
 let monacoRegistered = false;
+
+function getCurrentAppId() {
+  return applicationStore.appId || applicationStore.appInfo.appId || localStg.get('appId') || '';
+}
+
+function syncLspConnection() {
+  if (!editor) return;
+
+  const appId = getCurrentAppId();
+  if (!appId) return;
+
+  const baseUrl = getServiceBaseUrl();
+  const lspUri = `${convertDomain(baseUrl, 'wss', appId)}/__lsp__`;
+  if (lspUri === connectedLspUri) return;
+
+  connectedLspUri = lspUri;
+  connectLsp(lspUri, () => editor?.getValue() || '');
+}
+
+function createPythonModel(value: string) {
+  const uri = monaco.Uri.parse('inmemory:///tmp/function.py');
+  monaco.editor.getModel(uri)?.dispose();
+  editorModel = monaco.editor.createModel(value, 'python', uri);
+  return editorModel;
+}
 
 function registerPythonLanguage() {
   if (monacoRegistered) return;
@@ -153,7 +181,11 @@ function registerPythonLanguage() {
           };
         }
 
-        return undefined;
+        try {
+          return { suggestions: await requestLspCompletionItems(model, position) };
+        } catch {
+          return { suggestions: [] };
+        }
       }
     });
   } catch {
@@ -161,15 +193,14 @@ function registerPythonLanguage() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!editorRef.value) return;
 
-  ensureVscodeServicesInitialized();
+  await ensureVscodeServicesInitialized();
   registerPythonLanguage();
 
   editor = monaco.editor.create(editorRef.value, {
-      value: props.code,
-      language: 'python',
+      model: createPythonModel(props.code),
       theme: props.themeName,
       fontSize: props.fontSize,
       tabSize: props.tabSize,
@@ -188,8 +219,9 @@ onMounted(() => {
       autoClosingQuotes: 'always',
       autoSurround: 'brackets',
       acceptSuggestionOnEnter: 'on',
+      wordBasedSuggestions: 'currentDocument',
       suggestOnTriggerCharacters: true,
-      suggest: { snippetsPreventQuickSuggestions: false },
+      suggest: { snippetsPreventQuickSuggestions: false, selectionMode: 'always' },
       quickSuggestions: { other: true, comments: false, strings: false }
     });
 
@@ -197,18 +229,19 @@ onMounted(() => {
     emit('update:code', editor?.getValue() || '');
   });
 
-  const baseUrl = getServiceBaseUrl();
-  if (applicationStore.appId && editor) {
-    const lspUri = `${convertDomain(baseUrl, 'wss', applicationStore.appId)}/__lsp__`;
-    connectLsp(lspUri);
-  }
+  syncLspConnection();
 });
 
 onBeforeUnmount(() => {
+  connectedLspUri = '';
   disconnectLsp();
   if (editor) {
     editor.dispose();
     editor = null;
+  }
+  if (editorModel) {
+    editorModel.dispose();
+    editorModel = null;
   }
 });
 
@@ -240,6 +273,12 @@ watch(
   () => props.showLineNumbers,
   val => {
     editor?.updateOptions({ lineNumbers: val ? 'on' : 'off' });
+  }
+);
+watch(
+  () => [applicationStore.appId, applicationStore.appInfo.appId],
+  () => {
+    syncLspConnection();
   }
 );
 </script>

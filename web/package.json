@@ -69,7 +69,9 @@
     "@types/markdown-it": "^14.1.2",
     "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "13.1.0",
+    "axios": "1.9.0",
     "clipboard": "2.0.11",
+    "date-fns": "^4.1.0",
     "dayjs": "1.11.13",
     "defu": "6.1.4",
     "echarts": "5.6.0",
@@ -98,6 +100,8 @@
     "@codingame/monaco-vscode-python-default-extension": "^18.4.0",
     "@elegant-router/vue": "0.3.8",
     "@iconify/json": "2.2.337",
+    "@iconify/utils": "^3.1.3",
+    "@playwright/test": "^1.59.1",
     "@sa/scripts": "workspace:*",
     "@sa/uno-preset": "workspace:*",
     "@shikijs/monaco": "^3.7.0",
@@ -116,6 +120,7 @@
     "eslint": "9.26.0",
     "eslint-plugin-vue": "10.1.0",
     "kolorist": "1.8.0",
+    "playwright": "^1.59.1",
     "sass": "1.88.0",
     "simple-git-hooks": "2.13.0",
     "tsx": "4.19.4",
@@ -131,7 +136,13 @@
     "vue-tsc": "2.2.10"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild", "simple-git-hooks", "v-code-diff", "vue-demi"],
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "simple-git-hooks",
+      "v-code-diff",
+      "vue-demi"
+    ],
     "overrides": {
       "vscode": "npm:@codingame/monaco-vscode-extension-api@18.4.0",
       "@codingame/monaco-vscode-api": "18.4.0",

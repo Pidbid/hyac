@@ -1,3 +1,5 @@
+opencode.json
+
 # Environments
 .env
 .env.dev
@@ -41,6 +43,5 @@ traefik/dynamic-dev/*
 
 # MCP
 .mcp.json
-
 # Nested git metadata
 web/.git_disabled/
