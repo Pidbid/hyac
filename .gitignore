@@ -5,6 +5,7 @@ opencode.json
 .env.dev
 !/web/.env
 .codex
+.opencode/
 
 # Dependencies
 **/node_modules
