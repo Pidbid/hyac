@@ -19,8 +19,8 @@ import {
   NScrollbar,
   NSelect,
   NSpace,
-  NSpin,
   NSplit,
+  NSpin,
   NSwitch,
   NTabPane,
   NTabs,
@@ -30,7 +30,16 @@ import {
   useMessage
 } from 'naive-ui';
 import dayjs from 'dayjs';
-import { AddOutline, BrushOutline, CloseOutline, LinkOutline, SearchOutline, SparklesOutline } from '@vicons/ionicons5';
+import {
+  AddOutline,
+  BeakerOutline,
+  BrushOutline,
+  CloseOutline,
+  LinkOutline,
+  SearchOutline,
+  SparklesOutline,
+  TimerOutline
+} from '@vicons/ionicons5';
 import {
   CreateFunction,
   DeleteFunction,
@@ -122,10 +131,12 @@ const isSaving = ref(false);
 const functionRequestData = ref({ page: 1, length: 50 });
 const tags = ref<string[]>([]);
 const selectedTag = ref('all');
+const sidebarCollapsed = ref(false);
 
 const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const showAiWindow = ref(false);
+const activePanel = ref<'test' | 'cron'>('test');
 
 // Computed
 const functionAddress = computed(() => {
@@ -353,7 +364,6 @@ const handleCreateFunction = () => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onNegativeClick: () => {
-      // Reset form data on cancellation
       localCreateData.name = '';
       localCreateData.description = '';
       localCreateData.type = 'endpoint';
@@ -376,7 +386,6 @@ const handleCreateFunction = () => {
             message.success($t('page.function.createSuccess'));
             await getFunctionData();
             const newFunc = functions.value.find(func => func.name === localCreateData.name);
-            // Reset form data after successful creation
             localCreateData.name = '';
             localCreateData.description = '';
             localCreateData.type = 'endpoint';
@@ -796,7 +805,7 @@ const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
                   const { error } = await packageRemove(applicationStore.appId, dep.name, false);
                   if (!error) {
                     message.success($t('page.function.dependenceDeleted'));
-                    await handleDependence(false); // Refresh list without closing dialog
+                    await handleDependence(false);
                   } else {
                     message.error($t('page.function.deleteFailed'));
                   }
@@ -856,7 +865,7 @@ const handlePackageAdd = async (restart: boolean = false) => {
       return;
     }
     message.success($t('page.function.addDependenceSuccess'));
-    await handleDependence(false); // Refresh list without closing dialog
+    await handleDependence(false);
   } else {
     message.error($t('page.function.addDependenceFailed'));
   }
@@ -882,7 +891,7 @@ const handlePackageSearch = (query: string) => {
       packageResult.value = data || [];
     }
     isDependenceLoading.value = false;
-  }, 500); // 500ms debounce
+  }, 500);
 };
 
 const handleAddDependence = async (row: { name: string }) => {
@@ -976,11 +985,7 @@ const handleAddDependence = async (row: { name: string }) => {
         }
       ),
     onPositiveClick: async () => {
-      // const { error } = await AddDependence(applicationStore.appId, packageSelectInput.value.name.value);
-      // if (!error) {
-      //   message.success('添加依赖成功');
-      //   await handleDependence();
-      // }
+      // placeholder
     }
   });
 };
@@ -1486,105 +1491,307 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full w-full flex">
-    <NSplit class="h-full" :size="0.1" :min="0.1" :max="0.6">
+  <div class="function-page">
+    <NSplit class="page-split" :default-size="0.18" :min="0.12" :max="0.34">
       <template #1>
-        <FunctionList
-          :functions="functions"
-          :selected-function-id="selectedFunction.id"
-          :tags="tags"
-          :selected-tag="selectedTag"
-          @create-function="handleCreateFunction"
-          @select-function="functionSelect"
-          @delete-function="handleDeleteFunction"
-          @open-env-settings="handleEnvSetting(true)"
-          @open-dependency-manager="handleDependence(true)"
-          @select-tag="handleTagSelect"
-        />
+        <aside class="sidebar-container" :class="{ collapsed: sidebarCollapsed }">
+          <FunctionList
+            :functions="functions"
+            :selected-function-id="selectedFunction.id"
+            :tags="tags"
+            :selected-tag="selectedTag"
+            @create-function="handleCreateFunction"
+            @select-function="functionSelect"
+            @delete-function="handleDeleteFunction"
+            @open-env-settings="handleEnvSetting(true)"
+            @open-dependency-manager="handleDependence(true)"
+            @select-tag="handleTagSelect"
+          />
+        </aside>
       </template>
+
       <template #2>
-        <div v-if="functions.length > 0" class="h-full w-full">
-          <NSplit :default-size="0.85" :min="0.1" :max="0.85">
-            <template #1>
-              <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
-                <template #1>
-                  <FunctionEditorPanel
-                    :func="selectedFunction"
-                    :code-changed="codeChanged"
-                    :is-saving="isSaving"
-                    :editor-config="editorConfig"
-                    @save-code="handleSaveCode"
-                    @open-history="handleOpenHistory"
-                    @update:code="selectedFunction.code = $event"
-                    @open-editor-settings="handleFunctionEditorSetting"
-                    @edit-meta="handleEditMeta"
-                  />
-                </template>
-                <template #2>
-                  <FunctionLogPanel :logs="logStore.logs" />
-                </template>
-              </NSplit>
-            </template>
-            <template #2>
-              <NTabs type="line" animated class="h-full" style="padding-left: 16px">
-                <NTabPane name="test" :tab="$t('page.function.functionTest')">
-                  <FunctionTestPanel
-                    v-if="selectedFunction.type === 'endpoint'"
-                    :key="selectedFunction.id"
-                    :function-address="functionAddress"
-                  />
-                  <div v-else class="h-full w-full flex items-center justify-center">
-                    <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
+        <main class="main-container">
+          <template v-if="functions.length > 0">
+            <NSplit class="workspace-split" :default-size="0.78" :min="0.42" :max="0.86">
+              <template #1>
+                <section class="primary-column">
+                  <NSplit class="editor-log-split" direction="vertical" :default-size="0.7" :min="0.35" :max="0.86">
+                    <template #1>
+                      <div class="editor-section">
+                        <FunctionEditorPanel
+                          :func="selectedFunction"
+                          :code-changed="codeChanged"
+                          :is-saving="isSaving"
+                          :editor-config="editorConfig"
+                          @save-code="handleSaveCode"
+                          @open-history="handleOpenHistory"
+                          @update:code="selectedFunction.code = $event"
+                          @open-editor-settings="handleFunctionEditorSetting"
+                          @edit-meta="handleEditMeta"
+                        />
+                      </div>
+                    </template>
+
+                    <template #2>
+                      <div class="log-container">
+                        <FunctionLogPanel :logs="logStore.logs" />
+                      </div>
+                    </template>
+                  </NSplit>
+                </section>
+              </template>
+
+              <template #2>
+                <aside class="panel-container">
+                  <div class="panel-tabs">
+                    <button class="panel-tab" :class="{ active: activePanel === 'test' }" @click="activePanel = 'test'">
+                      <NIcon :component="BeakerOutline" :size="15" />
+                      <span>{{ $t('page.function.functionTest') }}</span>
+                    </button>
+                    <button class="panel-tab" :class="{ active: activePanel === 'cron' }" @click="activePanel = 'cron'">
+                      <NIcon :component="TimerOutline" :size="15" />
+                      <span>{{ $t('page.function.cronJobs') }}</span>
+                    </button>
                   </div>
-                </NTabPane>
-                <NTabPane name="cron" :tab="$t('page.function.cronJobs')">
-                  <div v-if="selectedFunction.type === 'endpoint'">
-                    <FunctionCronPanel :func="selectedFunction" />
+                  <div class="panel-content">
+                    <FunctionTestPanel
+                      v-if="activePanel === 'test' && selectedFunction.type === 'endpoint'"
+                      :key="selectedFunction.id"
+                      :function-address="functionAddress"
+                    />
+                    <FunctionCronPanel
+                      v-else-if="activePanel === 'cron' && selectedFunction.type === 'endpoint'"
+                      :func="selectedFunction"
+                    />
+                    <div v-else class="empty-panel">
+                      <NEmpty :description="$t('page.function.commonFunctionTestHint')" />
+                    </div>
                   </div>
-                  <div v-else class="h-full w-full flex items-center justify-center">
-                    <NEmpty :description="$t('page.function.commonFunctionCronHint')"></NEmpty>
-                  </div>
-                </NTabPane>
-              </NTabs>
-              <div v-if="selectedFunction.type !== 'endpoint'" class="h-full w-full flex items-center justify-center">
-                <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
-              </div>
-            </template>
-          </NSplit>
-        </div>
-        <div v-else class="h-full w-full flex items-center justify-center">
-          <NEmpty :description="$t('page.function.emptyDescription')">
-            <template #extra>
-              <NButton type="primary" @click="handleCreateFunction">
-                {{ $t('page.function.createFunction') }}
-              </NButton>
-            </template>
-          </NEmpty>
-        </div>
+                </aside>
+              </template>
+            </NSplit>
+          </template>
+
+          <div v-else class="empty-state">
+            <div class="empty-content">
+              <div class="empty-icon-large">ƒ</div>
+              <h2>{{ $t('page.function.emptyDescription') }}</h2>
+              <button class="create-btn" @click="handleCreateFunction">
+                <NIcon :component="AddOutline" :size="18" />
+                <span>{{ $t('page.function.createFunction') }}</span>
+              </button>
+            </div>
+          </div>
+        </main>
       </template>
     </NSplit>
 
     <FunctionHistoryModal v-model:show="showHistoryModel" :history-data="historyData" @rollback="handleRollback" />
     <AiAssistantWindow :show="showAiWindow" @close="handleCloseAiWindow" />
-    <NButton
-      circle
-      type="primary"
-      style="position: fixed; right: 20px; bottom: 20px; z-index: 1000"
-      @click="toggleAiWindow"
-    >
-      <template #icon>
-        <NIcon :component="SparklesOutline" />
-      </template>
-    </NButton>
+
+    <button class="ai-fab" @click="toggleAiWindow">
+      <NIcon :component="SparklesOutline" :size="22" />
+    </button>
   </div>
 </template>
 
 <style scoped>
-.bg-primary_hover {
-  background-color: var(--primary-color-hover);
+.function-page {
+  --function-panel-gap: 6px;
+
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  background: #f5f5f7;
+  overflow: hidden;
+  padding: 8px;
 }
 
-.n-card__content {
-  height: 100% !important;
+.page-split,
+.workspace-split,
+.editor-log-split {
+  height: 100%;
+  min-height: 0;
+}
+
+.page-split :deep(.n-split-pane),
+.workspace-split :deep(.n-split-pane),
+.editor-log-split :deep(.n-split-pane) {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-container {
+  height: 100%;
+  flex-shrink: 0;
+  padding-right: var(--function-panel-gap);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-container.collapsed {
+  width: 0;
+}
+
+.main-container {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-left: var(--function-panel-gap);
+}
+
+.primary-column {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-right: var(--function-panel-gap);
+}
+
+.editor-section {
+  height: 100%;
+  min-height: 0;
+  padding-bottom: var(--function-panel-gap);
+}
+
+.log-container {
+  height: 100%;
+  min-width: 0;
+  padding-top: var(--function-panel-gap);
+}
+
+.panel-container {
+  height: 100%;
+  min-width: 0;
+  margin-left: var(--function-panel-gap);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.panel-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  background: transparent;
+  color: #6e6e73;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel-tab:hover {
+  color: #1d1d1f;
+}
+
+.panel-tab.active {
+  background: #ffffff;
+  color: #007aff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.empty-panel {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-content {
+  text-align: center;
+}
+
+.empty-icon-large {
+  font-size: 64px;
+  font-weight: 700;
+  color: #c7c7cc;
+  margin-bottom: 16px;
+}
+
+.empty-content h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 24px;
+}
+
+.create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: #007aff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-btn:hover {
+  background: #0066d6;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
+}
+
+.ai-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007aff, #5856d6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.ai-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+}
+
+@media (max-width: 1100px) {
+  .panel-container {
+    margin-left: 4px;
+  }
 }
 </style>

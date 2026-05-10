@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NCard, NIcon } from 'naive-ui';
+import { NIcon } from 'naive-ui';
 import {
   BrushOutline,
   CheckmarkOutline,
@@ -18,7 +18,7 @@ interface editorConfigT {
   lineNumbers: boolean;
 }
 
-const props = defineProps<{
+defineProps<{
   func: Api.Function.FunctionInfo;
   codeChanged: boolean;
   editorConfig: editorConfigT;
@@ -29,62 +29,197 @@ const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-edit
 </script>
 
 <template>
-  <NCard
-    :bordered="false"
-    size="small"
-    class="h-full flex-1"
-    :content-style="{ padding: '0px', display: 'flex', flexDirection: 'column', position: 'relative' }"
-  >
-    <template #header>
-      <div class="flex flex-col">
-        <div class="flex flex-row items-center">
-          <span class="text-lg">{{ func.name || $t('page.function.functionEditor') }}</span>
-          <NButton quaternary circle size="small" class="ml-2" @click="emit('edit-meta')">
-            <template #icon>
-              <NIcon :component="CreateOutline" />
-            </template>
-          </NButton>
+  <div class="editor-panel">
+    <div class="editor-header">
+      <div class="header-left">
+        <div class="function-title">
+          <h3>{{ func.name || $t('page.function.functionEditor') }}</h3>
+          <button class="edit-btn" @click="emit('edit-meta')">
+            <NIcon :component="CreateOutline" :size="14" />
+          </button>
         </div>
-        <span class="text-sm text-gray-500">{{ func.description }}</span>
+        <p v-if="func.description" class="function-desc">{{ func.description }}</p>
       </div>
-    </template>
-    <template #header-extra>
-      <div class="flex flex-row items-center gap-2">
-        <NButton
-          :type="codeChanged ? 'primary' : 'default'"
-          size="small"
-          :loading="props.isSaving"
-          :disabled="!props.codeChanged || props.isSaving"
+      <div class="header-actions">
+        <button
+          class="action-btn"
+          :class="{ 'publish-btn': codeChanged, 'saved-btn': !codeChanged }"
+          :disabled="!codeChanged || isSaving"
           @click="emit('save-code')"
         >
-          <template #icon>
-            <NIcon :component="codeChanged ? CheckmarkOutline : SaveOutline" />
-          </template>
-          {{ codeChanged ? $t('page.function.publish') : $t('page.function.published') }}
-        </NButton>
-        <NButton type="default" size="small" @click="emit('open-history')">
-          <template #icon>
-            <NIcon :component="InformationCircleOutline" />
-          </template>
-        </NButton>
-        <NButton type="default" size="small" @click="emit('open-editor-settings')">
-          <template #icon>
-            <NIcon :component="BrushOutline" />
-          </template>
-        </NButton>
+          <NIcon :component="codeChanged ? CheckmarkOutline : SaveOutline" :size="15" />
+          <span>{{ codeChanged ? $t('page.function.publish') : $t('page.function.published') }}</span>
+          <div v-if="isSaving" class="saving-spinner" />
+        </button>
+        <button class="icon-btn" @click="emit('open-history')">
+          <NIcon :component="InformationCircleOutline" :size="18" />
+        </button>
+        <button class="icon-btn" @click="emit('open-editor-settings')">
+          <NIcon :component="BrushOutline" :size="18" />
+        </button>
       </div>
-    </template>
-    <EditorMonaco
-      :key="func.id"
-      :code="func.code"
-      :show-minimap="editorConfig.minimap"
-      :font-size="editorConfig.fontSize"
-      :theme-name="editorConfig.themeName"
-      :tab-size="4"
-      :show-line-numbers="editorConfig.lineNumbers"
-      @update:code="$emit('update:code', $event)"
-    />
-  </NCard>
+    </div>
+    <div class="editor-content">
+      <EditorMonaco
+        :key="func.id"
+        :code="func.code"
+        :show-minimap="editorConfig.minimap"
+        :font-size="editorConfig.fontSize"
+        :theme-name="editorConfig.themeName"
+        :tab-size="4"
+        :show-line-numbers="editorConfig.lineNumbers"
+        @update:code="$emit('update:code', $event)"
+      />
+    </div>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.editor-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.header-left {
+  min-width: 0;
+  flex: 1;
+}
+
+.function-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.function-title h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edit-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  color: #8e8e93;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.edit-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #007aff;
+}
+
+.function-desc {
+  font-size: 12px;
+  color: #8e8e93;
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.publish-btn {
+  background: #007aff;
+  color: white;
+}
+
+.publish-btn:hover {
+  background: #0066d6;
+}
+
+.saved-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #8e8e93;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saving-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  color: #6e6e73;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1d1d1f;
+}
+
+.editor-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+</style>

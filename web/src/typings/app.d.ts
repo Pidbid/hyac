@@ -684,6 +684,7 @@ declare namespace App {
           allLogs: string;
           functionLogs: string;
           systemLogs: string;
+          noLogs: string;
           functionTest: string;
           clickToSend: string;
           postFormatError: string;

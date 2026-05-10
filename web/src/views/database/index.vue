@@ -23,6 +23,7 @@ import type { DataTableColumns } from 'naive-ui';
 import {
   AddOutline,
   BanOutline,
+  CubeOutline,
   CreateOutline,
   DocumentTextOutline,
   RefreshOutline,
@@ -378,16 +379,21 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-full w-full flex">
-    <NSplit :size="0.1" :min="0.1" :max="0.3">
+  <div class="database-page">
+    <NSplit class="database-split" :default-size="0.18" :min="0.12" :max="0.34">
       <template #1>
         <NCard
-          :title="$t('page.database.collection')"
           :bordered="false"
           size="small"
-          class="h-full flex flex-col card-wrapper"
+          class="apple-panel collection-panel"
           :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }"
         >
+          <template #header>
+            <div class="panel-title">
+              <NIcon :component="CubeOutline" :size="16" />
+              <span>{{ $t('page.database.collection') }}</span>
+            </div>
+          </template>
           <template #header-extra>
             <NButton type="primary" size="small" @click="handleCreateCollection">
               <template #icon>
@@ -446,15 +452,20 @@ onMounted(async () => {
         </NCard>
       </template>
       <template #2>
-        <NSplit :size="0.85" :min="0.4" :max="0.9">
+        <NSplit class="database-split nested" :default-size="0.72" :min="0.45" :max="0.86">
           <template #1>
             <NCard
-              :title="selectedCollection || $t('page.database.document')"
               :bordered="false"
               size="small"
-              class="h-full flex flex-col card-wrapper"
+              class="apple-panel document-panel"
               :content-style="{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }"
             >
+              <template #header>
+                <div class="panel-title">
+                  <NIcon :component="DocumentTextOutline" :size="16" />
+                  <span>{{ selectedCollection || $t('page.database.document') }}</span>
+                </div>
+              </template>
               <template #header-extra>
                 <NSpace>
                   <NButton quaternary circle size="small" @click="handleRefreshDocuments">
@@ -513,11 +524,16 @@ onMounted(async () => {
           </template>
           <template #2>
             <NCard
-              :title="$t('page.database.documentOperations')"
               :bordered="false"
               size="small"
-              class="h-full flex flex-col card-wrapper"
+              class="apple-panel operation-panel"
             >
+              <template #header>
+                <div class="panel-title">
+                  <NIcon :component="CreateOutline" :size="16" />
+                  <span>{{ $t('page.database.documentOperations') }}</span>
+                </div>
+              </template>
               <div class="min-h-0 flex-1 p-4">
                 <div v-if="editingDocument">
                   <NThing :title="$t('page.database.editContent')"></NThing>
@@ -546,20 +562,81 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.card-wrapper {
-  border-radius: 8px;
+.database-page {
+  --database-gap: 6px;
+
+  height: 100%;
+  min-height: 0;
+  width: 100%;
   overflow: hidden;
+  background: #f5f5f7;
+  padding: 8px;
+}
+
+.database-split {
+  height: 100%;
+  min-height: 0;
+}
+
+.database-split :deep(.n-split-pane) {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.database-split :deep(.n-split-pane-1) {
+  padding-right: var(--database-gap);
+}
+
+.database-split :deep(.n-split-pane-2) {
+  padding-left: var(--database-gap);
+}
+
+.database-split.nested :deep(.n-split-pane-1) {
+  padding-right: var(--database-gap);
+}
+
+.database-split.nested :deep(.n-split-pane-2) {
+  padding-left: var(--database-gap);
+}
+
+.apple-panel {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d1d1f;
 }
 
 .selected-collection-item {
-  background-color: #e8f0ff;
-  /* A light blue for selection */
+  background-color: rgba(0, 122, 255, 0.08);
 }
 
 .n-data-table .n-data-table-td {
   vertical-align: top;
+}
+
+:deep(.n-card-header) {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:deep(.n-data-table) {
+  --n-td-color-hover: #f5f5f7;
+  --n-merged-border-color: rgba(0, 0, 0, 0.06);
 }
 </style>

@@ -441,6 +441,7 @@ const local: App.I18n.Schema = {
       allLogs: 'All Logs',
       functionLogs: 'Function Logs',
       systemLogs: 'System Logs',
+      noLogs: 'No logs yet',
       functionTest: 'Function Test',
       clickToSend: 'Click "Send Request" to test...',
       postFormatError: 'POST request format is incorrect',

@@ -438,6 +438,7 @@ const local: App.I18n.Schema = {
       allLogs: '全部日志',
       functionLogs: '函数日志',
       systemLogs: '系统日志',
+      noLogs: '暂无日志',
       functionTest: '函数测试',
       clickToSend: '点击"发送请求"进行测试...',
       postFormatError: 'POST 请求格式不正确',
