@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useDraggable, useStorage } from '@vueuse/core';
+import { storeToRefs } from 'pinia';
 import type { ScrollbarInst } from 'naive-ui';
-import { NInput, NButton, NIcon, NScrollbar, NSpin } from 'naive-ui';
+import { NButton, NIcon, NInput, NScrollbar, NSpin } from 'naive-ui';
 import { CloseOutline, PaperPlaneOutline, SparklesOutline } from '@vicons/ionicons5';
 import { useThemeStore } from '@/store/modules/theme';
 import { useAiStore } from '@/store/modules/ai/index';
-import { storeToRefs } from 'pinia';
 
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits(['close']);
@@ -14,7 +14,7 @@ const emit = defineEmits(['close']);
 const themeStore = useThemeStore();
 const aiStore = useAiStore();
 const { messages, isLoading } = storeToRefs(aiStore);
-const chatMessage = computed(()=>messages.value)
+const chatMessage = computed(() => messages.value);
 // --- 持久化位置和尺寸 ---
 const initialPos = { x: window.innerWidth - 450, y: 80 };
 const savedPosition = useStorage('ai-assistant-position', initialPos);
@@ -64,7 +64,7 @@ const handleSend = () => {
 watch(
   () => messages.value.length,
   () => {
-    console.info("message has changed")
+    console.info('message has changed');
     nextTick(() => {
       scrollbarRef.value?.scrollTo({ top: 10000, behavior: 'smooth' });
     });
@@ -98,9 +98,14 @@ watch(
     <!-- Content -->
     <div class="custom-card-content">
       <NScrollbar ref="scrollbarRef" class="flex-1 pr-2">
-        <div v-for="(msg, index) in chatMessage" :key="index" class="message-row" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+        <div
+          v-for="(msg, index) in chatMessage"
+          :key="index"
+          class="message-row"
+          :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+        >
           <div class="message-bubble" :class="`bubble-${msg.role}`">
-            <div style="white-space: pre-wrap;">{{ msg.content }}</div>
+            <div style="white-space: pre-wrap">{{ msg.content }}</div>
           </div>
         </div>
       </NScrollbar>
@@ -115,7 +120,7 @@ watch(
             :autosize="{ minRows: 2, maxRows: 5 }"
             @keydown.enter.prevent="handleSend"
           />
-          <NButton type="primary" block class="mt-2" @click="handleSend" :disabled="isLoading">
+          <NButton type="primary" block class="mt-2" :disabled="isLoading" @click="handleSend">
             发送
             <template #icon>
               <NIcon :component="PaperPlaneOutline" />

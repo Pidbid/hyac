@@ -1,83 +1,90 @@
-import process from "node:process";
-import { URL, fileURLToPath } from "node:url";
-import { defineConfig, loadEnv } from "vite";
-import { setupVitePlugins } from "./build/plugins";
-import { createViteProxy, getBuildTime } from "./build/config";
+import process from 'node:process';
+import { URL, fileURLToPath } from 'node:url';
+import { defineConfig, loadEnv } from 'vite';
+import { setupVitePlugins } from './build/plugins';
+import { createViteProxy, getBuildTime } from './build/config';
 
-export default defineConfig((configEnv) => {
-  const viteEnv = loadEnv(
-    configEnv.mode,
-    process.cwd(),
-  ) as unknown as Env.ImportMeta;
+export default defineConfig(configEnv => {
+  const viteEnv = loadEnv(configEnv.mode, process.cwd()) as unknown as Env.ImportMeta;
 
   const buildTime = getBuildTime();
   const prefix = `monaco-editor/esm/vs`;
 
-  const enableProxy = configEnv.command === "serve" && !configEnv.isPreview;
+  const enableProxy = configEnv.command === 'serve' && !configEnv.isPreview;
 
   return {
     base: viteEnv.VITE_BASE_URL,
     resolve: {
       alias: {
-        "~": fileURLToPath(new URL("./", import.meta.url)),
-        "@": fileURLToPath(new URL("./src", import.meta.url)),
+        '~': fileURLToPath(new URL('./', import.meta.url)),
+        '@': fileURLToPath(new URL('./src', import.meta.url))
       },
+      dedupe: [
+        '@codingame/monaco-vscode-api',
+        '@codingame/monaco-vscode-editor-api',
+        '@codingame/monaco-vscode-extension-api',
+        'vscode',
+        'vscode-uri'
+      ]
     },
     css: {
       preprocessorOptions: {
         scss: {
-          api: "modern-compiler",
-          additionalData: `@use "@/styles/scss/global.scss" as *;`,
-        },
-      },
+          api: 'modern-compiler',
+          additionalData: `@use "@/styles/scss/global.scss" as *;`
+        }
+      }
     },
     plugins: [
       ...setupVitePlugins(viteEnv, buildTime),
       {
-        name: "vite-plugin-dynamic-config",
+        name: 'vite-plugin-dynamic-config',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (req.url === "/config.js") {
+            if (req.url === '/config.js') {
               const config = {
-                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL,
+                VITE_SERVICE_BASE_URL: viteEnv.VITE_SERVICE_BASE_URL
               };
-              res.setHeader("Content-Type", "application/javascript");
+              res.setHeader('Content-Type', 'application/javascript');
               res.end(`window.APP_CONFIG = ${JSON.stringify(config)}`);
               return;
             }
             next();
           });
-        },
+        }
       }
     ],
     define: {
-      BUILD_TIME: JSON.stringify(buildTime),
+      BUILD_TIME: JSON.stringify(buildTime)
     },
     server: {
-      host: "0.0.0.0",
+      host: '0.0.0.0',
       port: 9527,
       proxy: createViteProxy(viteEnv, enableProxy),
-      allowedHosts: ["*"],
+      allowedHosts: true
     },
     preview: {
-      port: 9725,
+      port: 9725
+    },
+    worker: {
+      format: 'es'
     },
     build: {
       reportCompressedSize: false,
-      sourcemap: viteEnv.VITE_SOURCE_MAP === "Y",
+      sourcemap: viteEnv.VITE_SOURCE_MAP === 'Y',
       commonjsOptions: {
-        ignoreTryCatch: false,
+        ignoreTryCatch: false
       },
       rollupOptions: {
         output: {
           manualChunks: {
-            editorWorker: [`${prefix}/editor/editor.worker`],
-          },
-        },
-      },
+            editorWorker: [`${prefix}/editor/editor.worker`]
+          }
+        }
+      }
     },
     optimizeDeps: {
-      force: true,
-    },
+      force: true
+    }
   };
 });

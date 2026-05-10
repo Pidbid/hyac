@@ -1,4 +1,4 @@
-# Hyac - 轻量级Python函数计算与应用平台
+# Hyac - 轻量级Python云函数（Faas）平台
 
 <p align="right">
   <a href="./README.en.md">English</a>
@@ -41,7 +41,7 @@
 - 🔥 **代码热更新**: 无需重启服务即可实现函数代码的实时更新。
 - 🌐 **多语言支持**: 基于运行时的可扩展性，未来可以支持多种编程语言。
 - 💻 **现代化前端**: 基于 Vue 3 和 Naive UI 构建，提供响应式、用户友好的管理界面。
-- 📦 **统一对象存储**: 集成 MinIO，为函数和应用提供统一的文件存储服务。
+- 📦 **统一对象存储**: 集成 RustFS/S3 兼容对象存储，为函数和应用提供统一的文件存储服务。
 - 🔗 **全面的 API**: 提供丰富的 API，用于管理应用、函数、数据库、日志等。
 
 ## 🏛️ 系统架构
@@ -55,9 +55,9 @@ graph TD
     end
 
     subgraph "🏗️ 基础设施"
-        N[Nginx]
+        T[Traefik]
         DB[(MongoDB)]
-        S[(MinIO)]
+        S[(RustFS)]
     end
 
     subgraph "⚙️ 后端服务"
@@ -69,9 +69,10 @@ graph TD
         Web[Web]
     end
 
-    U -- HTTPS --> N
-    N -- /api --> Server
-    N -- / --> Web
+    U -- HTTPS --> T
+    T -- 根据域名路由 --> Server
+    T -- 根据域名路由 --> Web
+    T -- 根据域名路由 --> S
     
     Server -- 管理 --> App
     Server -- 读写 --> DB
@@ -84,18 +85,18 @@ graph TD
     Web -- API请求 --> Server
 ```
 
-- **`nginx`**: 作为反向代理，处理所有外部请求，并根据路径将其路由到 `server` 或 `web` 服务。
+- **`traefik`**: 作为反向代理和负载均衡器，处理所有外部请求，并根据域名自动路由到 `server`、`web` 或 S3 兼容对象存储服务。
 - **`server`**: 核心后端服务，负责业务逻辑、API 路由、用户认证和 FaaS 应用管理。
 - **`app`**: 函数执行器服务，在隔离的环境中动态执行用户定义的函数。
 - **`web`**: 基于 Vue 3 的前端应用，提供用户交互界面。
 - **`mongodb`**: 作为主数据库，存储应用、函数、用户等核心数据。
-- **`minio`**: 用于对象存储，例如存放函数代码、依赖或其他文件。
+- **`rustfs`**: 提供 S3 兼容对象存储，例如存放函数代码、依赖或其他文件。
 
 ## 🛠️ 技术栈
 
 - **后端**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **前端**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
-- **数据库与存储**: MongoDB, MinIO
+- **数据库与存储**: MongoDB, RustFS(S3 兼容)
 - **容器化**: Docker, Docker Compose
 
 ## 🚀 快速开始
@@ -126,8 +127,51 @@ docker-compose up -d
 
 ### 🌐 访问地址
 
-- **前端应用**: `http://localhost:80`
-- **MinIO 控制台**: `http://localhost:9001` (默认用户名/密码: `minioadmin`/`minioadmin`)
+- **前端应用**: `http://console.[yourdomain]`
+
+### 🔐 开发环境 HTTPS 调试（localhost + mkcert，无需 hosts）
+
+在 `docker-compose.dev.yml` 中，Traefik 使用本地 TLS（不走 `certresolver`），用于避免调试时频繁触发 Let's Encrypt 限流。
+
+> 推荐开发域名固定为 `localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.localhost` 子域名时无需编辑 `hosts`。
+
+建议流程：
+
+1. 准备开发环境变量文件（推荐与生产分离）：
+
+```bash
+cp .env .env.dev
+# 将 .env.dev 中 DOMAIN_NAME 改为 localhost
+```
+
+2. 安装并初始化 `mkcert`（只需一次）：
+
+```bash
+mkcert -install
+```
+
+3. 生成开发证书（放到 `./traefik/certs/`）：
+
+```bash
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost "*.localhost"
+```
+
+4. 启动开发环境（显式使用 `.env.dev`）：
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+```
+
+5. 通过以下域名访问并调试：
+- `https://console.localhost`
+- `https://server.localhost`
+- `https://oss.localhost`
+
+说明：
+- 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。
+- 生产环境 (`docker-compose.yml`) 继续使用 `.env` 中真实域名与 ACME 自动证书签发策略，不应设置为 `localhost`。
 
 ## 📁 主要项目结构
 
@@ -136,7 +180,6 @@ docker-compose up -d
 ├── app/            # 函数执行器服务
 ├── server/         # 核心后端服务
 ├── web/            # 前端应用 (Vue 3)
-├── nginx/          # Nginx 配置
 ├── docker-compose.yml # Docker Compose 配置
 ├── ...
 ├── ...
@@ -156,19 +199,9 @@ docker-compose up -d
 
 ## ️ 路线图 (Roadmap)
 
-我们计划在未来的版本中加入更多强大的功能，以构建一个更完整、更企业级的 FaaS 平台。欢迎社区贡献或提出建议！
+我们计划在未来的版本中加入更多强大的功能，以构建一个更完整、更企业级的 FaaS 平台。
 
-### 平台级功能
-- [ ] **多用户与权限管理**: 引入角色（管理员、开发者），实现精细化的权限控制。
-- [ ] **平台监控仪表盘**: 提供全局的系统状态、资源使用率和审计日志。
-- [ ] **运行时管理**: 允许管理员添加、配置和管理新的函数运行时环境（如 Node.js, Deno 等）。
-- [ ] **系统级集成配置**: 提供统一的界面来配置全局的 SMTP、对象存储和第三方通知服务。
-
-### 应用级功能
-- [ ] **自定义域名与高级访问控制**: 支持用户绑定自己的域名，并提供 IP 白名单/黑名单功能。
-- [ ] **资源配额管理**: 允许为单个应用设置 CPU、内存和执行超时的限制。
-- [ ] **依赖分析与安全扫描**: 集成工具以检测依赖冲突和已知的安全漏洞。
-- [ ] **函数模板市场**: 创建一个社区驱动的模板市场，用户可以分享和使用预构建的函数模板。
+关于详细的未来功能、架构增强和改进计划，请参阅我们的 [功能路线图 (FEATURES.md)](./FEATURES.md)。欢迎社区贡献或提出建议！
 
 ## 🤝 贡献指南
 

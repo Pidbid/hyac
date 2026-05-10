@@ -1,15 +1,17 @@
 # app/core/cache_watcher.py
 import asyncio
+from fastapi import FastAPI
 from core.config import settings
 from loguru import logger
-from models.functions_model import Function
+from models.functions_model import Function, FunctionType
 from core.cache import code_cache
+from code_loader import CodeLoader
 
 
-async def watch_function_changes():
+async def watch_function_changes(app: FastAPI):
     """
-    Watches for changes in the 'functions' collection and invalidates the cache
-    for updated functions.
+    Watches for changes in the 'functions' collection, invalidates the cache,
+    and reloads common functions into the app.state.
     """
     logger.info("Starting function change watcher...")
     try:
@@ -41,13 +43,20 @@ async def watch_function_changes():
                     continue
 
                 app_id = full_document.get("app_id")
-                # The correct ID to use is the short, human-readable 'function_id',
-                # not the MongoDB '_id', to match the key used in CodeLoader.
-                function_id = full_document.get("function_id")
+                function_type = full_document.get(
+                    "function_type", FunctionType.ENDPOINT.value
+                )
 
-                if not (app_id and function_id):
+                identifier = None
+                # Invalidate by function_name for COMMON functions, and function_id for others.
+                if function_type == FunctionType.COMMON.value:
+                    identifier = full_document.get("function_name")
+                else:
+                    identifier = full_document.get("function_id")
+
+                if not (app_id and identifier):
                     logger.warning(
-                        f"Could not process cache invalidation due to missing app_id or function_id: {full_document}"
+                        f"Could not process cache invalidation due to missing app_id or identifier: {full_document}"
                     )
                     continue
 
@@ -64,9 +73,23 @@ async def watch_function_changes():
 
                 if should_invalidate:
                     logger.info(
-                        f"Invalidating cache for function {function_id} in app {app_id} due to {operation_type} operation."
+                        f"Invalidating cache for {function_type} function '{identifier}' in app '{app_id}' due to {operation_type}."
                     )
-                    code_cache.invalidate(app_id, function_id)
+                    code_cache.invalidate(app_id, identifier)
+
+                    # If a common function was updated, reload all common functions into app.state
+                    if function_type == FunctionType.COMMON.value:
+                        logger.info(
+                            f"Common function '{identifier}' updated. Reloading all common functions for app '{app_id}'."
+                        )
+                        code_loader = CodeLoader()
+                        reloaded_modules = await code_loader.load_all_common_functions(
+                            app_id
+                        )
+                        app.state.common_modules = reloaded_modules
+                        logger.info(
+                            "Successfully reloaded common functions into app.state."
+                        )
 
     except asyncio.CancelledError:
         logger.info("Function change watcher task cancelled.")
@@ -74,4 +97,4 @@ async def watch_function_changes():
         logger.error(f"Error in function change watcher: {e}", exc_info=True)
         # Optional: Add a delay and retry mechanism
         await asyncio.sleep(5)
-        asyncio.create_task(watch_function_changes())
+        asyncio.create_task(watch_function_changes(app))

@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { h, onMounted, ref } from 'vue';
 import {
+  NAlert,
+  NButton,
   NCard,
   NDataTable,
-  NButton,
-  NSpace,
-  NModal,
-  NInput,
-  useMessage,
-  NTabs,
-  NTabPane,
-  NAlert,
-  NIcon,
-  useDialog,
   NForm,
-  NFormItem
+  NFormItem,
+  NIcon,
+  NInput,
+  NModal,
+  NSpace,
+  NTabPane,
+  NTabs,
+  useDialog,
+  useMessage
 } from 'naive-ui';
-import { AddOutline, KeyOutline, TrashOutline, EyeOutline, EyeOffOutline } from '@vicons/ionicons5';
-import { $t } from '@/locales';
+import { AddOutline, EyeOffOutline, EyeOutline, KeyOutline } from '@vicons/ionicons5';
+import { addEnv, getEnvsData, removeEnv } from '@/service/api/settings';
 import { useApplicationStore } from '@/store/modules/application';
-import { getEnvsData, addEnv, removeEnv } from '@/service/api/settings';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'EnvironmentSettings'
@@ -61,17 +61,25 @@ const userColumns = [
     key: 'value',
     render(row: any) {
       const isRevealed = revealedKeys.value.has(row.key);
-      return h(NSpace, { align: 'center' }, {
-        default: () => [
-          h('span', isRevealed ? row.value : '••••••••'),
-          h(NButton, {
-            quaternary: true,
-            circle: true,
-            size: 'small',
-            onClick: () => toggleVisibility(row.key)
-          }, { icon: () => h(NIcon, { component: isRevealed ? EyeOffOutline : EyeOutline }) })
-        ]
-      });
+      return h(
+        NSpace,
+        { align: 'center' },
+        {
+          default: () => [
+            h('span', isRevealed ? row.value : '••••••••'),
+            h(
+              NButton,
+              {
+                quaternary: true,
+                circle: true,
+                size: 'small',
+                onClick: () => toggleVisibility(row.key)
+              },
+              { icon: () => h(NIcon, { component: isRevealed ? EyeOffOutline : EyeOutline }) }
+            )
+          ]
+        }
+      );
     }
   },
   {
@@ -79,12 +87,24 @@ const userColumns = [
     key: 'actions',
     width: 150,
     render(row: any) {
-      return h(NSpace, {}, {
-        default: () => [
-          h(NButton, { strong: true, tertiary: true, size: 'small', onClick: () => handleEdit(row) }, { default: () => $t('common.edit') }),
-          h(NButton, { strong: true, tertiary: true, size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => $t('common.delete') })
-        ]
-      });
+      return h(
+        NSpace,
+        {},
+        {
+          default: () => [
+            h(
+              NButton,
+              { strong: true, tertiary: true, size: 'small', onClick: () => handleEdit(row) },
+              { default: () => $t('common.edit') }
+            ),
+            h(
+              NButton,
+              { strong: true, tertiary: true, size: 'small', type: 'error', onClick: () => handleDelete(row) },
+              { default: () => $t('common.delete') }
+            )
+          ]
+        }
+      );
     }
   }
 ];
@@ -99,17 +119,25 @@ const systemColumns = [
     key: 'value',
     render(row: any) {
       const isRevealed = revealedKeys.value.has(row.key);
-      return h(NSpace, { align: 'center' }, {
-        default: () => [
-          h('span', isRevealed ? row.value : '••••••••'),
-          h(NButton, {
-            quaternary: true,
-            circle: true,
-            size: 'small',
-            onClick: () => toggleVisibility(row.key)
-          }, { icon: () => h(NIcon, { component: isRevealed ? EyeOffOutline : EyeOutline }) })
-        ]
-      });
+      return h(
+        NSpace,
+        { align: 'center' },
+        {
+          default: () => [
+            h('span', isRevealed ? row.value : '••••••••'),
+            h(
+              NButton,
+              {
+                quaternary: true,
+                circle: true,
+                size: 'small',
+                onClick: () => toggleVisibility(row.key)
+              },
+              { icon: () => h(NIcon, { component: isRevealed ? EyeOffOutline : EyeOutline }) }
+            )
+          ]
+        }
+      );
     }
   }
 ];
@@ -184,7 +212,6 @@ function handleDelete(row: Api.Settings.EnvInfo) {
     }
   });
 }
-
 
 onMounted(fetchData);
 </script>

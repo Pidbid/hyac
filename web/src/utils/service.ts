@@ -5,9 +5,9 @@ import json5 from 'json5';
  *
  * @param env The current env
  */
-export function createServiceConfig() {
-  const { VITE_SERVICE_BASE_URL } = window.APP_CONFIG;
-  const { VITE_OTHER_SERVICE_BASE_URL } = import.meta.env;
+export function createServiceConfig(env?: Env.ImportMeta) {
+  const VITE_SERVICE_BASE_URL = env?.VITE_SERVICE_BASE_URL ?? window.APP_CONFIG.VITE_SERVICE_BASE_URL;
+  const VITE_OTHER_SERVICE_BASE_URL = env?.VITE_OTHER_SERVICE_BASE_URL ?? import.meta.env.VITE_OTHER_SERVICE_BASE_URL;
 
   let other = {} as Record<App.Service.OtherBaseURLKey, string>;
   try {

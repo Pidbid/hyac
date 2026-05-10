@@ -1,19 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import {
-  NCard,
-  NForm,
-  NFormItem,
-  NSwitch,
-  NButton,
-  NDynamicInput,
-  NSpace,
-  useMessage,
-  NAlert
-} from 'naive-ui';
-import { $t } from '@/locales';
-import { useApplicationStore } from '@/store/modules/application';
+import { onMounted, ref } from 'vue';
+import { NAlert, NButton, NCard, NDynamicInput, NForm, NFormItem, NSpace, NSwitch, useMessage } from 'naive-ui';
 import { corsData, corsUpdate } from '@/service/api/settings';
+import { useApplicationStore } from '@/store/modules/application';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'CorsSettings'
@@ -65,7 +55,8 @@ onMounted(fetchData);
   <NCard :title="$t('page.setting.cors')" :bordered="false">
     <NSpace vertical :size="24">
       <NAlert type="info" :title="$t('page.setting.corsTipTitle')">
-        {{ $t('page.setting.corsTipContent') }} <br>
+        {{ $t('page.setting.corsTipContent') }}
+        <br />
         {{ $t('page.setting.corsTipDynamicInput') }}
       </NAlert>
       <NForm :model="corsConfig" label-placement="left" label-width="auto" :disabled="isLoading">
@@ -81,7 +72,7 @@ onMounted(fetchData);
         <NFormItem :label="$t('page.setting.allowCredentials')">
           <NSwitch v-model:value="corsConfig.allow_credentials" />
         </NFormItem>
-        <NButton type="primary" @click="handleSave" :loading="isLoading">
+        <NButton type="primary" :loading="isLoading" @click="handleSave">
           {{ $t('common.save') }}
         </NButton>
       </NForm>

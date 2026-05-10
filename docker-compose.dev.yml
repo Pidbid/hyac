@@ -1,63 +1,60 @@
 services:
   mongodb:
-    image: bitnami/mongodb:latest
+    image: mongo:8
     container_name: hyac_mongodb
     hostname: mongodb
     restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
-    environment:
-      MONGODB_ROOT_USER: ${MONGODB_USERNAME}
-      MONGODB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
-      MONGODB_ADVERTISED_HOSTNAME: mongodb
-      MONGODB_REPLICA_SET_MODE: primary
-      MONGODB_REPLICA_SET_NAME: rs0
-      MONGODB_REPLICA_SET_KEY: ${MONGODB_PASSWORD}
     volumes:
-      - mongodb_data:/bitnami/mongodb
+      - mongodb_data:/data/db
     networks:
       - hyac_network
     healthcheck:
       test: |
         mongosh --host localhost --port 27017 \
-          --authenticationDatabase admin \
-          -u "${MONGODB_USERNAME}" -p "${MONGODB_PASSWORD}" \
-          --eval "if (db.isMaster().ismaster) { quit(0); } else { quit(1); }"
+          --eval "try { rs.status(); } catch (e) { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongodb:27017'}]}); }; db.adminCommand({ ping: 1 }).ok ? quit(0) : quit(1)"
       interval: 5s
       timeout: 10s
       retries: 20
       start_period: 15s
-  minio:
-    image: bitnami/minio:latest
-    container_name: hyac_minio
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: hyac_rustfs
     restart: unless-stopped
+    command: ["/data"]
     ports:
     - 9000:9000
     - 9001:9001
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-      MINIO_SERVER_URL: "https://oss.${DOMAIN_NAME}"
-      MINIO_SCHEME: 'https'
-      MINIO_BROWSER: "off" # if you want to use minio console please modify to on
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+      RUSTFS_ADDRESS: "0.0.0.0:9000"
+      RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
     volumes:
     - /etc/localtime:/etc/localtime:ro
-    - minio_data:/data
+    - rustfs_data:/data
     networks:
     - hyac_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test:
+        [
+          "CMD-SHELL",
+          "status=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9000/); test \"$$status\" = \"403\" -o \"$$status\" = \"200\"",
+        ]
       interval: 5s
       timeout: 10s
       retries: 10
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hyac-minio.rule=Host(`oss.${DOMAIN_NAME}`)"
-      - "traefik.http.routers.hyac-minio.entrypoints=websecure"
-      - "traefik.http.routers.hyac-minio.tls.certresolver=myresolver"
-      - "traefik.http.services.hyac-minio.loadbalancer.server.port=9000"
-      - "traefik.http.services.hyac-minio.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.hyac-rustfs.rule=Host(`oss.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-rustfs.entrypoints=websecure"
+      - "traefik.http.routers.hyac-rustfs.tls=true"
+      - "traefik.http.services.hyac-rustfs.loadbalancer.server.port=9000"
+      - "traefik.http.services.hyac-rustfs.loadbalancer.passhostheader=true"
   traefik:
     image: "traefik:latest"
     container_name: "hyac_traefik"
@@ -71,17 +68,14 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
-      - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS}"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"
       - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./traefik/letsencrypt:/letsencrypt"
-      - "./traefik/dynamic:/etc/traefik/dynamic"
+      - "./traefik/dynamic-dev:/etc/traefik/dynamic"
+      - "./traefik/certs:/etc/traefik/certs:ro"
     networks:
       - hyac_network
   server:
@@ -94,25 +88,35 @@ services:
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME}
       EMAIL_ADDRESS: ${EMAIL_ADDRESS}
-      MONGODB_USERNAME: ${MONGODB_USERNAME}
-      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MONGODB_USERNAME: ""
+      MONGODB_PASSWORD: ""
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_INTERNAL_ENDPOINT: ${S3_INTERNAL_ENDPOINT:-rustfs:9000}
+      S3_EXTERNAL_ENDPOINT: ${S3_EXTERNAL_ENDPOINT:-oss.${DOMAIN_NAME}}
+      S3_SECURE_INTERNAL: ${S3_SECURE_INTERNAL:-false}
+      S3_SECURE_EXTERNAL: ${S3_SECURE_EXTERNAL:-true}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-https://oss.${DOMAIN_NAME}}
+      S3_REGION: ${S3_REGION:-us-east-1}
       SECRET_KEY: ${SECRET_KEY}
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
       DEMO_MODE: "false"
+      LSP_MODE: ${LSP_MODE:-sidecar}
+      LSP_SIDECAR_URL: ${LSP_SIDECAR_URL:-ws://hyac_lsp_sidecar:9002/lsp}
+      LSP_SIDECAR_TIMEOUT_SECONDS: ${LSP_SIDECAR_TIMEOUT_SECONDS:-10}
+      LSP_SIDECAR_FALLBACK_LEGACY: ${LSP_SIDECAR_FALLBACK_LEGACY:-true}
     ports:
       - 8000:8000
     depends_on:
       mongodb:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     volumes:
     - /etc/localtime:/etc/localtime:ro
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./traefik/dynamic:/traefik/dynamic
+    - ./traefik/dynamic-dev:/traefik/dynamic
     - ./server:/server
     - ./app:/app
     networks:
@@ -127,7 +131,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`)"
       - "traefik.http.routers.hyac-server.entrypoints=websecure"
-      - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
+      - "traefik.http.routers.hyac-server.tls=true"
       - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
   web:
     build:
@@ -146,7 +150,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.hyac-web.rule=Host(`console.${DOMAIN_NAME}`)"
       - "traefik.http.routers.hyac-web.entrypoints=websecure"
-      - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
+      - "traefik.http.routers.hyac-web.tls=true"
       - "traefik.http.services.hyac-web.loadbalancer.server.port=9527"
       - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
   app:
@@ -158,6 +162,19 @@ services:
     restart: "no"
     networks:
       - hyac_network
+  lsp-sidecar:
+    build:
+      context: ./app
+      target: development
+    image: hyac_lsp_sidecar:dev
+    container_name: hyac_lsp_sidecar
+    command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002", "--reload"]
+    ports:
+      - "9002:9002"
+    volumes:
+      - ./app:/app
+    networks:
+      - hyac_network
 
 networks:
   hyac_network:
@@ -165,5 +182,5 @@ networks:
 volumes:
   mongodb_data:
     driver: local
-  minio_data:
+  rustfs_data:
     driver: local

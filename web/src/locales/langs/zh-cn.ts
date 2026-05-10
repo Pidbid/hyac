@@ -184,7 +184,7 @@ const local: App.I18n.Schema = {
     database: '数据库',
     storage: '存储',
     log: '日志',
-    setting: '设置',
+    setting: '设置'
   },
   page: {
     login: {
@@ -201,7 +201,7 @@ const local: App.I18n.Schema = {
         validateSuccess: '验证成功',
         loginSuccess: '登录成功',
         welcomeBack: '欢迎回来，{userName} ！',
-        captchaPlaceholder: '请输入验证码',
+        captchaPlaceholder: '请输入验证码'
       },
       pwdLogin: {
         title: '密码登录',
@@ -244,7 +244,8 @@ const local: App.I18n.Schema = {
       emptyApp: '暂无应用，请先创建应用',
       createApp: '创建应用',
       welcome: 'Hello 👋, {userName}, 欢迎来到 Hyac 云开发平台!',
-      welcomeDescription: '在这里，你可以作为全栈、后端、\n云开发用户、Python开发者、独立\n开发者等，开发任何应用，例如：',
+      welcomeDescription:
+        '在这里，你可以作为全栈、后端、\n云开发用户、Python开发者、独立\n开发者等，开发任何应用，例如：',
       miniProgram: '微信小程序/公众号',
       androidOrIos: 'Android或iOS app',
       blogOrWebsite: '个人博客、企业官网',
@@ -280,15 +281,33 @@ const local: App.I18n.Schema = {
       errorRestartingApp: '重启应用时发生错误'
     },
     apps: {
+      avgExecutionTime: '总体平均耗时',
+      unknownRequest: {
+        title: '未知请求监控',
+        label: '潜在的异常或攻击请求',
+        unit: '次',
+        description: '这些请求的目标函数已不存在，可能是已删除函数的残留调用或恶意探测。'
+      },
+      requestTrend: '请求趋势',
+      coreMetrics: '核心指标',
+      successRate: '成功率',
       functionCount: '函数数量',
       databaseCount: '数据库数量',
       storageCount: '存储占用',
-      requestCount: '请求次数(24h)',
+      requestCount: '请求统计',
+      totalCalls: '总调用数',
+      successCalls: '成功调用',
+      errorCalls: '失败调用',
+      unknownCalls: '未知调用',
       requestCountUnit: '次',
       functionCountUnit: '个',
       databaseCountUnit: '条',
       storageCountUnit: 'MB',
       top5Functions: 'Top 5 函数',
+      top5FunctionsByCount: '调用次数 Top 5',
+      top5FunctionsByTime: '平均耗时 Top 5',
+      byCount: '按次数',
+      byTime: '按耗时',
       unknown: '未知'
     },
     database: {
@@ -320,7 +339,10 @@ const local: App.I18n.Schema = {
       idColumn: 'ID',
       contentColumn: '内容',
       actionsColumn: '操作',
-      noCollections: '暂无集合，快去创建一个吧'
+      noCollections: '暂无集合，快去创建一个吧',
+      selectDocumentsToDelete: '请先选择要删除的文档',
+      deleteSelectedConfirm: '确定要删除选中的 {count} 个文档吗？',
+      deleteSelected: '批量删除'
     },
     function: {
       tagsGroup: {
@@ -368,6 +390,7 @@ const local: App.I18n.Schema = {
       dependenceDeleted: '依赖已删除',
       dependenceDeletedAndRestarting: '依赖已删除，容器正在重启...',
       deleteFailed: '删除失败',
+      restartFailed: '重启失败',
       addDependenceSuccessAndRestarting: '依赖添加成功，容器正在重启...',
       addDependenceSuccess: '依赖添加成功',
       addDependenceFailed: '依赖添加失败',
@@ -556,7 +579,8 @@ const local: App.I18n.Schema = {
       },
       dependencies: '依赖管理',
       dependenciesTipTitle: '依赖管理说明',
-      dependenciesTipContent: '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
+      dependenciesTipContent:
+        '此处管理的依赖将作为公共依赖，在应用的所有函数中均可直接引用。修改依赖后需要重启应用才能生效。',
       userDependencies: '用户依赖',
       systemDependencies: '系统依赖',
       addDependency: '添加依赖',
@@ -654,25 +678,25 @@ const local: App.I18n.Schema = {
       managePermissions: '管理权限',
       smtpConfig: 'SMTP 配置',
       smtpConfigPlaceholder: '请输入 SMTP 配置 (JSON 格式)',
-          webhookConfig: 'Webhook 配置',
-          webhookConfigPlaceholder: '请输入 Webhook URL',
-          cors: '跨域设置',
-          allowOrigins: '允许的源',
-          userProfile: {
-            title: '个人中心',
-            username: '用户名',
-            usernamePlaceholder: '输入新的用户名（留空则不修改）',
-            usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
-            password: '新密码',
-            passwordPlaceholder: '输入新的密码（留空则不修改）',
-            passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
-            confirmPassword: '确认新密码',
-            confirmPasswordPlaceholder: '再次输入新密码',
-            passwordsDoNotMatch: '两次输入的密码不一致',
-            noChanges: '您没有输入任何要修改的内容',
-            confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
-            demoModeTip: '演示模式下不允许修改用户名和密码'
-          },
+      webhookConfig: 'Webhook 配置',
+      webhookConfigPlaceholder: '请输入 Webhook URL',
+      cors: '跨域设置',
+      allowOrigins: '允许的源',
+      userProfile: {
+        title: '个人中心',
+        username: '用户名',
+        usernamePlaceholder: '输入新的用户名（留空则不修改）',
+        usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
+        password: '新密码',
+        passwordPlaceholder: '输入新的密码（留空则不修改）',
+        passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
+        confirmPassword: '确认新密码',
+        confirmPasswordPlaceholder: '再次输入新密码',
+        passwordsDoNotMatch: '两次输入的密码不一致',
+        noChanges: '您没有输入任何要修改的内容',
+        confirmUpdate: '您确定要更新您的个人信息吗？此操作需要您重新登录。',
+        demoModeTip: '演示模式下不允许修改用户名和密码'
+      },
       allowCredentials: '允许凭证',
       allowMethods: '允许的方法',
       allowHeaders: '允许的头',
@@ -694,69 +718,38 @@ const local: App.I18n.Schema = {
         providerPlaceholder: '例如：openai, azure, anthropic',
         model: '模型',
         modelPlaceholder: '例如：gpt-4, gpt-3.5-turbo',
-            apiKey: 'API 密钥',
-            apiKeyPlaceholder: '请输入 API 密钥',
-            endpointUrl: '接口地址',
-            endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
-            proxy: '代理地址',
-            proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
-            success: {
-              update: 'AI 配置更新成功'
-            },
-            error: {
-              noAppSelected: '未选择应用',
-              fetch: '获取 AI 配置失败',
-              update: '更新 AI 配置失败',
-              empty: '请至少填写一项配置'
-            }
-          },
+        apiKey: 'API 密钥',
+        apiKeyPlaceholder: '请输入 API 密钥',
+        endpointUrl: '接口地址',
+        endpointUrlPlaceholder: '请输入接口地址，例如：https://api.openai.com/v1',
+        proxy: '代理地址',
+        proxyPlaceholder: '请输入代理地址，例如：http://192.168.0.10:7890',
+        success: {
+          update: 'AI 配置更新成功'
+        },
+        error: {
+          noAppSelected: '未选择应用',
+          fetch: '获取 AI 配置失败',
+          update: '更新 AI 配置失败',
+          empty: '请至少填写一项配置'
+        }
+      },
       systemUpdate: {
         title: '系统更新',
-        checkingForUpdates: '正在检查更新...',
-        newVersionAvailable: '有新版本可用',
-        latestVersion: '最新版本',
-        publishedAt: '发布于',
         changelog: '更新日志',
-        updateNow: '立即更新',
-        upToDate: '您已是最新版本！',
-        upToDateMessage: '您的系统正在运行最新版本。',
         currentServerVersion: '当前后端版本',
         currentWebVersion: '当前前端版本',
         currentAppVersion: '当前 App 版本',
-        currentLspVersion: '当前 LSP 版本',
-        updateError: '检查更新失败',
-        updateDevInProgress: '当前更新功能正在开发中，暂时不可用',
-        updateErrorContent: '无法获取最新版本信息，请稍后再试。',
-        updateStarted: '更新已开始',
-        updateStartedContent: '系统更新正在后台进行，可能需要几分钟。完成后请刷新页面。',
-        updateFailed: '更新启动失败',
-        updateFailedContent: '无法启动更新过程，请检查后端日志。',
-        checkForUpdates: '检查更新',
-        proxyPlaceholder: '可选：请输入代理地址，例如 http://127.0.0.1:7890',
-        manualUpdate: '手动更新',
-        manualUpdateDescription: '您可以为每个服务手动指定镜像标签（Tag）来进行更新。留空则表示不更新该服务。',
-        serverTag: 'Server 镜像标签',
-        serverTagPlaceholder: 'Server 是所有服务的中枢 (留空则使用当前版本)',
-        appTag: 'App 镜像标签',
-        appTagPlaceholder: 'App 是每一个应用所处的环境 (留空则使用当前版本)',
-        lspTag: 'LSP 镜像标签',
-        lspTagPlaceholder: 'Lsp 是为Python提供的编程提示、补全服务 (留空则使用当前版本)',
-        webTag: 'Web 镜像标签',
-        webTagPlaceholder: 'Web 是console页面的服务 (留空则使用当前版本)',
-        manualUpdateInfo:'手动更新可能导致严重错误，除非您明确知晓每一步操作，否则不要使用',
-        runManualUpdate: '执行手动更新',
-        autoUpdateTab: '自动更新',
-        manualUpdateTab: '手动更新',
-        confirmUpdateTitle: '确认更新',
-        confirmUpdateContent: '您确定要执行手动更新吗？不正确的标签可能导致服务无法启动。',
         changelogTab: '更新日志',
         loadingChangelogs: '正在加载更新日志...',
         changelogError: '加载日志失败',
-        changelogErrorContent: '无法获取更新日志，请稍后再试。'
+        changelogErrorContent: '无法获取更新日志，请稍后再试。',
+        versionInfo: '版本信息'
       }
     },
     index: {
-      branchDesc: '为了方便大家开发和更新合并，我们对主分支的代码进行了精简，只保留了首页菜单，其余内容已移至示例分支进行维护。预览地址显示的是示例分支的内容。',
+      branchDesc:
+        '为了方便大家开发和更新合并，我们对主分支的代码进行了精简，只保留了首页菜单，其余内容已移至示例分支进行维护。预览地址显示的是示例分支的内容。',
       greeting: '早上好，{userName}，今天又是充满活力的一天！',
       weatherDesc: '今天多云转晴，20℃ - 25℃！',
       projectCount: '项目数',
@@ -824,7 +817,6 @@ const local: App.I18n.Schema = {
     lang: '切换语言',
     fullscreen: '全屏',
     fullscreenExit: '退出全屏',
-
     reload: '刷新页面',
     collapse: '折叠菜单',
     expand: '展开菜单',

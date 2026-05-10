@@ -1,11 +1,17 @@
+opencode.json
+
 # Environments
 .env
+.env.dev
 !/web/.env
+.codex
+.opencode/
 
 # Dependencies
 **/node_modules
 **/dist
 .venv
+web/src/typings/components.d.ts
 
 # Python
 **/__pycache__
@@ -22,4 +28,21 @@
 .trae
 
 # Traefik
-traefik
+traefik/*
+!traefik/certs/
+!traefik/dynamic-dev/
+traefik/certs/*
+!traefik/certs/.gitkeep
+traefik/dynamic-dev/*
+!traefik/dynamic-dev/.gitkeep
+!traefik/dynamic-dev/tls.yml
+
+/app/logs
+
+# Helloagents
+.helloagents
+
+# MCP
+.mcp.json
+# Nested git metadata
+web/.git_disabled/

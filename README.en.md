@@ -1,4 +1,4 @@
-# Hyac - A Lightweight Python FaaS and Application Platform
+# Hyac - A Lightweight Python Cloud Function (FaaS) Platform
 
 <p align="right">
   <a href="./README.md">简体中文</a>
@@ -11,11 +11,11 @@
 > [!WARNING]
 > **This project is in the early development stage.**
 >
-> - Features and APIs are subject to significant changes.
-> - Deploying to a production environment may lead to unknown risks and issues.
+> - Features and APIs may undergo significant changes.
+> - Direct deployment to a production environment may pose unknown risks and issues.
 > - The project architecture may be adjusted and refactored in the future.
 >
-> Feedback and contributions are welcome, but please use with caution in production.
+> Feedback and contributions are welcome, but please use it with caution in a production environment.
 
 ## 🖼️ Preview
 
@@ -27,26 +27,26 @@
 
 ## 📖 Introduction
 
-**Hyac** is a powerful full-stack Function as a Service (FaaS) platform designed to provide an efficient, scalable, and easy-to-use cloud-native development environment. It allows developers to quickly deploy, manage, and execute serverless functions, greatly simplifying the workflow from development to production.
+**Hyac** is a powerful full-stack Function as a Service (FaaS) platform designed to provide an efficient, scalable, and user-friendly cloud-native development environment. It allows developers to quickly deploy, manage, and execute serverless functions, greatly simplifying the workflow from development to production.
 
 
 ## 🌐 Online Access
 
-- **Experience Address**: https://console.hyacos.top
-  - Default Username: `admin`, Default Password: `admin123`
-- **Documentation Address**: https://docs.hyacos.top
-## ✨ Features
+- **Project Demo**: https://console.hyacos.top
+  - Default username: `admin`, Default password: `admin123`
+- **Project Documentation**: https://docs.hyacos.top
+## ✨ Key Features
 
 - 🚀 **Dynamic Function Execution**: Dynamically load and execute function code in isolated Docker containers.
-- 🔥 **Hot Code Swapping**: Update function code in real-time without restarting the service.
-- 🌐 **Multi-Language Support**: Extensible runtime allows for future support of multiple programming languages.
-- 💻 **Modern Frontend**: Built with Vue 3 and Naive UI, providing a responsive and user-friendly management interface.
-- 📦 **Unified Object Storage**: Integrated with MinIO to provide unified file storage for functions and applications.
-- 🔗 **Comprehensive API**: Offers a rich API for managing applications, functions, databases, logs, and more.
+- 🔥 **Hot Code-Swapping**: Real-time updates of function code without service restarts.
+- 🌐 **Multi-language Support**: Extensibility based on runtimes allows for future support of multiple programming languages.
+- 💻 **Modern Frontend**: Built with Vue 3 and Naive UI, providing a responsive, user-friendly management interface.
+- 📦 **Unified Object Storage**: Integrated with RustFS/S3-compatible object storage to provide unified file storage for functions and applications.
+- 🔗 **Comprehensive API**: Offers a rich set of APIs for managing applications, functions, databases, logs, etc.
 
 ## 🏛️ System Architecture
 
-Hyac uses a microservices architecture based on Docker Compose, where components work together to form an efficient FaaS ecosystem.
+Hyac adopts a microservices architecture based on Docker Compose, where various components work together to form an efficient FaaS ecosystem.
 
 ```mermaid
 graph TD
@@ -55,9 +55,9 @@ graph TD
     end
 
     subgraph "🏗️ Infrastructure"
-        N[Nginx]
+        T[Traefik]
         DB[(MongoDB)]
-        S[(MinIO)]
+        S[(RustFS)]
     end
 
     subgraph "⚙️ Backend Services"
@@ -69,9 +69,10 @@ graph TD
         Web[Web]
     end
 
-    U -- HTTPS --> N
-    N -- /api --> Server
-    N -- / --> Web
+    U -- HTTPS --> T
+    T -- Routes by domain --> Server
+    T -- Routes by domain --> Web
+    T -- Routes by domain --> S
     
     Server -- Manages --> App
     Server -- Reads/Writes --> DB
@@ -84,18 +85,18 @@ graph TD
     Web -- API Requests --> Server
 ```
 
-- **`nginx`**: Acts as a reverse proxy, handling all external requests and routing them to the `server` or `web` service based on the path.
+- **`traefik`**: Acts as a reverse proxy and load balancer, handling all external requests and automatically routing them to the `server`, `web`, or S3-compatible object storage service based on the domain.
 - **`server`**: The core backend service, responsible for business logic, API routing, user authentication, and FaaS application management.
-- **`app`**: The function execution service, which dynamically executes user-defined functions in an isolated environment.
+- **`app`**: The function executor service, which dynamically executes user-defined functions in an isolated environment.
 - **`web`**: A Vue 3-based frontend application that provides the user interface.
-- **`mongodb`**: The primary database, storing core data such as applications, functions, and users.
-- **`minio`**: Used for object storage, such as storing function code, dependencies, or other files.
+- **`mongodb`**: Serves as the primary database, storing core data such as applications, functions, and users.
+- **`rustfs`**: Provides S3-compatible object storage, for instance, to store function code, dependencies, or other files.
 
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
 - **Backend**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
 - **Frontend**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
-- **Database & Storage**: MongoDB, MinIO
+- **Database & Storage**: MongoDB, RustFS(S3-compatible)
 - **Containerization**: Docker, Docker Compose
 
 ## 🚀 Getting Started
@@ -114,7 +115,7 @@ graph TD
     ```
 
 2.  Configure environment variables:
-    Copy the `.env.example` file to `.env` and modify the configurations according to your environment.
+    Copy the `.env.example` file and rename it to `.env`, then modify the configurations according to your environment.
 
 ### ▶️ Starting the Services
 
@@ -127,7 +128,7 @@ docker-compose up -d
 ### 🌐 Access Points
 
 - **Frontend Application**: `http://localhost:80`
-- **MinIO Console**: `http://localhost:9001` (Default username/password: `minioadmin`/`minioadmin`)
+- **RustFS Console**: `http://localhost:9001` (uses the configured S3/RustFS access key and secret)
 
 ## 📁 Major Project Structure
 
@@ -148,6 +149,7 @@ docker-compose up -d
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Pidbid/Hyac&type=Date)](https://star-history.com/#Pidbid/Hyac&Date)
 
+
 ## 📜 Changelog
 
 - [简体中文](./changelog/CHANGELOG.zh-CN.md)
@@ -155,19 +157,9 @@ docker-compose up -d
 
 ## ️ Roadmap
 
-We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform. Community contributions and suggestions are welcome!
+We plan to add more powerful features in future versions to build a more complete, enterprise-grade FaaS platform.
 
-### Platform-Level Features
-- [ ] **Multi-User & Permissions Management**: Introduce roles (e.g., admin, developer) for fine-grained access control.
-- [ ] **Platform Monitoring Dashboard**: Provide a global view of system status, resource utilization, and audit logs.
-- [ ] **Runtime Management**: Allow administrators to add, configure, and manage new function runtime environments (e.g., Node.js, Deno).
-- [ ] **System-Level Integration Configuration**: Offer a unified interface to configure global SMTP, object storage, and third-party notification services.
-
-### Application-Level Features
-- [ ] **Custom Domains & Advanced Access Control**: Support binding custom domains and provide IP whitelist/blacklist functionality.
-- [ ] **Resource Quota Management**: Allow setting limits on CPU, memory, and execution timeout for individual applications.
-- [ ] **Dependency Analysis & Security Scanning**: Integrate tools to detect dependency conflicts and known security vulnerabilities.
-- [ ] **Function Template Marketplace**: Create a community-driven marketplace for sharing and using pre-built function templates.
+For a detailed overview of future features, architectural enhancements, and improvement plans, please see our [Feature Roadmap (FEATURES.en.md)](./FEATURES.en.md). Community contributions and suggestions are welcome!
 
 ## 🤝 Contributing
 

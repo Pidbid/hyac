@@ -27,10 +27,7 @@ declare namespace Api {
     }
 
     /** common search params of table */
-    type CommonSearchParams = Pick<
-      Common.PaginatingCommonParams,
-      "current" | "size"
-    >;
+    type CommonSearchParams = Pick<Common.PaginatingCommonParams, 'current' | 'size'>;
 
     /**
      * enable status
@@ -38,7 +35,7 @@ declare namespace Api {
      * - "1": enabled
      * - "2": disabled
      */
-    type EnableStatus = "1" | "2";
+    type EnableStatus = '1' | '2';
 
     /** common record */
     type CommonRecord<T = any> = {
@@ -92,6 +89,7 @@ declare namespace Api {
     interface AppInfo {
       appId: string;
       appName: string;
+      status?: Api.Settings.ApplicationStatus;
     }
   }
 
@@ -136,7 +134,7 @@ declare namespace Api {
       app_id: string;
     }
 
-    interface DeleteAppResponse {}
+    type DeleteAppResponse = Record<string, never>;
 
     interface StartAppResponse {
       app_id: string;
@@ -159,12 +157,12 @@ declare namespace Api {
      * - "unpublished": unpublished
      * - "published": published
      */
-    type FunctionStatus = "unpublished" | "published";
-    type FunctionType = "endpoint" | "common";
+    type FunctionStatus = 'unpublished' | 'published';
+    type FunctionType = 'endpoint' | 'common';
 
-    type LogType = "function" | "system";
+    type LogType = 'function' | 'system';
 
-    type LogLevel = "info" | "warn" | "error" | "debug";
+    type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
     /** function record (full backend data) */
     interface FunctionRecord {
@@ -203,19 +201,19 @@ declare namespace Api {
     /** function info for list display (frontend simplified) */
     interface FunctionInfo {
       /** function id (mapped from func_id) */
-      id: FunctionRecord["function_id"];
+      id: FunctionRecord['function_id'];
       /** function name (mapped from function_id) */
-      name: FunctionRecord["function_name"];
+      name: FunctionRecord['function_name'];
       /** function type */
       type: FunctionType;
       /** function description (mapped from code) */
-      description: FunctionRecord["description"];
+      description: FunctionRecord['description'];
       /** function method (e.g., GET, POST) */
-      code: FunctionRecord["code"];
+      code: FunctionRecord['code'];
       /** function tags */
-      tags: FunctionRecord["tags"];
+      tags: FunctionRecord['tags'];
       /** function status */
-      status: FunctionRecord["status"];
+      status: FunctionRecord['status'];
     }
 
     interface GetFunctionData {
@@ -247,11 +245,11 @@ declare namespace Api {
     }
 
     interface FunctionLogsInfo {
-      _id:string;
+      _id: string;
       app_id: string;
       function_id: string;
       level: LogLevel;
-      logtype: "function" | "system";
+      logtype: 'function' | 'system';
       message: string;
       timestamp: string;
     }
@@ -263,7 +261,7 @@ declare namespace Api {
    * backend api module: "route"
    */
   namespace Route {
-    type ElegantConstRoute = import("@elegant-router/types").ElegantConstRoute;
+    type ElegantConstRoute = import('@elegant-router/types').ElegantConstRoute;
 
     interface MenuRoute extends ElegantConstRoute {
       id: string;
@@ -271,7 +269,7 @@ declare namespace Api {
 
     interface UserRoute {
       routes: MenuRoute[];
-      home: import("@elegant-router/types").LastLevelRouteKey;
+      home: import('@elegant-router/types').LastLevelRouteKey;
     }
   }
 
@@ -348,7 +346,7 @@ declare namespace Api {
       logtype: LogType;
       message: string;
       timestamp: string;
-      extra:LogsExtra;
+      extra: LogsExtra;
     }
 
     /** extra params for log query */
@@ -378,11 +376,22 @@ declare namespace Api {
       total: number;
       success: number;
       error: number;
+      unknown: number;
+    }
+
+    interface FunctionRankingItem {
+      function_name: string;
+      function_id?: string;
+      count: number;
+      average_execution_time?: number;
     }
 
     interface FunctionStats {
       count: number;
       requests: RequestStats;
+      overall_average_execution_time: number;
+      ranking_by_count: FunctionRankingItem[];
+      ranking_by_time: FunctionRankingItem[];
     }
 
     interface CollectionStats {
@@ -437,7 +446,7 @@ declare namespace Api {
     }
 
     interface GetFunctionTemplatesRequest {
-      appId:string;
+      appId: string;
       page?: number;
       length?: number;
     }
@@ -465,7 +474,7 @@ declare namespace Api {
       shared?: boolean;
     }
 
-    interface GetFunctionTemplateResponse extends FunctionTemplateRecord {}
+    type GetFunctionTemplateResponse = FunctionTemplateRecord;
   }
 
   /**
@@ -474,7 +483,7 @@ declare namespace Api {
    * backend api module: "function_template"
    */
   namespace Settings {
-    type ApplicationStatus = "starting" | "running" | "stopping" | "stopped" | "error";
+    type ApplicationStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
 
     interface Dependency {
       name: string;
@@ -546,13 +555,6 @@ declare namespace Api {
       proxy: string;
     }
 
-    interface ManualUpdateTags {
-      server?: string;
-      app?: string;
-      lsp?: string;
-      web?: string;
-    }
-
     interface ChangelogInfo {
       version: string;
       changelog: string;
@@ -561,16 +563,10 @@ declare namespace Api {
 
     type ChangelogData = ChangelogInfo[];
 
-    interface UpdateStatus {
-      current_version: string;
-      latest_version: string;
-      is_latest: boolean;
-      latest_version_info?: {
-        version: string;
-        changelog: string;
-        published_at: string;
-      };
-      message?: string;
+    interface SystemVersions {
+      server_version: string;
+      web_version: string;
+      app_version: string;
     }
     interface SystemSettings {
       demo_mode: boolean;
@@ -583,7 +579,7 @@ declare namespace Api {
    * backend api module: "scheduler"
    */
   namespace Scheduler {
-    type TriggerType = "cron" | "interval";
+    type TriggerType = 'cron' | 'interval';
 
     interface ScheduledTask {
       task_id: string;

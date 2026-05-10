@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { NCard, NButtonGroup, NTooltip, NButton, NIcon, NScrollbar, NFlex } from 'naive-ui';
-import { TerminalOutline, EaselOutline, ReaderOutline } from '@vicons/ionicons5';
+import { computed, ref } from 'vue';
+import { NButton, NButtonGroup, NCard, NFlex, NIcon, NScrollbar, NTooltip } from 'naive-ui';
+import { EaselOutline, ReaderOutline, TerminalOutline } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
 const props = defineProps<{
@@ -18,18 +18,21 @@ const filteredLogs = computed(() => {
     return log.logtype === logFilter.value;
   });
 });
-
 </script>
 
 <template>
-  <NCard :title="$t('page.function.log')" :bordered="false" size="small" class="h-full"
-    :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }">
+  <NCard
+    :title="$t('page.function.log')"
+    :bordered="false"
+    size="small"
+    class="h-full"
+    :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }"
+  >
     <template #header-extra>
       <NButtonGroup>
         <NTooltip trigger="hover">
           <template #trigger>
-            <NButton circle size="small" :type="logFilter === 'all' ? 'primary' : 'default'"
-              @click="logFilter = 'all'">
+            <NButton circle size="small" :type="logFilter === 'all' ? 'primary' : 'default'" @click="logFilter = 'all'">
               <template #icon>
                 <NIcon :component="TerminalOutline" />
               </template>
@@ -39,8 +42,12 @@ const filteredLogs = computed(() => {
         </NTooltip>
         <NTooltip trigger="hover">
           <template #trigger>
-            <NButton circle size="small" :type="logFilter === 'function' ? 'primary' : 'default'"
-              @click="logFilter = 'function'">
+            <NButton
+              circle
+              size="small"
+              :type="logFilter === 'function' ? 'primary' : 'default'"
+              @click="logFilter = 'function'"
+            >
               <template #icon>
                 <NIcon :component="EaselOutline" />
               </template>
@@ -50,8 +57,12 @@ const filteredLogs = computed(() => {
         </NTooltip>
         <NTooltip trigger="hover">
           <template #trigger>
-            <NButton circle size="small" :type="logFilter === 'system' ? 'primary' : 'default'"
-              @click="logFilter = 'system'">
+            <NButton
+              circle
+              size="small"
+              :type="logFilter === 'system' ? 'primary' : 'default'"
+              @click="logFilter = 'system'"
+            >
               <template #icon>
                 <NIcon :component="ReaderOutline" />
               </template>

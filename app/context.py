@@ -8,7 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.database import Database
 from pymongo import MongoClient
 
-
+from core.s3_context import S3Context
 from code_loader import CodeLoader
 from core.env_manager import set_dynamic_env
 from core.notification_manager import NotificationManager
@@ -70,7 +70,8 @@ class FunctionContext:
             code_loader: An instance of CodeLoader, kept for potential future use.
             env: An instance of EnvContext for environment variable management.
             common: A namespace object containing all pre-loaded common functions for the app.
-            notification_config: The notification configuration for the application.
+            notification: The notification configuration for the application.
+            s3: An instance of S3Context for interacting with S3-compatible storage.
         """
         self.app_id = app_id
         self.func_id = func_id
@@ -81,6 +82,7 @@ class FunctionContext:
         self.env = env
         self.common = common
         self.notification = NotificationManager(notification_config)
+        self.s3 = S3Context(bucket_name=app_id)
 
     @property
     def db(self) -> AsyncIOMotorDatabase:

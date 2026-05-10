@@ -527,15 +527,33 @@ declare namespace App {
           errorRestartingApp: string;
         };
         apps: {
+          avgExecutionTime: string;
+          unknownRequest: {
+            title: string;
+            label: string;
+            unit: string;
+            description: string;
+          };
+          requestTrend: string;
+          coreMetrics: string;
+          successRate: string;
           functionCount: string;
           databaseCount: string;
           storageCount: string;
           requestCount: string;
+          totalCalls: string;
+          successCalls: string;
+          errorCalls: string;
+          unknownCalls: string;
           requestCountUnit: string;
           functionCountUnit: string;
           databaseCountUnit: string;
           storageCountUnit: string;
           top5Functions: string;
+          top5FunctionsByCount: string;
+          top5FunctionsByTime: string;
+          byCount: string;
+          byTime: string;
           unknown: string;
         };
         database: {
@@ -568,6 +586,9 @@ declare namespace App {
           contentColumn: string;
           actionsColumn: string;
           noCollections: string;
+          selectDocumentsToDelete: string;
+          deleteSelectedConfirm: string;
+          deleteSelected: string;
         };
         function: {
           tagsGroup: {
@@ -615,6 +636,7 @@ declare namespace App {
           dependenceDeleted: string;
           dependenceDeletedAndRestarting: string;
           deleteFailed: string;
+          restartFailed: string;
           addDependenceSuccessAndRestarting: string;
           addDependenceSuccess: string;
           addDependenceFailed: string;
@@ -926,84 +948,52 @@ declare namespace App {
             providerPlaceholder: string;
             model: string;
             modelPlaceholder: string;
-                apiKey: string;
-                apiKeyPlaceholder: string;
-                endpointUrl: string;
-                endpointUrlPlaceholder: string;
-                proxy: string;
-                proxyPlaceholder: string;
-                success: {
-                  update: string;
-                };
-                error: {
-                  noAppSelected: string;
-                  fetch: string;
-                  update: string;
-                  empty: string;
-                };
-              };
+            apiKey: string;
+            apiKeyPlaceholder: string;
+            endpointUrl: string;
+            endpointUrlPlaceholder: string;
+            proxy: string;
+            proxyPlaceholder: string;
+            success: {
+              update: string;
+            };
+            error: {
+              noAppSelected: string;
+              fetch: string;
+              update: string;
+              empty: string;
+            };
+          };
           systemUpdate: {
             title: string;
-            checkingForUpdates: string;
-            newVersionAvailable: string;
-            latestVersion: string;
-            publishedAt: string;
             changelog: string;
-            updateNow: string;
-            upToDate: string;
-            upToDateMessage: string;
             currentServerVersion: string;
             currentWebVersion: string;
             currentAppVersion: string;
-            currentLspVersion: string;
-            updateError: string;
-            updateDevInProgress: string;
-            updateErrorContent: string;
-            updateStarted: string;
-            updateStartedContent: string;
-            updateFailed: string;
-            updateFailedContent: string;
-            checkForUpdates: string;
-            proxyPlaceholder: string;
-            manualUpdate: string;
-            manualUpdateDescription: string;
-            serverTag: string;
-            serverTagPlaceholder: string;
-            appTag: string;
-            appTagPlaceholder: string;
-            lspTag: string;
-            lspTagPlaceholder: string;
-            webTag: string;
-            webTagPlaceholder: string;
-            manualUpdateInfo: string;
-            runManualUpdate: string;
-            autoUpdateTab: string;
-            manualUpdateTab: string;
-            confirmUpdateTitle: string;
-            confirmUpdateContent: string;
-          changelogTab: string;
-          loadingChangelogs: string;
-          changelogError: string;
-          changelogErrorContent: string;
+            changelogTab: string;
+            loadingChangelogs: string;
+            changelogError: string;
+            changelogErrorContent: string;
+            versionInfo: string;
+          };
+          userProfile: {
+            title: string;
+            username: string;
+            usernamePlaceholder: string;
+            usernameHelp: string;
+            password: string;
+            passwordPlaceholder: string;
+            passwordHelp: string;
+            confirmPassword: string;
+            confirmPasswordPlaceholder: string;
+            passwordsDoNotMatch: string;
+            noChanges: string;
+            confirmUpdate: string;
+            demoModeTip: string;
+          };
         };
-              userProfile: {
-                title: string;
-                username: string;
-                usernamePlaceholder: string;
-                usernameHelp: string;
-                password: string;
-                passwordPlaceholder: string;
-                passwordHelp: string;
-                confirmPassword: string;
-                confirmPasswordPlaceholder: string;
-                passwordsDoNotMatch: string;
-                noChanges: string;
-                confirmUpdate: string;
-                demoModeTip: string;
-              };
-      };
-      index: {
-        branchDesc: string;
+        index: {
+          branchDesc: string;
           greeting: string;
           weatherDesc: string;
           projectCount: string;

@@ -11,7 +11,6 @@ import { useRouterPush } from '@/hooks/common/router';
 import { $t } from '@/locales';
 import { useMenu, useMixMenuContext } from '../../../context';
 import FirstLevelMenu from '../components/first-level-menu.vue';
-import GlobalLogo from '../../global-logo/index.vue';
 
 defineOptions({
   name: 'VerticalMixMenu'
@@ -88,8 +87,7 @@ watch(
         :theme-color="themeStore.themeColor"
         @select="handleSelectMixMenu"
         @toggle-sider-collapse="appStore.toggleSiderCollapse"
-      >
-      </FirstLevelMenu>
+      ></FirstLevelMenu>
       <div
         class="relative h-full transition-width-300"
         :style="{ width: appStore.mixSiderFixed && hasChildMenus ? themeStore.sider.mixChildMenuWidth + 'px' : '0px' }"

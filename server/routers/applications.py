@@ -263,6 +263,9 @@ async def restart_application(
         payload={"app_id": app.app_id},
     )
     await task.insert()
+    # Set Application status to STARTING
+    app.status = ApplicationStatus.STARTING
+    await app.save()
 
     return BaseResponse(
         code=0,

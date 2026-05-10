@@ -1,6 +1,5 @@
 # routers/services/users.py
 import base64
-import hashlib
 import io
 import random
 import re
@@ -21,9 +20,9 @@ from core.jwt_auth import (
     create_access_token,
     create_refresh_token,
     get_current_user,
-    verify_password,
     verify_refresh_token_and_get_user,
 )
+from core.passwords import hash_password, password_needs_rehash, verify_password
 from models import Application, FunctionsHistory, Function, BaseResponse, Captcha, User
 
 router = APIRouter(
@@ -143,6 +142,8 @@ async def login_for_access_token(data: LoginRequest, request: Request):
 
     # Create access and refresh tokens
     limiter.reset_attempts()
+    if password_needs_rehash(user.password):
+        user.password = hash_password(data.password)
     token_data = {"sub": user.username}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
@@ -221,13 +222,6 @@ async def get_captcha():
         "data": "data:image/png;base64," + image_base64,
     }
 
-
-def hash_password(password: str) -> str:
-    """
-    Hashes a password using MD5.
-    Note: MD5 is not recommended for new applications. Consider a stronger algorithm.
-    """
-    return hashlib.md5(password.encode("utf-8")).hexdigest()
 
 
 @router.post("/add", response_model=User)

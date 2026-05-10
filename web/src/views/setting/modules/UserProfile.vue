@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { reactive, computed } from 'vue';
-import { NCard, NForm, NFormItem, NInput, NButton, useMessage, NIcon, useDialog } from 'naive-ui';
-import { SaveOutline } from '@vicons/ionicons5';
+import { computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { $t } from '@/locales';
+import { NButton, NCard, NForm, NFormItem, NIcon, NInput, useDialog, useMessage } from 'naive-ui';
+import { SaveOutline } from '@vicons/ionicons5';
 import { fetchUpdateMe } from '@/service/api';
-import { localStg } from '@/utils/storage';
-import { useFormRules, useNaiveForm } from '@/hooks/common/form';
 import { useAppStore } from '@/store/modules/app';
+import { useFormRules, useNaiveForm } from '@/hooks/common/form';
+import { localStg } from '@/utils/storage';
+import { $t } from '@/locales';
 
- defineOptions({
-   name: 'UserProfile'
+defineOptions({
+  name: 'UserProfile'
 });
 
 const message = useMessage();
@@ -18,7 +18,7 @@ const dialog = useDialog();
 const router = useRouter();
 const appStore = useAppStore();
 
- const { formRef, validate } = useNaiveForm();
+const { formRef, validate } = useNaiveForm();
 
 interface FormModel {
   username: string;

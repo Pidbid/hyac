@@ -3,16 +3,17 @@ import { watch } from 'vue';
 import { useAppStore } from '@/store/modules/app';
 import { useEcharts } from '@/hooks/common/echarts';
 import { $t } from '@/locales';
-import { fetchTopFunctions } from '@/service/api/statistics';
-import { useRoute } from 'vue-router';
 
 defineOptions({
   name: 'PieChart'
 });
 
+interface Props {
+  summary: Api.Statistics.Summary | null;
+}
+const props = defineProps<Props>();
+
 const appStore = useAppStore();
-const route = useRoute();
-const appId = route.query.appId as string;
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
@@ -65,23 +66,21 @@ function updateLocale() {
   });
 }
 
-async function getChartData() {
-  if (!appId) return;
-  const { data } = await fetchTopFunctions({ appId });
-  if (data) {
-    updateOptions(opts => {
-      const chartData = data.map(item => ({
-        name: item.function_name || $t('page.apps.unknown'),
-        value: item.count
-      }));
+function updateChartData() {
+  if (!props.summary) return;
 
-      if (opts.series && opts.series[0]) {
-        opts.series[0].data = chartData;
-      }
+  const data = props.summary.functions.ranking_by_count || [];
+  const chartData = data.map(item => ({
+    name: item.function_name || $t('page.apps.unknown'),
+    value: item.count
+  }));
 
-      return opts;
-    });
-  }
+  updateOptions(opts => {
+    if (opts.series && opts.series[0]) {
+      opts.series[0].data = chartData;
+    }
+    return opts;
+  });
 }
 
 watch(
@@ -91,13 +90,28 @@ watch(
   }
 );
 
-getChartData();
+watch(() => props.summary, updateChartData, { deep: true });
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper">
+  <div class="apple-card">
+    <h3 class="apple-card-title">{{ $t('page.apps.top5Functions') }}</h3>
     <div ref="domRef" class="h-360px overflow-hidden"></div>
-  </NCard>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apple-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--n-color);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.apple-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+</style>

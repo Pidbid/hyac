@@ -49,15 +49,14 @@ export function fetchCustomBackendError(code: string, msg: string) {
   return request({ url: '/auth/error', params: { code, msg } });
 }
 
-/**
- * return a cature image
- */
+/** return a cature image */
 export function fetchCaptcha() {
   return request({ url: '/users/captcha', method: 'get' });
 }
 
 /**
  * Update current user info
+ *
  * @param username - new username
  * @param password - new password
  */

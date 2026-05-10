@@ -14,11 +14,11 @@ from models.statistics_model import (
     DatabaseStats,
     StorageStats,
     CollectionStats,
-    FunctionStatsOther,
-    FunctionRequestStats,
+    FunctionRankingItem,
 )
 from core.jwt_auth import get_current_user
 from core.database_dynamic import dynamic_db
+from core.s3_manager import s3_manager
 
 router = APIRouter(
     prefix="/statistics",
@@ -49,7 +49,7 @@ async def get_statistics_summary(
     function_count = await Function.find(Function.app_id == app.app_id).count()
 
     requests_pipeline = [
-        {"$match": {"app_id": app.app_id}},
+        {"$match": {"app_id": app.app_id, "function_name": {"$ne": "Unknown"}}},
         {
             "$group": {
                 "_id": "$status",
@@ -59,7 +59,6 @@ async def get_statistics_summary(
     ]
     requests_result = await FunctionMetric.aggregate(requests_pipeline).to_list()
 
-    total_calls = 0
     success_calls = 0
     error_calls = 0
     for res in requests_result:
@@ -67,87 +66,159 @@ async def get_statistics_summary(
             success_calls = res["count"]
         elif res["_id"] == CallStatus.ERROR:
             error_calls = res["count"]
-    total_calls = success_calls + error_calls
 
-    # last 24 hours function request count
-    last_24_hours_request = 0
-    time_ago = datetime.now() - timedelta(days=-1)
-    pipeline = [
+    # --- Unknown Requests ---
+    unknown_requests_pipeline = [
+        {"$match": {"app_id": app.app_id}},
         {
-            "$match": {
-                "app_id": app.app_id,
-                "timestamp": {"$gte": time_ago},
+            "$lookup": {
+                "from": "functions",
+                "localField": "function_id",
+                "foreignField": "function_id",
+                "as": "function_info",
             }
         },
+        {"$match": {"function_info": []}},
+        {"$count": "count"},
+    ]
+    unknown_requests_result = await FunctionMetric.aggregate(
+        unknown_requests_pipeline
+    ).to_list()
+    unknown_calls = (
+        unknown_requests_result[0]["count"] if unknown_requests_result else 0
+    )
+
+    total_calls = success_calls + error_calls + unknown_calls
+
+    # --- Overall Average Execution Time ---
+    overall_avg_time_pipeline = [
+        {"$match": {"app_id": app.app_id}},
+        {
+            "$group": {
+                "_id": None,
+                "avg_time": {"$avg": "$execution_time"},
+            }
+        },
+    ]
+    overall_avg_time_result = await FunctionMetric.aggregate(
+        overall_avg_time_pipeline
+    ).to_list()
+    overall_average_execution_time = (
+        (overall_avg_time_result[0]["avg_time"] * 1000)
+        if overall_avg_time_result and overall_avg_time_result[0]["avg_time"]
+        else 0
+    )
+
+    # --- Function Ranking ---
+    ranking_pipeline_base = [
+        {"$match": {"app_id": app.app_id}},
         {
             "$group": {
                 "_id": "$function_id",
                 "count": {"$sum": 1},
-            }
-        },
-        # {"$sort": {"_id": 1}},
-    ]
-    function_request_result = await FunctionMetric.aggregate(pipeline).to_list()
-    print(function_request_result)
-    if function_request_result:
-        last_24_hours_request = function_request_result[0]["count"]
-    pipeline = [
-        {
-            "$match": {
-                "app_id": data.appId,
-                "timestamp": {
-                    "$gte": time_ago,
-                },
+                "avg_time": {"$avg": "$execution_time"},
             }
         },
         {
-            "$group": {
-                "_id": {"function_id": "$function_id", "app_id": "$app_id"},
-                "count": {"$sum": 1},
+            "$lookup": {
+                "from": "functions",
+                "localField": "_id",
+                "foreignField": "function_id",
+                "as": "function_info",
             }
         },
-        {"$sort": {"count": -1}},  # 降序排序
         {
             "$project": {
+                "function_id": "$_id",
+                "function_name": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$function_info.function_name", 0]},
+                        "Unknown",
+                    ]
+                },
+                "count": 1,
+                "average_execution_time": {
+                    "$multiply": ["$avg_time", 1000]
+                },  # Convert to ms
                 "_id": 0,
-                "function_id": "$_id.function_id",
-                "app_id": "$_id.app_id",
-                "count": "$count",
             }
         },
     ]
 
-    function_request_result = await FunctionMetric.aggregate(pipeline).to_list()
-    function_request_sort = []
-    print(function_request_result)
-    if function_request_result:
-        function_request_sort = [
-            FunctionRequestStats(
-                function_name=i["function_name"], request_count=i["count"]
-            )
-            for i in function_request_result
-        ]
+    # Ranking by count
+    ranking_by_count_pipeline = ranking_pipeline_base + [
+        {"$sort": {"count": -1}},
+        {"$limit": 5},
+    ]
+    ranking_by_count_result = await FunctionMetric.aggregate(
+        ranking_by_count_pipeline
+    ).to_list()
+
+    # Ranking by time
+    ranking_by_time_pipeline = ranking_pipeline_base + [
+        {"$sort": {"average_execution_time": -1}},
+        {"$limit": 5},
+    ]
+    ranking_by_time_result = await FunctionMetric.aggregate(
+        ranking_by_time_pipeline
+    ).to_list()
+
     function_stats = FunctionStats(
         count=function_count,
         requests=RequestStats(
-            total=total_calls, success=success_calls, error=error_calls
+            total=total_calls,
+            success=success_calls,
+            error=error_calls,
+            unknown=unknown_calls,
         ),
-        other=FunctionStatsOther(
-            last_24_hours=last_24_hours_request, request_sort=function_request_sort
-        ),
+        overall_average_execution_time=overall_average_execution_time,
+        ranking_by_count=[
+            FunctionRankingItem(**item) for item in ranking_by_count_result
+        ],
+        ranking_by_time=[
+            FunctionRankingItem(**item) for item in ranking_by_time_result
+        ],
     )
 
     # --- Database Statistics ---
-    db = dynamic_db.app_db(data.appId)
-    collection_names = await db.list_collection_names()
-    db_stats = DatabaseStats(count=len(collection_names), collections=[])
-    for name in collection_names:
-        count = await db[name].count_documents({})
-        db_stats.collections.append(CollectionStats(name=name, count=count))
+    db = dynamic_db.app_db(data.appId)["__config__"]
+    collections = await db.find({}).to_list()
+    collections_data = []
+    if collections and collections[0].get("collections"):
+        app_db = dynamic_db.app_db(data.appId)
+        for i in collections[0]["collections"]:
+            if i != "__config__":
+                count = await app_db[i].count_documents({})
+                collections_data.append(CollectionStats(name=i, count=count))
+        db_stats = {
+            "collections": collections_data,
+            "count": len(collections_data),
+        }
+    else:
+        db_stats = {
+            "collections": [],
+            "count": 0,
+        }
 
-    # --- Storage Statistics (Mocked) ---
-    # In a real scenario, this would be calculated based on actual storage usage.
-    storage_stats = StorageStats(total_usage_mb=952.7)
+    # --- Storage Statistics ---
+    total_usage_bytes = 0
+    try:
+        # S3 bucket names must be lowercase
+        bucket_name = data.appId.lower()
+        objects = await s3_manager.list_objects(
+            bucket_name=bucket_name, recursive=True
+        )
+        if objects:
+            # Filter out directories, which have a size of 0
+            total_usage_bytes = sum(
+                obj.get("size", 0) for obj in objects if obj and not obj.get("is_dir")
+            )
+    except Exception as e:
+        # Log the error but don't fail the whole request
+        print(f"Could not calculate storage usage for {data.appId}: {e}")
+
+    total_usage_mb = total_usage_bytes / (1024 * 1024)
+    storage_stats = StorageStats(total_usage_mb=total_usage_mb)
 
     summary = StatisticsSummary(
         functions=function_stats,
@@ -169,8 +240,8 @@ class FunctionRequestsResponse(BaseModel):
 )
 async def get_function_requests_over_time(
     appId: str,
-    functionId: str,
     days: int = Query(7, ge=1, le=30),
+    functionId: str = Query(None),
     current_user=Depends(get_current_user),
 ):
     """
@@ -183,14 +254,15 @@ async def get_function_requests_over_time(
         return BaseResponse(code=404, msg="Application not found")
 
     time_ago = datetime.now() - timedelta(days=days)
+    match_filter = {
+        "app_id": app.app_id,
+        "timestamp": {"$gte": time_ago},
+    }
+    if functionId and functionId != "all":
+        match_filter["function_id"] = functionId
+
     pipeline = [
-        {
-            "$match": {
-                "app_id": app.app_id,
-                "function_id": functionId,
-                "timestamp": {"$gte": time_ago},
-            }
-        },
+        {"$match": match_filter},
         {
             "$group": {
                 "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
@@ -199,52 +271,6 @@ async def get_function_requests_over_time(
         },
         {"$sort": {"_id": 1}},
         {"$project": {"date": "$_id", "count": 1, "_id": 0}},
-    ]
-    result = await FunctionMetric.aggregate(pipeline).to_list()
-
-    return BaseResponse(code=0, msg="Success", data=result)
-
-
-class TopFunctionResponse(BaseModel):
-    function_name: str
-    count: int
-
-
-@router.get("/top_functions", response_model=BaseResponse)
-async def get_top_functions(
-    appId: str,
-    limit: int = Query(5, ge=1, le=20),
-    current_user=Depends(get_current_user),
-):
-    """
-    Get the top N functions by request count.
-    """
-    app = await Application.find_one(
-        Application.app_id == appId, Application.users == current_user.username
-    )
-    if not app:
-        return BaseResponse(code=404, msg="Application not found")
-
-    pipeline = [
-        {"$match": {"app_id": app.app_id}},
-        {"$group": {"_id": "$function_id", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": limit},
-        {
-            "$lookup": {
-                "from": "functions",
-                "localField": "_id",
-                "foreignField": "function_id",
-                "as": "function_info",
-            }
-        },
-        {
-            "$project": {
-                "function_name": {"$arrayElemAt": ["$function_info.function_name", 0]},
-                "count": 1,
-                "_id": 0,
-            }
-        },
     ]
     result = await FunctionMetric.aggregate(pipeline).to_list()
 

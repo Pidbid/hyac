@@ -14,9 +14,7 @@ export const useFunctionStore = defineStore(SetupStoreId.Function, () => {
     funcInfo.value = info;
   }
 
-  /**
-   * Clear function info
-   */
+  /** Clear function info */
   function clearFunctionInfo() {
     funcInfo.value = null;
   }

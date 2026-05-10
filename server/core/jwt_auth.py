@@ -1,10 +1,12 @@
-import hashlib
+from core.passwords import verify_password
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
 from fastapi import Depends, HTTPException, Query, Security, WebSocket, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.exceptions import WebSocketException
+from starlette import status
 from jwt import ExpiredSignatureError, PyJWTError
 
 from core.config import settings
@@ -83,29 +85,30 @@ async def get_current_user_for_websocket(
     The token is expected as a query parameter.
     """
     if token is None:
-        await websocket.close(code=4001, reason="Authentication token is missing")
-        raise HTTPException(status_code=403, detail="Not authenticated")
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Authentication token is missing",
+        )
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
-            await websocket.close(
-                code=4001, reason="Invalid authentication credentials"
-            )
-            raise HTTPException(
-                status_code=401, detail="Invalid authentication credentials"
+            raise WebSocketException(
+                code=status.WS_1008_POLICY_VIOLATION,
+                reason="Invalid authentication credentials",
             )
     except PyJWTError:
-        await websocket.close(code=4001, reason="Invalid authentication credentials")
-        raise HTTPException(
-            status_code=401, detail="Invalid authentication credentials"
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Invalid authentication credentials",
         )
 
     user = await User.find_one(User.username == username)
     if user is None:
-        await websocket.close(code=4001, reason="User not found")
-        raise HTTPException(status_code=401, detail="User not found")
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="User not found"
+        )
     return user
 
 
@@ -130,19 +133,6 @@ async def optional_get_current_user(
         return user
     return None
 
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verifies a plain password against a hashed password (MD5).
-
-    Args:
-        plain_password: The plain text password.
-        hashed_password: The MD5 hashed password.
-
-    Returns:
-        True if the passwords match, False otherwise.
-    """
-    return hashlib.md5(plain_password.encode("utf-8")).hexdigest() == hashed_password
 
 
 async def verify_refresh_token_and_get_user(

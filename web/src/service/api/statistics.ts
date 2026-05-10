@@ -10,11 +10,11 @@ export function fetchStatisticsSummary(appId: string) {
 }
 
 /** 获取函数请求 */
-export function fetchFunctionRequests(params: { appId: string; functionId: string; days?: number }) {
+export function fetchFunctionRequests(appId: string, days?: number, functionId?: string) {
   return request<Api.Statistics.FunctionRequestsResponse[]>({
     url: '/statistics/function_requests',
     method: 'get',
-    params
+    params: { appId, days, functionId }
   });
 }
 

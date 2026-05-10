@@ -62,8 +62,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.database',
       icon: 'router-database',
       localIcon: 'router-database',
-      order: 2,
-      keepAlive: true
+      order: 2
     }
   },
   {

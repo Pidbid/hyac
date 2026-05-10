@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { h, ref } from 'vue';
-import { NCard, NButton, NSpace, useDialog, useMessage, NText, NInput } from 'naive-ui';
-import { $t } from '@/locales';
-import { useApplicationStore } from '@/store/modules/application';
-import { restartApp, stopApp, deleteApp } from '@/service/api/app';
 import { useRouter } from 'vue-router';
+import { NButton, NCard, NInput, NSpace, NText, useDialog, useMessage } from 'naive-ui';
+import { deleteApp, restartApp, stopApp } from '@/service/api/app';
+import { useApplicationStore } from '@/store/modules/application';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'DangerZone'

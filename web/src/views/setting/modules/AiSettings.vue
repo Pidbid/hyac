@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { NForm, NFormItem, NInput, NButton, NCard, useMessage, NSelect } from 'naive-ui';
+import { onMounted, ref } from 'vue';
+import { NButton, NCard, NForm, NFormItem, NInput, NSelect, useMessage } from 'naive-ui';
 import { fetchAiConfig, updateAiConfig } from '@/service/api';
-import { useAppStore } from '@/store/modules/app';
-import { $t } from '@/locales';
 import { localStg } from '@/utils/storage';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'AiSettings'
 });
 
-const appStore = useAppStore();
 const message = useMessage();
 
 const formValue = ref({
@@ -81,7 +79,7 @@ async function getConfig() {
     if (data) {
       formValue.value = data;
     }
-  } catch (error) {
+  } catch {
     message.error($t('page.setting.ai.error.fetch'));
   } finally {
     loading.value = false;
@@ -105,7 +103,7 @@ async function handleUpdate() {
   try {
     await updateAiConfig({ appId, config: formValue.value });
     message.success($t('page.setting.ai.success.update'));
-  } catch (error) {
+  } catch {
     message.error($t('page.setting.ai.error.update'));
   } finally {
     loading.value = false;
@@ -119,7 +117,13 @@ onMounted(() => {
 
 <template>
   <NCard :title="$t('page.setting.ai.title')">
-    <NForm ref="formRef" :model="formValue" label-placement="left" label-width="auto" require-mark-placement="right-hanging">
+    <NForm
+      ref="formRef"
+      :model="formValue"
+      label-placement="left"
+      label-width="auto"
+      require-mark-placement="right-hanging"
+    >
       <NFormItem :label="$t('page.setting.ai.provider')" path="provider">
         <NSelect
           v-model:value="formValue.provider"

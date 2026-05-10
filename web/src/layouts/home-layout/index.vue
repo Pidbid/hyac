@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue';
+import { computed } from 'vue';
 import { AdminLayout, LAYOUT_SCROLL_EL_ID } from '@sa/materials';
 import type { LayoutMode } from '@sa/materials';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
 import HomeHeader from '../modules/home-header/index.vue';
+import GlobalFooter from '../modules/global-footer/index.vue';
 import { setupMixMenuContext } from '../context';
 
 defineOptions({
@@ -14,7 +15,6 @@ defineOptions({
 const appStore = useAppStore();
 const themeStore = useThemeStore();
 const { childLevelMenus, isActiveFirstLevelMenuHasChildren } = setupMixMenuContext();
-
 
 const layoutMode = computed(() => {
   const vertical: LayoutMode = 'vertical';
@@ -57,9 +57,7 @@ const isVerticalMix = computed(() => themeStore.layout.mode === 'vertical-mix');
 
 const isHorizontalMix = computed(() => themeStore.layout.mode === 'horizontal-mix');
 
-
 const siderCollapsedWidth = computed(() => getSiderCollapsedWidth());
-
 
 function getSiderCollapsedWidth() {
   const { reverseHorizontalMix } = themeStore.layout;

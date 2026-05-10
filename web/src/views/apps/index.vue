@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import { useApplicationStore } from '@/store/modules/application';
-import { useAppStore } from '@/store/modules/app';
+import { onMounted, ref, watch } from 'vue';
 import { fetchStatisticsSummary } from '@/service/api/statistics';
-import CardData from './modules/card-data.vue';
-import LineChart from './modules/line-chart.vue';
+import { useApplicationStore } from '@/store/modules/application';
+import SummaryCard from './modules/SummaryCard.vue';
+import TrendChart from './modules/TrendChart.vue';
+import RankingList from './modules/RankingList.vue';
 import PieChart from './modules/pie-chart.vue';
-import ProjectNews from './modules/project-news.vue';
-import CreativityBanner from './modules/creativity-banner.vue';
+import FunctionStatusCard from './modules/FunctionStatusCard.vue';
+import UnknownRequestCard from './modules/UnknownRequestCard.vue';
 
-const appStore = useAppStore();
 const applicationStore = useApplicationStore();
 const summaryData = ref<Api.Statistics.Summary | null>(null);
 const loading = ref(false);
-
-const gap = computed(() => (appStore.isMobile ? 0 : 16));
 
 async function getSummary() {
   if (!applicationStore.appId) return;
@@ -47,21 +44,54 @@ watch(
 </script>
 
 <template>
-  <NSpace vertical :size="24">
-    <CardData :loading="loading" :summary="summaryData" />
-    <NGrid :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
-      <NGi span="24 s:24 m:18">
-        <NCard :bordered="false" class="card-wrapper">
-          <LineChart :summary="summaryData" />
-        </NCard>
-      </NGi>
-      <NGi span="24 s:24 m:6">
-        <NCard :bordered="false" class="card-wrapper">
-          <PieChart :summary="summaryData" />
-        </NCard>
-      </NGi>
-    </NGrid>
-  </NSpace>
+  <div class="apps-page">
+    <!-- Row 1: Insight and Summary -->
+    <div class="apps-row apps-row-2col">
+      <FunctionStatusCard :loading="loading" :summary="summaryData" />
+      <UnknownRequestCard :loading="loading" :summary="summaryData" />
+    </div>
+
+    <!-- Row 2: Summary -->
+    <SummaryCard :loading="loading" :summary="summaryData" />
+
+    <!-- Row 3: Main Trend Chart -->
+    <TrendChart :summary="summaryData" />
+
+    <!-- Row 4: Ranking and Pie Chart -->
+    <div class="apps-row apps-row-2col">
+      <RankingList :summary="summaryData" />
+      <PieChart :summary="summaryData" />
+    </div>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apps-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  height: 100%;
+  overflow: auto;
+}
+
+.apps-row {
+  display: flex;
+  gap: 16px;
+}
+
+.apps-row-2col > * {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .apps-page {
+    padding: 16px;
+  }
+
+  .apps-row-2col {
+    flex-direction: column;
+  }
+}
+</style>

@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from beanie import Document
 from pydantic import Field, BaseModel
-from typing import Optional, List
+from typing import Optional, List, Any
 
 
 class CallStatus(str, Enum):
@@ -11,6 +11,7 @@ class CallStatus(str, Enum):
 
     SUCCESS = "success"
     ERROR = "error"
+    UNKNOWN = "unknown"
 
 
 class FunctionMetric(Document):
@@ -36,22 +37,22 @@ class RequestStats(BaseModel):
     total: int
     success: int
     error: int
+    unknown: int
 
 
-class FunctionRequestStats(BaseModel):
+class FunctionRankingItem(BaseModel):
     function_name: str
-    request_count: int
-
-
-class FunctionStatsOther(BaseModel):
-    last_24_hours: int
-    request_sort: list[FunctionRequestStats]
+    count: int
+    average_execution_time: Optional[float] = None
+    function_id: Optional[str] = None
 
 
 class FunctionStats(BaseModel):
     count: int
     requests: RequestStats
-    other: FunctionStatsOther
+    overall_average_execution_time: float
+    ranking_by_count: List[FunctionRankingItem]
+    ranking_by_time: List[FunctionRankingItem]
 
 
 class CollectionStats(BaseModel):
@@ -66,6 +67,12 @@ class DatabaseStats(BaseModel):
 
 class StorageStats(BaseModel):
     total_usage_mb: float
+
+
+class InsightItem(BaseModel):
+    type: str  # e.g., 'info', 'warning'
+    message_key: str  # e.g., 'insights.highErrorRate'
+    metadata: Optional[dict[str, Any]] = None
 
 
 class StatisticsSummary(BaseModel):

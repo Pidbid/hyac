@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NButton, NIcon, NCard, NList, NListItem, NThing, NTag, NEmpty, NTooltip, NScrollbar, NSpace } from 'naive-ui';
-import { AddOutline, TrashSharp, CubeOutline, HammerOutline, ShareSocialOutline } from '@vicons/ionicons5';
+import { NButton, NCard, NEmpty, NIcon, NList, NListItem, NScrollbar, NSpace, NTag, NThing, NTooltip } from 'naive-ui';
+import { AddOutline, CubeOutline, HammerOutline, ShareSocialOutline, TrashSharp } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
 const props = defineProps<{
@@ -11,7 +11,14 @@ const props = defineProps<{
   selectedTag: string;
 }>();
 
-const emit = defineEmits(['create-function', 'select-function', 'delete-function', 'open-env-settings', 'open-dependency-manager', 'select-tag']);
+const emit = defineEmits([
+  'create-function',
+  'select-function',
+  'delete-function',
+  'open-env-settings',
+  'open-dependency-manager',
+  'select-tag'
+]);
 
 const displayTags = computed(() => {
   const fixedTags = [
@@ -25,8 +32,13 @@ const displayTags = computed(() => {
 </script>
 
 <template>
-  <NCard :title="$t('page.function.functionList')" :bordered="false" size="small" class="h-full flex flex-col"
-    :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }">
+  <NCard
+    :title="$t('page.function.functionList')"
+    :bordered="false"
+    size="small"
+    class="h-full flex flex-col"
+    :content-style="{ padding: '0px', flex: 1, overflow: 'hidden' }"
+  >
     <template #header-extra>
       <NButton type="primary" size="small" @click="emit('create-function')">
         <template #icon>
@@ -36,15 +48,20 @@ const displayTags = computed(() => {
     </template>
     <div class="p-2">
       <NSpace>
-        <NTag v-for="tag in displayTags" :key="tag.key" checkable :checked="selectedTag === tag.key"
-          @click="emit('select-tag', tag.key)">
+        <NTag
+          v-for="tag in displayTags"
+          :key="tag.key"
+          checkable
+          :checked="selectedTag === tag.key"
+          @click="emit('select-tag', tag.key)"
+        >
           {{ tag.label }}
         </NTag>
       </NSpace>
     </div>
     <template #footer>
-      <div class="flex justify-end w-full">
-        <n-tooltip trigger="hover">
+      <div class="w-full flex justify-end">
+        <NTooltip trigger="hover">
           <template #trigger>
             <NButton size="small" @click="emit('open-env-settings')">
               <template #icon>
@@ -53,8 +70,8 @@ const displayTags = computed(() => {
             </NButton>
           </template>
           {{ $t('page.function.envVariables') }}
-        </n-tooltip>
-        <n-tooltip trigger="hover">
+        </NTooltip>
+        <NTooltip trigger="hover">
           <template #trigger>
             <NButton class="ml-2" size="small" @click="emit('open-dependency-manager')">
               <template #icon>
@@ -63,13 +80,17 @@ const displayTags = computed(() => {
             </NButton>
           </template>
           {{ $t('page.function.dependenceManagement') }}
-        </n-tooltip>
+        </NTooltip>
       </div>
     </template>
     <NScrollbar class="h-full">
       <NList v-if="functions.length > 0" hoverable clickable>
-        <NListItem v-for="func in functions" :key="func.id" @click="emit('select-function', func)"
-          :class="{ 'selected-function-item': selectedFunctionId === func.id }">
+        <NListItem
+          v-for="func in functions"
+          :key="func.id"
+          :class="{ 'selected-function-item': selectedFunctionId === func.id }"
+          @click="emit('select-function', func)"
+        >
           <NThing>
             <template #header>
               <div class="flex items-center">

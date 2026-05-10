@@ -1,24 +1,20 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import * as monaco from 'monaco-editor';
-import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-
-window.MonacoEnvironment = {
-  getWorker(_workerId: any, label: string) {
-    return new JsonWorker();
-  },
-};
 interface Props {
   modelValue: string;
   height?: number;
+  readOnly?: boolean;
+  fontSize?: number;
+  tabSize?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readOnly: false,
   height: 400, // 设置 height 的默认值
+  fontSize: 14,
+  tabSize: 2
 });
-
-
 
 const emit = defineEmits(['update:modelValue']); // 移除 update:height 事件
 
@@ -29,17 +25,17 @@ const initMonaco = () => {
   if (editorRef.value) {
     editorInstance = monaco.editor.create(editorRef.value, {
       value: props.modelValue,
-      language: "json",
-      readOnly: false,
+      language: 'json',
+      readOnly: props.readOnly,
       minimap: { enabled: false },
-      fontSize: 14,
-      tabSize: 2,
+      fontSize: props.fontSize,
+      tabSize: props.tabSize,
       insertSpaces: true,
       scrollBeyondLastLine: false,
       wordWrap: 'on',
       lineNumbers: 'off',
       automaticLayout: true,
-      fontFamily: 'Courier New, monospace',
+      fontFamily: 'Courier New, monospace'
     });
 
     editorInstance.onDidChangeModelContent(() => {
@@ -54,20 +50,20 @@ watch(
     if (editorInstance) {
       editorInstance.updateOptions({
         fontSize: props.fontSize,
-        tabSize: props.tabSize,
+        tabSize: props.tabSize
       });
     }
-  },
+  }
 );
 
 watch(
   () => props.modelValue,
-  (value) => {
+  value => {
     // 防止改变编辑器内容时光标重定向
     if (value !== editorInstance?.getValue()) {
       editorInstance?.setValue(value);
     }
-  },
+  }
 );
 
 // 监听 height prop 变化，手动触发布局
@@ -89,7 +85,6 @@ onBeforeUnmount(() => {
     editorInstance.dispose();
   }
 });
-
 </script>
 
 <template>
