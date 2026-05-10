@@ -96,9 +96,24 @@ watch(() => props.summary, updateChartData, { deep: true });
 </script>
 
 <template>
-  <NCard :title="$t('page.apps.top5Functions')" :bordered="false" class="card-wrapper">
+  <div class="apple-card">
+    <h3 class="apple-card-title">{{ $t('page.apps.top5Functions') }}</h3>
     <div ref="domRef" class="h-360px overflow-hidden"></div>
-  </NCard>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apple-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--n-color);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.apple-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+</style>

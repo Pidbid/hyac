@@ -110,16 +110,37 @@ watch([appId, timeRange], getChartData, { immediate: true });
 </script>
 
 <template>
-  <NCard :title="$t('page.apps.requestTrend')" :bordered="false" class="card-wrapper">
-    <template #header-extra>
+  <div class="apple-card">
+    <div class="chart-header">
+      <h3 class="apple-card-title">{{ $t('page.apps.requestTrend') }}</h3>
       <NRadioGroup v-model:value="timeRange" size="small">
         <NRadioButton :value="1">24H</NRadioButton>
         <NRadioButton :value="7">7 Days</NRadioButton>
         <NRadioButton :value="30">30 Days</NRadioButton>
       </NRadioGroup>
-    </template>
+    </div>
     <div ref="domRef" class="h-360px overflow-hidden"></div>
-  </NCard>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apple-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--n-color);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.apple-card-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+</style>

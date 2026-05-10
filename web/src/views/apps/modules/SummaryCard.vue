@@ -59,19 +59,75 @@ const summaryData = computed<SummaryData[]>(() => {
 </script>
 
 <template>
-  <NCard :title="$t('page.apps.coreMetrics')" :loading="props.loading" :bordered="false" class="h-full card-wrapper">
-    <NGrid :cols="12" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-      <NGi v-for="item in summaryData" :key="item.key" span="12 s:6 m:4 l:3">
-        <div class="flex items-center">
-          <SvgIcon :icon="item.icon" class="text-32px" :style="{ color: item.color }" />
-          <div class="ml-12px">
-            <p class="text-18px font-bold">{{ item.value }}</p>
-            <p class="text-14px text-gray-500">{{ item.title }}</p>
+  <div class="apple-card">
+    <h3 class="apple-card-title">{{ $t('page.apps.coreMetrics') }}</h3>
+    <NSpin :show="props.loading">
+      <div class="metrics-grid">
+        <div v-for="item in summaryData" :key="item.key" class="metric-item">
+          <div class="metric-icon-wrap">
+            <SvgIcon :icon="item.icon" class="text-28px text-[#007aff]" />
+          </div>
+          <div class="metric-info">
+            <p class="metric-value">{{ item.value }}</p>
+            <p class="metric-label">{{ item.title }}</p>
           </div>
         </div>
-      </NGi>
-    </NGrid>
-  </NCard>
+      </div>
+    </NSpin>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apple-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--n-color);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.apple-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.metric-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(0, 122, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.metric-label {
+  font-size: 13px;
+  color: #86868b;
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+</style>

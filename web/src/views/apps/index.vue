@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { fetchStatisticsSummary } from '@/service/api/statistics';
 import { useApplicationStore } from '@/store/modules/application';
-import { useAppStore } from '@/store/modules/app';
 import SummaryCard from './modules/SummaryCard.vue';
 import TrendChart from './modules/TrendChart.vue';
 import RankingList from './modules/RankingList.vue';
@@ -10,12 +9,9 @@ import PieChart from './modules/pie-chart.vue';
 import FunctionStatusCard from './modules/FunctionStatusCard.vue';
 import UnknownRequestCard from './modules/UnknownRequestCard.vue';
 
-const appStore = useAppStore();
 const applicationStore = useApplicationStore();
 const summaryData = ref<Api.Statistics.Summary | null>(null);
 const loading = ref(false);
-
-const gap = computed(() => (appStore.isMobile ? 0 : 16));
 
 async function getSummary() {
   if (!applicationStore.appId) return;
@@ -48,16 +44,12 @@ watch(
 </script>
 
 <template>
-  <NSpace vertical :size="16">
+  <div class="apps-page">
     <!-- Row 1: Insight and Summary -->
-    <NGrid :cols="12" :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
-      <NGi span="12 s:12 m:8">
-        <FunctionStatusCard :loading="loading" :summary="summaryData" />
-      </NGi>
-      <NGi span="12 s:12 m:4">
-        <UnknownRequestCard :loading="loading" :summary="summaryData" />
-      </NGi>
-    </NGrid>
+    <div class="apps-row apps-row-2col">
+      <FunctionStatusCard :loading="loading" :summary="summaryData" />
+      <UnknownRequestCard :loading="loading" :summary="summaryData" />
+    </div>
 
     <!-- Row 2: Summary -->
     <SummaryCard :loading="loading" :summary="summaryData" />
@@ -65,16 +57,41 @@ watch(
     <!-- Row 3: Main Trend Chart -->
     <TrendChart :summary="summaryData" />
 
-    <!-- Row 3: Ranking and Pie Chart -->
-    <NGrid :cols="12" :x-gap="gap" :y-gap="16" responsive="screen" item-responsive>
-      <NGi span="12 s:12 m:6">
-        <RankingList :summary="summaryData" />
-      </NGi>
-      <NGi span="12 s:12 m:6">
-        <PieChart :summary="summaryData" />
-      </NGi>
-    </NGrid>
-  </NSpace>
+    <!-- Row 4: Ranking and Pie Chart -->
+    <div class="apps-row apps-row-2col">
+      <RankingList :summary="summaryData" />
+      <PieChart :summary="summaryData" />
+    </div>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.apps-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  height: 100%;
+  overflow: auto;
+}
+
+.apps-row {
+  display: flex;
+  gap: 16px;
+}
+
+.apps-row-2col > * {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .apps-page {
+    padding: 16px;
+  }
+
+  .apps-row-2col {
+    flex-direction: column;
+  }
+}
+</style>
