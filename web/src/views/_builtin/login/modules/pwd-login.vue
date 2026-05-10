@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive } from 'vue';
-import { loginModuleRecord } from '@/constants/app';
 import { fetchCaptcha } from '@/service/api/auth';
 import { useAuthStore } from '@/store/modules/auth';
-import { useRouterPush } from '@/hooks/common/router';
+import { useThemeStore } from '@/store/modules/theme';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
 import { $t } from '@/locales';
 
@@ -12,7 +11,7 @@ defineOptions({
 });
 
 const authStore = useAuthStore();
-const { toggleLoginModule } = useRouterPush();
+const themeStore = useThemeStore();
 const { formRef, validate } = useNaiveForm();
 
 interface FormModel {
@@ -37,7 +36,6 @@ const captcha: CaptchaModel = reactive({
 });
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
-  // inside computed to make locale reactive, if not apply i18n, you can define it without computed
   const { formRules } = useFormRules();
 
   return {
@@ -58,15 +56,6 @@ async function handleSubmit() {
   }
 }
 
-type AccountKey = 'super' | 'admin' | 'user';
-
-interface Account {
-  key: AccountKey;
-  label: string;
-  username: string;
-  password: string;
-}
-
 async function fetchCaptchaImage() {
   captcha.loading = true;
   const { data, error } = await fetchCaptcha();
@@ -83,67 +72,106 @@ onMounted(async () => {
 
 <template>
   <NForm ref="formRef" :model="model" :rules="rules" size="large" :show-label="false" @keyup.enter="handleSubmit">
-    <NFormItem path="username">
-      <NInput v-model:value="model.username" :placeholder="$t('page.login.common.userNamePlaceholder')" />
+    <NFormItem path="username" class="form-item">
+      <NInput
+        v-model:value="model.username"
+        :placeholder="$t('page.login.common.userNamePlaceholder')"
+        :input-props="{ autocomplete: 'username' }"
+      />
     </NFormItem>
-    <NFormItem path="password">
+
+    <NFormItem path="password" class="form-item">
       <NInput
         v-model:value="model.password"
         type="password"
         show-password-on="click"
         :placeholder="$t('page.login.common.passwordPlaceholder')"
+        :input-props="{ autocomplete: 'current-password' }"
       />
     </NFormItem>
-    <NFormItem path="captcha">
-      <NGrid cols="4">
-        <NGi :span="3">
-          <NInput v-model:value="model.captcha" :placeholder="$t('page.login.common.captchaPlaceholder')" />
-        </NGi>
-        <NGi>
-          <div v-if="captcha.loading" class="h-full flex-center bg-gray-100/40">
-            <NSpin :show="true" />
+
+    <NFormItem path="captcha" class="form-item">
+      <div class="w-full flex items-center gap-12px">
+        <NInput
+          v-model:value="model.captcha"
+          :placeholder="$t('page.login.common.captchaPlaceholder')"
+          class="flex-1"
+        />
+        <div
+          class="captcha-box h-40px w-120px flex-shrink-0 cursor-pointer overflow-hidden rounded-10px"
+          :class="themeStore.darkMode ? 'bg-white/6' : 'bg-black/3'"
+          @click="fetchCaptchaImage"
+        >
+          <div v-if="captcha.loading" class="size-full flex-center">
+            <NSpin :show="true" :size="16" />
           </div>
-          <NImage
-            v-else
-            :src="captcha.image"
-            :width="200"
-            :height="40"
-            :preview-disabled="true"
-            @click="fetchCaptchaImage"
-          />
-        </NGi>
-      </NGrid>
+          <NImage v-else :src="captcha.image" :width="120" :height="40" :preview-disabled="true" object-fit="cover" />
+        </div>
+      </div>
     </NFormItem>
-    <NSpace vertical :size="24">
-      <div class="flex-y-center justify-between">
-        <NCheckbox>{{ $t('page.login.pwdLogin.rememberMe') }}</NCheckbox>
-        <!--
- <NButton quaternary @click="toggleLoginModule('reset-pwd')">
-          {{ $t('page.login.pwdLogin.forgetPassword') }}
-        </NButton> 
--->
-      </div>
-      <NButton type="primary" size="large" round block :loading="authStore.loginLoading" @click="handleSubmit">
-        {{ $t('common.confirm') }}
-      </NButton>
-      <!--
- <div class="flex-y-center justify-between gap-12px">
-        <NButton class="flex-1" block @click="toggleLoginModule('code-login')">
-          {{ $t(loginModuleRecord['code-login']) }}
-        </NButton>
-        <NButton class="flex-1" block @click="toggleLoginModule('register')">
-          {{ $t(loginModuleRecord.register) }}
-        </NButton>
-      </div>
-      <NDivider class="text-14px text-#666 !m-0">{{ $t('page.login.pwdLogin.otherAccountLogin') }}</NDivider>
-      <div class="flex-center gap-12px">
-        <NButton v-for="item in accounts" :key="item.key" type="primary" @click="handleAccountLogin(item)">
-          {{ item.label }}
-        </NButton>
-      </div> 
--->
-    </NSpace>
+
+    <NButton
+      type="primary"
+      size="large"
+      block
+      :loading="authStore.loginLoading"
+      class="submit-btn"
+      @click="handleSubmit"
+    >
+      {{ $t('route.login') }}
+    </NButton>
   </NForm>
 </template>
 
-<style scoped></style>
+<style scoped>
+.form-item {
+  margin-bottom: 14px;
+}
+
+.form-item:last-of-type {
+  margin-bottom: 20px;
+}
+
+:deep(.n-input) {
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+:deep(.n-input--focus) {
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
+}
+
+:deep(.n-input__border) {
+  transition: border-color 0.2s ease;
+}
+
+.captcha-box {
+  border: 1px solid v-bind(themeStore.darkMode ? 'rgba(255,255,255,0.12)': 'rgba(0,0,0,0.08)');
+  transition: border-color 0.2s ease;
+}
+
+.captcha-box:hover {
+  border-color: v-bind(themeStore.darkMode ? 'rgba(255,255,255,0.2)': 'rgba(0,0,0,0.15)');
+}
+
+.submit-btn {
+  height: 44px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 500;
+  background-color: #007aff;
+  border: none;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.submit-btn:hover {
+  background-color: #0071e3;
+}
+
+.submit-btn:active {
+  background-color: #006edb;
+  transform: scale(0.98);
+}
+</style>

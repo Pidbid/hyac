@@ -2,20 +2,13 @@
 import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
   NButton,
-  NCard,
   NDataTable,
   NDropdown,
-  NEmpty,
   NForm,
   NFormItem,
-  NGi,
-  NGrid,
-  NH1,
   NIcon,
   NInput,
   NModal,
-  NP,
-  NPopconfirm,
   NSpace,
   NTag,
   useDialog,
@@ -28,14 +21,13 @@ import {
   CreateOutline,
   EllipsisHorizontal,
   RocketOutline,
-  StopCircleOutline,
-  TrashBinOutline
+  StopCircleOutline
 } from '@vicons/ionicons5';
 import { useHookTable } from '@sa/hooks';
 import { createApp, deleteApp, getApps, restartApp, startApp, stopApp } from '@/service/api/app';
-import { applicationStatus } from '@/service/api/settings';
 import { useAuthStore } from '@/store/modules/auth';
 import { useAppStore } from '@/store/modules/app';
+import { useThemeStore } from '@/store/modules/theme';
 import { useRouterPush } from '@/hooks/common/router';
 import { localStg } from '@/utils/storage';
 import HomeLayout from '@/layouts/home-layout/index.vue';
@@ -46,6 +38,7 @@ const authStore = useAuthStore();
 const message = useMessage();
 const dialog = useDialog();
 const appStore = useAppStore();
+const themeStore = useThemeStore();
 
 const showCreateModal = ref(false);
 const createAppForm = reactive({
@@ -393,64 +386,57 @@ const handleRestartApp = async (appId: string) => {
 
 <template>
   <HomeLayout>
-    <NGrid cols="24" class="mt-15">
-      <NGridItem offset="4" span="16">
-        <div v-if="!empty" class="min-h-500px flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
-          <NCard :bordered="false" size="small" class="sm:flex-1-hidden card-wrapper">
-            <template #header>
-              <NButton type="primary" size="large" @click="createNewApp">
-                <template #icon>
-                  <NIcon :component="AddCircleOutline"></NIcon>
-                </template>
-                {{ $t('page.home.createApp') }}
-              </NButton>
+    <!-- Has apps: show table -->
+    <div v-if="!empty" class="home-content">
+      <div class="home-table-section">
+        <div class="home-table-header">
+          <h2 class="home-section-title">{{ $t('page.home.createApp') }}</h2>
+          <NButton class="apple-btn" @click="createNewApp">
+            <template #icon>
+              <NIcon :component="AddCircleOutline" />
             </template>
-            <NDataTable
-              :columns="columns"
-              :data="data"
-              size="small"
-              :scroll-x="962"
-              class="sm:h-full"
-              :loading="displayLoading"
-            />
-          </NCard>
+            {{ $t('page.home.createApp') }}
+          </NButton>
         </div>
-        <div v-else class="h-full w-full flex-col-center">
-          <div class="m-auto flex-col-center">
-            <NH1 class="text-3xl! font-bold!">
-              {{ $t('page.home.welcome', { userName }) }}
-            </NH1>
-            <NP class="mt-4 text-center text-16px text-gray-500">
-              {{ $t('page.home.welcomeDescription') }}
-            </NP>
+        <div class="home-table-wrapper">
+          <NDataTable :columns="columns" :data="data" size="small" :scroll-x="962" :loading="displayLoading" />
+        </div>
+      </div>
+    </div>
 
-            <NGrid :x-gap="24" :y-gap="24" :cols="3" class="mt-8 w-[900px]">
-              <NGi v-for="(item, index) in cardData" :key="index">
-                <NCard hoverable class="h-full! rounded-lg!">
-                  <div class="flex items-center">
-                    <div class="mr-12px h-30px w-4px bg-primary"></div>
-                    <span class="text-16px">{{ item.title }}</span>
-                  </div>
-                </NCard>
-              </NGi>
-            </NGrid>
+    <!-- Empty state: show welcome -->
+    <div v-else class="home-empty">
+      <div class="home-empty-inner">
+        <h1 class="home-welcome-title">{{ $t('page.home.welcome', { userName }) }}</h1>
+        <p class="home-welcome-desc">{{ $t('page.home.welcomeDescription') }}</p>
 
-            <NP class="mt-8 text-14px text-gray-400">
-              {{ $t('page.home.createYourApp') }}
-            </NP>
-
-            <NButton type="primary" size="large" class="mt-4" @click="createNewApp">
-              <template #icon>
-                <NIcon :component="AddIcon" />
-              </template>
-              {{ $t('page.home.newApplication') }}
-            </NButton>
+        <div class="home-cards-grid">
+          <div v-for="(item, index) in cardData" :key="index" class="home-card-item">
+            <div class="home-card-accent" />
+            <span class="home-card-text">{{ item.title }}</span>
           </div>
         </div>
-      </NGridItem>
-    </NGrid>
 
-    <NModal v-model:show="showCreateModal" preset="card" :title="$t('page.home.newApplication')" style="width: 600px">
+        <p class="home-hint">{{ $t('page.home.createYourApp') }}</p>
+
+        <NButton class="apple-btn apple-btn-lg" @click="createNewApp">
+          <template #icon>
+            <NIcon :component="AddIcon" />
+          </template>
+          {{ $t('page.home.newApplication') }}
+        </NButton>
+      </div>
+    </div>
+
+    <!-- Create modal -->
+    <NModal
+      v-model:show="showCreateModal"
+      preset="card"
+      :title="$t('page.home.newApplication')"
+      :mask-closable="false"
+      :auto-focus="false"
+      style="width: 480px"
+    >
       <NForm
         ref="formRef"
         :model="createAppForm"
@@ -471,13 +457,199 @@ const handleRestartApp = async (appId: string) => {
         </NFormItem>
       </NForm>
       <template #footer>
-        <div class="flex justify-end gap-x-4">
+        <div class="flex justify-end gap-12px">
           <NButton @click="showCreateModal = false">{{ $t('common.cancel') }}</NButton>
-          <NButton type="primary" @click="handleCreateApp">{{ $t('page.home.create') }}</NButton>
+          <NButton class="apple-btn" @click="handleCreateApp">{{ $t('page.home.create') }}</NButton>
         </div>
       </template>
     </NModal>
   </HomeLayout>
 </template>
 
-<style scoped></style>
+<style scoped>
+/* Layout */
+.home-content {
+  padding: 24px 32px;
+  height: 100%;
+  overflow: auto;
+}
+
+.home-table-section {
+  background: var(--n-color);
+  border-radius: 12px;
+  border: 1px solid v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'");
+  box-shadow: v-bind("themeStore.darkMode ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)'");
+  overflow: hidden;
+}
+
+.home-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'");
+}
+
+.home-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: v-bind("themeStore.darkMode ? '#e5e5e5' : '#1d1d1f'");
+}
+
+.home-table-wrapper {
+  padding: 4px 0;
+}
+
+/* Table Apple style */
+.home-table-wrapper :deep(.n-data-table) {
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+
+.home-table-wrapper :deep(.n-data-table-th) {
+  background: v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.01)'");
+  border-bottom: 1px solid v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'");
+  font-weight: 500;
+  font-size: 13px;
+  color: v-bind("themeStore.darkMode ? '#98989d' : '#86868b'");
+  padding: 12px 16px;
+}
+
+.home-table-wrapper :deep(.n-data-table-td) {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: v-bind("themeStore.darkMode ? '#e5e5e5' : '#1d1d1f'");
+  border-bottom: 1px solid v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'");
+}
+
+.home-table-wrapper :deep(.n-data-table-tr:hover .n-data-table-td) {
+  background: v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'");
+}
+
+.home-table-wrapper :deep(.n-data-table .n-data-table-th__title) {
+  font-weight: 500;
+}
+
+/* Empty state */
+.home-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.home-empty-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 720px;
+}
+
+.home-welcome-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: v-bind("themeStore.darkMode ? '#f5f5f7' : '#1d1d1f'");
+  text-align: center;
+}
+
+.home-welcome-desc {
+  margin-top: 8px;
+  font-size: 15px;
+  color: v-bind("themeStore.darkMode ? '#98989d' : '#86868b'");
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Cards grid */
+.home-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.home-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'");
+  border: 1px solid v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'");
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.home-card-item:hover {
+  background: v-bind("themeStore.darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'");
+}
+
+.home-card-accent {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  background-color: #007aff;
+  flex-shrink: 0;
+}
+
+.home-card-text {
+  font-size: 14px;
+  color: v-bind("themeStore.darkMode ? '#e5e5e5' : '#1d1d1f'");
+  line-height: 1.4;
+}
+
+.home-hint {
+  margin-top: 24px;
+  font-size: 13px;
+  color: v-bind("themeStore.darkMode ? '#6e6e73' : '#aeaeb2'");
+}
+
+/* Buttons */
+.apple-btn {
+  height: 36px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #007aff;
+  border: none;
+  color: #fff;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.apple-btn:hover {
+  background-color: #0071e3;
+}
+
+.apple-btn:active {
+  background-color: #006edb;
+  transform: scale(0.98);
+}
+
+.apple-btn-lg {
+  height: 42px;
+  padding: 0 24px;
+  font-size: 15px;
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .home-content {
+    padding: 16px;
+  }
+
+  .home-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .home-welcome-title {
+    font-size: 22px;
+  }
+}
+</style>
