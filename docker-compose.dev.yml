@@ -139,6 +139,10 @@ services:
       dockerfile: Dockerfile.dev # We will create this Dockerfile next
     image: hyac_web:dev
     container_name: hyac_web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
     ports:
       - "9527:9527"
     volumes:
@@ -168,6 +172,10 @@ services:
       target: development
     image: hyac_lsp_sidecar:dev
     container_name: hyac_lsp_sidecar
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
     command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002", "--reload"]
     ports:
       - "9002:9002"
