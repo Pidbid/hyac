@@ -96,6 +96,7 @@ async def lifespan(app: FastAPI):
     app_ids_to_stop = list(running_apps.keys())
     for app_id in app_ids_to_stop:
         await stop_app_container(app_id)
+    await mongodb_manager.close()
     logger.info("Application shutting down.")
 
 

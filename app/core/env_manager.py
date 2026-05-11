@@ -4,6 +4,7 @@ import asyncio
 from loguru import logger
 
 from core.config import settings
+from core.database import mongodb_manager
 from models.applications_model import Application, EnvironmentVariable
 
 
@@ -76,7 +77,7 @@ async def watch_for_env_changes():
         return
 
     try:
-        collection = Application.get_motor_collection()
+        collection = mongodb_manager.get_collection(Application)
         pipeline = [
             {
                 "$match": {
@@ -87,7 +88,7 @@ async def watch_for_env_changes():
         ]
 
         logger.info(f"Starting environment variable watcher for app: {app_id}")
-        async with collection.watch(
+        async with await collection.watch(
             pipeline=pipeline, full_document="updateLookup"
         ) as stream:
             async for change in stream:

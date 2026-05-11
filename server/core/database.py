@@ -1,6 +1,6 @@
 # core/database.py
 from beanie import init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from core.config import settings
 from models import (
@@ -27,7 +27,7 @@ class MongoDBManager:
         """
         Initializes the MongoDB client and database instance.
         """
-        self.client = AsyncIOMotorClient(
+        self.client = AsyncMongoClient(
             "mongodb",
             27017,
             username=settings.MONGODB_USERNAME,
@@ -35,6 +35,12 @@ class MongoDBManager:
             replicaSet="rs0",
         )
         self.db = self.client.get_database("hyac")
+
+    def get_collection(self, document_model):
+        """
+        Returns the async PyMongo collection for a Beanie document model.
+        """
+        return self.db[document_model.get_settings().name]
 
     async def init_beanie(self):
         """
@@ -56,6 +62,12 @@ class MongoDBManager:
                 ScheduledTask,
             ],
         )
+
+    async def close(self):
+        """
+        Closes the MongoDB client.
+        """
+        await self.client.close()
 
 
 mongodb_manager = MongoDBManager()

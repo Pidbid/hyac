@@ -6,6 +6,7 @@ from typing import Dict, List, Callable, Coroutine, Any
 from beanie.odm.documents import Document
 from fastapi import WebSocket
 
+from core.database import mongodb_manager
 from models.logger_model import LogEntry
 
 
@@ -79,8 +80,8 @@ class LogWatcherManager:
             }
         ]
         try:
-            collection = LogEntry.get_motor_collection()
-            async with collection.watch(pipeline) as stream:
+            collection = mongodb_manager.get_collection(LogEntry)
+            async with await collection.watch(pipeline) as stream:
                 async for change in stream:
                     log_entry_data = change["fullDocument"]
                     func_id = log_entry_data.get("function_id")

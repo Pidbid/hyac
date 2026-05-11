@@ -7,6 +7,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Dict, Tuple, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from bson import ObjectId
 from loguru import logger
 
 from code_loader import CodeLoader
@@ -46,8 +49,7 @@ async def get_application(request: Request) -> Application:
 async def get_dynamic_clients(application: Application = Depends(get_application)):
     """Dependency to get dynamic MongoDB clients from the connection manager."""
     try:
-        pymongo_client, motor_client = await db_manager.get_clients(application)
-        yield pymongo_client, motor_client
+        pymongo_client, async_client = await db_manager.get_clients(application)
     except Exception as e:
         logger.error(
             f"Failed to get database clients for app {application.app_id}: {e}"
@@ -55,6 +57,7 @@ async def get_dynamic_clients(application: Application = Depends(get_application
         raise APIException(
             code=500, msg=f"Database connection failed for app {application.app_id}"
         )
+    yield pymongo_client, async_client
 
 
 # --- Helper Functions for Refactoring ---
@@ -140,6 +143,17 @@ async def _execute_and_log(handler_func, handler_args: dict, log_func: logger) -
     return result
 
 
+def _serialize_handler_result(result: Any) -> Any:
+    """
+    Converts handler return values into JSON-compatible data.
+    """
+    if isinstance(result, Response):
+        return result
+    return JSONResponse(
+        content=jsonable_encoder(result, custom_encoder={ObjectId: str})
+    )
+
+
 async def _track_metric(
     start_time: float,
     app_id: str,
@@ -196,12 +210,12 @@ async def dynamic_handler(
         function_name = func_doc.function_name
 
         # 2. Create context and loggers
-        pymongo_client, motor_client = clients
+        pymongo_client, async_client = clients
         context = FunctionContext(
             app_id=app_id,
             func_id=func_id,
             pymongo_db=pymongo_client[app_id],
-            motor_db=motor_client[app_id],
+            async_db=async_client[app_id],
             code_loader=code_loader,
             env=EnvContext(),
             common=request.app.state.common_modules,
@@ -220,7 +234,8 @@ async def dynamic_handler(
         )
 
         # 4. Execute the function and return its result
-        return await _execute_and_log(handler_func, handler_args, log_func)
+        result = await _execute_and_log(handler_func, handler_args, log_func)
+        return _serialize_handler_result(result)
 
     except APIException as api_exc:
         status = CallStatus.ERROR

@@ -1,6 +1,6 @@
 # core/database_dynamic.py
 from bson import ObjectId, errors
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from core.config import settings
 
@@ -11,7 +11,7 @@ class DynamicDB:
         Initializes the Dynamic_DB class with a MongoDB client.
         Connects to MongoDB using settings from core.config.
         """
-        self.db_client = AsyncIOMotorClient(
+        self.db_client = AsyncMongoClient(
             "mongodb",
             27017,
             username=settings.MONGODB_USERNAME,
@@ -26,7 +26,7 @@ class DynamicDB:
             app_id (str): The ID of the application.
 
         Returns:
-            motor.motor_asyncio.AsyncIOMotorDatabase: The database instance.
+            pymongo.asynchronous.database.AsyncDatabase: The database instance.
         """
         return self.db_client[app_id]
 

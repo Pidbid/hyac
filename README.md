@@ -94,7 +94,7 @@ graph TD
 
 ## 🛠️ 技术栈
 
-- **后端**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
+- **后端**: Python 3.10+, FastAPI, Beanie, PyMongo Async, Loguru
 - **前端**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **数据库与存储**: MongoDB, RustFS(S3 兼容)
 - **容器化**: Docker, Docker Compose

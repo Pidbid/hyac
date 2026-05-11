@@ -5,6 +5,7 @@ from core.config import settings
 from loguru import logger
 from models.functions_model import Function, FunctionType
 from core.cache import code_cache
+from core.database import mongodb_manager
 from code_loader import CodeLoader
 
 
@@ -16,7 +17,7 @@ async def watch_function_changes(app: FastAPI):
     logger.info("Starting function change watcher...")
     try:
         # Get the 'functions' collection from the Function model
-        collection = Function.get_motor_collection()
+        collection = mongodb_manager.get_collection(Function)
 
         # Use a pipeline to only watch for 'update' and 'replace' operations
         # for the current app_id
@@ -29,7 +30,9 @@ async def watch_function_changes(app: FastAPI):
             }
         ]
 
-        async with collection.watch(pipeline, full_document="updateLookup") as stream:
+        async with await collection.watch(
+            pipeline, full_document="updateLookup"
+        ) as stream:
             async for change in stream:
                 logger.debug(f"Change detected: {change}")
 

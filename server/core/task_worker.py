@@ -255,7 +255,9 @@ async def watch_for_tasks():
     await process_pending_tasks()
 
     logger.info("Task worker started, watching for new tasks...")
-    collection = Task.get_motor_collection()
+    from core.database import mongodb_manager
+
+    collection = mongodb_manager.get_collection(Task)
 
     # 只监听新插入的、状态为 PENDING 的任务
     pipeline = [
@@ -268,7 +270,9 @@ async def watch_for_tasks():
     ]
 
     try:
-        async with collection.watch(pipeline, full_document="updateLookup") as stream:
+        async with await collection.watch(
+            pipeline, full_document="updateLookup"
+        ) as stream:
             async for change in stream:
                 doc = change["fullDocument"]
                 task = Task.parse_obj(doc)

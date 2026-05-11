@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from core.database_dynamic import dynamic_db
 from core.jwt_auth import get_current_user
-from core.utils import motor_result_serializer
+from core.utils import mongodb_result_serializer
 from models.applications_model import Application
 from models.common_model import BaseResponse
 from core.exceptions import APIException
@@ -166,7 +166,7 @@ async def get_collection_documents(
         code=0,
         msg="Documents retrieved successfully",
         data={
-            "data": motor_result_serializer(documents),
+            "data": mongodb_result_serializer(documents),
             "pageNum": page_num,
             "pageSize": data.length,
             "total": total_count,

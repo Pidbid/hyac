@@ -1,7 +1,6 @@
 # app/core/db_manager.py
 from typing import Dict, Tuple
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
 from pymongo.errors import ConnectionFailure
 from loguru import logger
 
@@ -16,17 +15,17 @@ class DBConnectionManager:
 
     def __init__(self):
         self._pymongo_clients: Dict[str, MongoClient] = {}
-        self._motor_clients: Dict[str, AsyncIOMotorClient] = {}
+        self._async_clients: Dict[str, AsyncMongoClient] = {}
 
     async def get_clients(
         self, application: Application
-    ) -> Tuple[MongoClient, AsyncIOMotorClient]:
+    ) -> Tuple[MongoClient, AsyncMongoClient]:
         """
         Gets or creates database clients for a given application.
         """
         app_id = application.app_id
-        if app_id in self._pymongo_clients and app_id in self._motor_clients:
-            return self._pymongo_clients[app_id], self._motor_clients[app_id]
+        if app_id in self._pymongo_clients and app_id in self._async_clients:
+            return self._pymongo_clients[app_id], self._async_clients[app_id]
 
         if not application.db_password:
             raise Exception("Application or DB password not found")
@@ -41,35 +40,37 @@ class DBConnectionManager:
             self._pymongo_clients[app_id] = pymongo_client
             logger.info(f"Successfully connected to MongoDB (PyMongo) for app {app_id}")
 
-            # Create Motor client
-            motor_client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=5000)
-            await motor_client.admin.command("ping")
-            self._motor_clients[app_id] = motor_client
-            logger.info(f"Successfully connected to MongoDB (Motor) for app {app_id}")
+            # Create async PyMongo client
+            async_client = AsyncMongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            await async_client.admin.command("ping")
+            self._async_clients[app_id] = async_client
+            logger.info(
+                f"Successfully connected to MongoDB (PyMongo Async) for app {app_id}"
+            )
 
-            return pymongo_client, motor_client
+            return pymongo_client, async_client
         except ConnectionFailure as e:
             logger.error(f"Could not connect to MongoDB for app {app_id}: {e}")
             # Clean up any partially created clients
             if app_id in self._pymongo_clients:
                 self._pymongo_clients[app_id].close()
                 del self._pymongo_clients[app_id]
-            if app_id in self._motor_clients:
-                self._motor_clients[app_id].close()
-                del self._motor_clients[app_id]
+            if app_id in self._async_clients:
+                await self._async_clients[app_id].close()
+                del self._async_clients[app_id]
             raise Exception(f"Database connection failed for app {app_id}: {e}")
 
-    def close_all(self):
+    async def close_all(self):
         """
         Closes all active database connections.
         """
         logger.info("Closing all MongoDB connections...")
         for client in self._pymongo_clients.values():
             client.close()
-        for client in self._motor_clients.values():
-            client.close()
+        for client in self._async_clients.values():
+            await client.close()
         self._pymongo_clients.clear()
-        self._motor_clients.clear()
+        self._async_clients.clear()
         logger.info("All MongoDB connections closed.")
 
 

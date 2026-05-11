@@ -13,7 +13,7 @@ from loguru import logger
 from core.exceptions import APIException
 
 # Assuming a shared database manager and logger configuration
-from core.database import MongoDBManager
+from core.database import mongodb_manager
 from core.logger import configure_logging
 from router import router as dynamic_router
 from core.db_manager import db_manager
@@ -42,7 +42,6 @@ class HealthCheckFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
-mongodb_manager = MongoDBManager()
 cors_config = CORSConfig()
 app_ready = False
 
@@ -103,7 +102,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # Close all database connections managed by the connection pool.
-    db_manager.close_all()
+    await db_manager.close_all()
+    await mongodb_manager.close()
     logger.info("Executor application shutting down.")
 
 

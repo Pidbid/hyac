@@ -137,7 +137,7 @@ async def handler(ctx, profile: UserProfile):
     
     # You can now work with the validated data object.
     # For example, save it to the database.
-    # await ctx.motor_db["users"].insert_one(profile.dict())
+    # await ctx.async_db["users"].insert_one(profile.dict())
     
     return {
         "status": "success",
@@ -226,17 +226,17 @@ from bson import ObjectId
 
 async def handler(ctx, request, name: str = "World", value: int = 0):
     # -----------------------------------------------------------------------------
-    # Example 1: Asynchronous Database Operations (Motor) - Recommended
+    # Example 1: Asynchronous Database Operations (PyMongo Async) - Recommended
     # - Use `async def` to define the function.
-    # - Get the asynchronous database instance via `ctx.motor_db`.
+    # - Get the asynchronous database instance via `ctx.async_db`.
     # - Use the `await` keyword before all database operations to ensure non-blocking execution.
     # -----------------------------------------------------------------------------
     \"\"\"
-    A complete example of database operations using Motor (asynchronous).
+    A complete example of database operations using PyMongo Async.
     \"\"\"
     
     logger.info(f"[Async] Received parameters: name='{name}', value={value}")
-    db = ctx.motor_db  # Get the asynchronous Motor database client
+    db = ctx.async_db  # Get the asynchronous PyMongo database client
     demo_collection = db["hyac_demo_async"]
     
     # CREATE
@@ -258,7 +258,7 @@ async def handler(ctx, request, name: str = "World", value: int = 0):
     await demo_collection.delete_one({"_id": inserted_id})
     logger.info(f"[Async] DELETE: Document cleaned up")
     
-    async_result = {"status": "ok", "driver": "motor (async)", "inserted_id": str(inserted_id)}
+    async_result = {"status": "ok", "driver": "pymongo async", "inserted_id": str(inserted_id)}
     
     # -----------------------------------------------------------------------------
     # Example 2: Synchronous Database Operations (Pymongo)

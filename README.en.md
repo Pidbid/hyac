@@ -94,7 +94,7 @@ graph TD
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
+- **Backend**: Python 3.10+, FastAPI, Beanie, PyMongo Async, Loguru
 - **Frontend**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **Database & Storage**: MongoDB, RustFS(S3-compatible)
 - **Containerization**: Docker, Docker Compose
