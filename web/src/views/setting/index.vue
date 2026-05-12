@@ -100,7 +100,7 @@ onMounted(() => {
 
 <template>
   <div class="setting-page">
-    <NSplit direction="horizontal" :default-size="0.18" :min="0.12" :max="0.34" class="setting-split">
+    <NSplit direction="horizontal" :default-size="0.12" :min="0.12" :max="0.34" class="setting-split">
       <template #1>
         <aside class="setting-sidebar">
           <div class="sidebar-title">

@@ -562,7 +562,7 @@ onBeforeUnmount(() => {});
       </div>
     </header>
 
-    <NSplit class="storage-split" :default-size="0.78" :min="0.45" :max="0.9" resizable>
+    <NSplit class="storage-split" :default-size="0.82" :min="0.45" :max="0.9" resizable>
       <template #1>
         <NCard
           ref="tableContainerRef"

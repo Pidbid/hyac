@@ -380,7 +380,7 @@ onMounted(async () => {
 
 <template>
   <div class="database-page">
-    <NSplit class="database-split" :default-size="0.18" :min="0.12" :max="0.34">
+    <NSplit class="database-split" :default-size="0.12" :min="0.12" :max="0.34">
       <template #1>
         <NCard
           :bordered="false"
@@ -452,7 +452,7 @@ onMounted(async () => {
         </NCard>
       </template>
       <template #2>
-        <NSplit class="database-split nested" :default-size="0.72" :min="0.45" :max="0.86">
+        <NSplit class="database-split nested" :default-size="0.82" :min="0.45" :max="0.86">
           <template #1>
             <NCard
               :bordered="false"

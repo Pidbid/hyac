@@ -1492,7 +1492,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="function-page">
-    <NSplit class="page-split" :default-size="0.18" :min="0.12" :max="0.34">
+    <NSplit class="page-split" :default-size="0.12" :min="0.12" :max="0.34">
       <template #1>
         <aside class="sidebar-container" :class="{ collapsed: sidebarCollapsed }">
           <FunctionList
@@ -1513,7 +1513,7 @@ onBeforeUnmount(() => {
       <template #2>
         <main class="main-container">
           <template v-if="functions.length > 0">
-            <NSplit class="workspace-split" :default-size="0.78" :min="0.42" :max="0.86">
+            <NSplit class="workspace-split" :default-size="0.82" :min="0.42" :max="0.86">
               <template #1>
                 <section class="primary-column">
                   <NSplit class="editor-log-split" direction="vertical" :default-size="0.7" :min="0.35" :max="0.86">

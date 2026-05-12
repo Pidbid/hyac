@@ -259,7 +259,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <NSplit class="logs-split" :default-size="0.74" :min="0.45" :max="0.86">
+    <NSplit class="logs-split" :default-size="0.82" :min="0.45" :max="0.86">
       <template #1>
       <NCard
         class="apple-panel"
