@@ -252,6 +252,7 @@ declare namespace Api {
       logtype: 'function' | 'system';
       message: string;
       timestamp: string;
+      exception?: string | null;
     }
   }
 

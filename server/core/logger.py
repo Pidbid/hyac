@@ -1,5 +1,5 @@
-# core/logger.py
 import sys
+import traceback
 
 from loguru import logger
 
@@ -20,6 +20,13 @@ async def mongodb_log_sink(message):
         else LogType.SYSTEM
     )
 
+    exception = None
+    if record["exception"]:
+        exc = record["exception"]
+        exception = "".join(
+            traceback.format_exception(exc.type, exc.value, exc.traceback)
+        ).strip()
+
     log_entry = LogEntry(
         level=log_level,
         logtype=log_type,
@@ -29,7 +36,7 @@ async def mongodb_log_sink(message):
         app_id=record["extra"].get("app_id"),
         function_id=record["extra"].get("function_id"),
         extra=record["extra"],
-        exception=record["exception"] if record["exception"] else None,
+        exception=exception,
     )
     await log_entry.insert()
 

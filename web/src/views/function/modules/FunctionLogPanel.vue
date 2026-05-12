@@ -74,9 +74,12 @@ const getLogLevelStyle = (level: string) => {
           {{ log.level }}
         </span>
         <span v-if="log.logtype === 'system'" class="log-level level-system">{{ log.level }}(sys)</span>
-        <span class="log-message" :class="{ 'system-message': log.logtype === 'system' }">
-          {{ log.message }}
-        </span>
+        <div class="log-body">
+          <span class="log-message" :class="{ 'system-message': log.logtype === 'system' }">
+            {{ log.message }}
+          </span>
+          <pre v-if="log.exception" class="log-exception">{{ log.exception }}</pre>
+        </div>
       </div>
       <div v-if="filteredLogs.length === 0" class="empty-logs">
         <div class="empty-icon">
@@ -236,8 +239,26 @@ const getLogLevelStyle = (level: string) => {
   line-height: 1.5;
 }
 
+.log-body {
+  min-width: 0;
+  flex: 1;
+}
+
 .log-message.system-message {
   color: #515154;
+}
+
+.log-exception {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff4f4;
+  border: 1px solid rgba(215, 0, 21, 0.12);
+  color: #7a1f1f;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .empty-logs {

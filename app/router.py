@@ -199,6 +199,12 @@ async def dynamic_handler(
     error_info = None
     app_id = application.app_id
     function_name = "Unknown"
+    function_log = logger.bind(
+        app_id=app_id,
+        function_id=func_id,
+        function_name=function_name,
+        logtype=LogType.FUNCTION,
+    )
 
     try:
         app_id_context.set(app_id)
@@ -227,6 +233,7 @@ async def dynamic_handler(
             function_name=function_name,
             logtype=LogType.FUNCTION,
         )
+        function_log = log_func
 
         # 3. Prepare arguments for the handler
         handler_args = await _prepare_arguments(
@@ -240,11 +247,12 @@ async def dynamic_handler(
     except APIException as api_exc:
         status = CallStatus.ERROR
         error_info = {"type": "APIException", "detail": api_exc.msg}
+        function_log.warning("Function request failed: {}", api_exc.msg)
         raise api_exc
     except Exception as e:
         status = CallStatus.ERROR
         error_info = {"type": "Exception", "detail": str(e)}
-        logger.error("Unhandled exception in dynamic_handler: {}", e, exc_info=True)
+        function_log.opt(exception=e).error("Unhandled exception in dynamic_handler")
         return BaseResponse(code=500, msg=str(e))
     finally:
         # 5. Track the metric in the background

@@ -69,11 +69,12 @@ export const useLogStore = defineStore('log-store', () => {
         const formattedLog: Api.Function.FunctionLogsInfo = {
           _id: logData._id,
           timestamp: dayjs(logData.timestamp).format('YYYY-MM-DD HH:mm:ss'),
-          level: logData.level,
+          level: typeof logData.level === 'string' ? logData.level.toLowerCase() : logData.level,
           message: logData.message,
           app_id: logData.app_id,
           function_id: logData.function_id,
-          logtype: logData.logtype
+          logtype: logData.logtype,
+          exception: logData.exception ?? null
         };
         logs.value.unshift(formattedLog);
       } catch (e) {
