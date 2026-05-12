@@ -523,7 +523,19 @@ const local: App.I18n.Schema = {
       debug: '调试',
       critical: '致命',
       logContent: '日志',
-      source: '来源'
+      source: '来源',
+      historyMode: '历史',
+      runtimeMode: '实时',
+      runtimeSearch: '搜索实时日志',
+      runtimeConnecting: '连接中',
+      runtimeConnected: '实时连接',
+      runtimeDisconnected: '未连接',
+      runtimeStreamFailed: '实时日志连接失败: {message}',
+      runtimeEmpty: '暂无实时日志',
+      pause: '暂停',
+      resume: '继续',
+      clear: '清空',
+      reconnect: '重连'
     },
     storage: {
       root: '根目录',

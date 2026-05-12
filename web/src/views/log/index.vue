@@ -11,6 +11,9 @@ import {
   NEmpty,
   NIcon,
   NLog,
+  NRadioButton,
+  NRadioGroup,
+  NScrollbar,
   NSelect,
   NSpace,
   NSplit,
@@ -35,6 +38,8 @@ import { getAppLogs, getFunctionLogs } from '@/service/api/logs';
 import { GetFunctionData } from '@/service/api/function';
 import { useApplicationStore } from '@/store/modules/application';
 import { useAppStore } from '@/store/modules/app';
+import RuntimeLogPanel from './modules/RuntimeLogPanel.vue';
+import './index.css';
 hljs.registerLanguage('javascript', javascript);
 
 const { t } = useI18n();
@@ -47,6 +52,7 @@ const loading = ref(false);
 const logs = ref<Api.Log.LogEntry[]>([]);
 const functions = ref<{ label: string; value: string }[]>([]);
 const selectedLog = ref<Api.Log.LogEntry | null>(null);
+const logViewMode = ref<'history' | 'runtime'>('history');
 
 const filters = reactive({
   funcId: null,
@@ -81,6 +87,11 @@ const levelOptions = computed(() => [
 const logTypeOptions = computed(() => [
   { label: t('page.log.system'), value: 'system' },
   { label: t('page.log.function'), value: 'function' }
+]);
+
+const viewModeOptions = computed(() => [
+  { label: t('page.log.historyMode'), value: 'history' },
+  { label: t('page.log.runtimeMode'), value: 'runtime' }
 ]);
 
 // --- 数据获取 ---
@@ -215,9 +226,14 @@ onMounted(async () => {
     <header class="logs-toolbar">
       <div class="toolbar-title">
         <NIcon :component="TerminalOutline" :size="18" />
-              <span>{{ t('route.log') }}</span>
+        <span>{{ t('route.log') }}</span>
+        <NRadioGroup v-model:value="logViewMode" size="small" class="mode-switch">
+          <NRadioButton v-for="option in viewModeOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </NRadioButton>
+        </NRadioGroup>
       </div>
-      <div class="toolbar-filters">
+      <div v-if="logViewMode === 'history'" class="toolbar-filters">
         <NSpace align="center">
           <NSelect
             v-model:value="filters.funcId"
@@ -243,7 +259,13 @@ onMounted(async () => {
             class="filter-select level"
             size="small"
           />
-          <NDatePicker v-model:value="filters.dateRange" type="datetimerange" clearable size="small" class="date-range" />
+          <NDatePicker
+            v-model:value="filters.dateRange"
+            type="datetimerange"
+            clearable
+            size="small"
+            class="date-range"
+          />
           <NButton type="default" size="small" @click="appStore.reloadPage(500)">
             <template #icon>
               <NIcon :component="ReloadOutline" />
@@ -259,173 +281,66 @@ onMounted(async () => {
       </div>
     </header>
 
-    <NSplit class="logs-split" :default-size="0.82" :min="0.45" :max="0.86">
+    <NSplit v-if="logViewMode === 'history'" class="logs-split" :default-size="0.82" :min="0.45" :max="0.86">
       <template #1>
-      <NCard
-        class="apple-panel"
-        :bordered="false"
-        :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }"
-      >
-        <NDataTable
-          :columns="columns"
-          :data="logs"
-          :pagination="pagination"
-          :loading="loading"
+        <NCard
+          class="apple-panel"
           :bordered="false"
-          :single-line="false"
-          :row-props="rowProps"
-          :row-key="(row: Api.Log.LogEntry) => row._id"
-          remote
-        />
-      </NCard>
+          :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }"
+        >
+          <NDataTable
+            :columns="columns"
+            :data="logs"
+            :pagination="pagination"
+            :loading="loading"
+            :bordered="false"
+            :single-line="false"
+            :row-props="rowProps"
+            :row-key="(row: Api.Log.LogEntry) => row._id"
+            remote
+          />
+        </NCard>
       </template>
       <template #2>
-      <NCard
-        class="apple-panel detail-panel"
-        :bordered="false"
-        :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }"
-      >
-        <template #header>
-          <div class="panel-title">
-            <NIcon :component="DocumentTextOutline" :size="16" />
-            <span>{{ t('page.log.logDetail') }}</span>
+        <NCard
+          class="apple-panel detail-panel"
+          :bordered="false"
+          :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }"
+        >
+          <template #header>
+            <div class="panel-title">
+              <NIcon :component="DocumentTextOutline" :size="16" />
+              <span>{{ t('page.log.logDetail') }}</span>
+            </div>
+          </template>
+          <div v-if="selectedLog" class="h-full flex flex-col gap-4">
+            <NDescriptions label-placement="left" :column="1" bordered size="small">
+              <NDescriptionsItem :label="t('page.log.time')">
+                {{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
+              </NDescriptionsItem>
+              <NDescriptionsItem :label="t('page.log.level')">
+                <NTag :type="levelConfig[selectedLog.level.toLowerCase()]?.type || 'default'" size="small">
+                  {{ selectedLog.level }}
+                </NTag>
+              </NDescriptionsItem>
+              <NDescriptionsItem :label="t('page.log.type')">
+                {{ selectedLog.logtype === 'function' ? t('page.log.function') : t('page.log.system') }}
+              </NDescriptionsItem>
+              <NDescriptionsItem v-if="selectedLog.extra.function_name" :label="t('page.log.functionName')">
+                {{ selectedLog.extra.function_name }}
+              </NDescriptionsItem>
+            </NDescriptions>
+            <div class="min-h-0 flex-grow">
+              <NScrollbar class="h-full">
+                <NLog :hljs="hljs" :log="selectedLog.message" :rows="30" language="json" trim class="h-full" />
+              </NScrollbar>
+            </div>
           </div>
-        </template>
-        <div v-if="selectedLog" class="h-full flex flex-col gap-4">
-          <NDescriptions label-placement="left" :column="1" bordered size="small">
-            <NDescriptionsItem :label="t('page.log.time')">
-              {{ format(new Date(selectedLog.timestamp), 'yyyy-MM-dd HH:mm:ss.SSS') }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="t('page.log.level')">
-              <NTag :type="levelConfig[selectedLog.level.toLowerCase()]?.type || 'default'" size="small">
-                {{ selectedLog.level }}
-              </NTag>
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="t('page.log.type')">
-              {{ selectedLog.logtype === 'function' ? t('page.log.function') : t('page.log.system') }}
-            </NDescriptionsItem>
-            <NDescriptionsItem v-if="selectedLog.extra.function_name" :label="t('page.log.functionName')">
-              {{ selectedLog.extra.function_name }}
-            </NDescriptionsItem>
-          </NDescriptions>
-          <div class="min-h-0 flex-grow">
-            <NScrollbar class="h-full">
-              <NLog :hljs="hljs" :log="selectedLog.message" :rows="30" language="json" trim class="h-full" />
-            </NScrollbar>
-          </div>
-        </div>
-        <NEmpty v-else :description="t('page.log.selectLogToView')" class="h-full flex-center" />
-      </NCard>
+          <NEmpty v-else :description="t('page.log.selectLogToView')" class="h-full flex-center" />
+        </NCard>
       </template>
     </NSplit>
+
+    <RuntimeLogPanel v-else :app-id="applicationStore.appId" />
   </div>
 </template>
-
-<style scoped>
-.logs-page {
-  --logs-gap: 6px;
-
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: #f5f5f7;
-  overflow: hidden;
-  padding: 8px;
-}
-
-.logs-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
-.toolbar-title,
-.panel-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1d1d1f;
-  white-space: nowrap;
-}
-
-.toolbar-filters {
-  min-width: 0;
-}
-
-.filter-select.function {
-  width: 180px;
-}
-
-.filter-select.level {
-  width: 132px;
-}
-
-.date-range {
-  width: 320px;
-}
-
-.logs-split {
-  flex: 1;
-  min-height: 0;
-}
-
-.logs-split :deep(.n-split-pane) {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.logs-split :deep(.n-split-pane-1) {
-  padding-right: var(--logs-gap);
-}
-
-.logs-split :deep(.n-split-pane-2) {
-  padding-left: var(--logs-gap);
-}
-
-.apple-panel {
-  height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #ffffff;
-}
-
-.flex-center {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.selected-row {
-  background-color: rgba(0, 122, 255, 0.08);
-}
-
-.n-data-table {
-  height: 100%;
-}
-
-:deep(.n-card-header) {
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: #f9f9fb;
-}
-
-:deep(.n-data-table) {
-  --n-td-color-hover: #f5f5f7;
-  --n-merged-border-color: rgba(0, 0, 0, 0.06);
-}
-</style>

@@ -770,6 +770,18 @@ declare namespace App {
           critical: string;
           logContent: string;
           source: string;
+          historyMode: string;
+          runtimeMode: string;
+          runtimeSearch: string;
+          runtimeConnecting: string;
+          runtimeConnected: string;
+          runtimeDisconnected: string;
+          runtimeStreamFailed: string;
+          runtimeEmpty: string;
+          pause: string;
+          resume: string;
+          clear: string;
+          reconnect: string;
         };
         storage: {
           root: string;

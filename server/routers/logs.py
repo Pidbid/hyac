@@ -2,24 +2,28 @@
 import asyncio
 import math
 from loguru import logger
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import datetime
+from typing import Any, AsyncGenerator, Dict, Iterator, Optional
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
+    Request,
     WebSocket,
     WebSocketDisconnect,
 )
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from core.jwt_auth import get_current_user, get_current_user_for_websocket
+from core.docker_manager import docker_manager
 from core.log_watcher import log_watcher
 from models.applications_model import Application
 from models.common_model import BaseResponse
-from models.functions_model import Function, FunctionStatus
+from models.functions_model import Function
 from models.logger_model import LogEntry, LogLevel, LogType
 
 router = APIRouter(
@@ -55,6 +59,46 @@ class AppLogRequest(BaseModel):
     page: int = 1
     length: int = 10
     extra: Optional[LogQueryExtra] = None
+
+
+_STREAM_END = object()
+
+
+def _next_log_chunk(log_iterator: Iterator[bytes]) -> bytes | object:
+    """Read one chunk from Docker's blocking log iterator."""
+    return next(log_iterator, _STREAM_END)
+
+
+def _format_sse_data(raw: bytes | str) -> str:
+    """Normalize Docker log bytes for SSE delivery."""
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", errors="replace")
+    return raw
+
+
+async def _resolve_runtime_container(app_id: str, username: str) -> tuple[str, Any]:
+    """Validate app access and return its runtime container."""
+    app = await Application.find_one(
+        Application.app_id == app_id, Application.users == username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+
+    container_name = f"hyac-app-runtime-{app.app_id.lower()}"
+    if not docker_manager.client:
+        raise HTTPException(status_code=503, detail="Docker client is not available")
+
+    try:
+        container = await asyncio.to_thread(
+            docker_manager.client.containers.get, container_name
+        )
+    except Exception as exc:
+        logger.warning(f"Runtime log container '{container_name}' is unavailable: {exc}")
+        raise HTTPException(status_code=404, detail="Runtime container not found")
+
+    return container_name, container
 
 
 @router.post("/function_logs", response_model=BaseResponse)
@@ -158,6 +202,57 @@ async def get_app_logs(data: AppLogRequest, current_user=Depends(get_current_use
             "total": total_count,
         },
     )
+
+
+@router.get("/runtime_stream/{app_id}")
+async def stream_runtime_logs(
+    request: Request,
+    app_id: str,
+    tail: int = Query(1000, ge=1, le=5000),
+    current_user=Depends(get_current_user),
+):
+    """
+    Stream runtime container logs for an application.
+
+    This path follows the Laf-style live log model: real-time display reads from
+    the running container stream, while MongoDB remains the historical store.
+    """
+    container_name, container = await _resolve_runtime_container(
+        app_id, current_user.username
+    )
+
+    async def event_generator() -> AsyncGenerator[dict[str, str], None]:
+        log_iterator = None
+        event_id = 1
+        try:
+            log_iterator = await asyncio.to_thread(
+                container.logs,
+                stream=True,
+                follow=True,
+                tail=tail,
+                stdout=True,
+                stderr=True,
+            )
+
+            while not await request.is_disconnected():
+                chunk = await asyncio.to_thread(_next_log_chunk, log_iterator)
+                if chunk is _STREAM_END:
+                    break
+
+                yield {
+                    "event": "log",
+                    "id": str(event_id),
+                    "data": _format_sse_data(chunk),
+                }
+                event_id += 1
+        except Exception as exc:
+            logger.warning(f"Runtime log stream for '{container_name}' ended: {exc}")
+            yield {"event": "error", "data": str(exc)}
+        finally:
+            if log_iterator and hasattr(log_iterator, "close"):
+                await asyncio.to_thread(log_iterator.close)
+
+    return EventSourceResponse(event_generator())
 
 
 @router.websocket("/websocket_logs/{app_id}")

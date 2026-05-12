@@ -526,7 +526,19 @@ const local: App.I18n.Schema = {
       debug: 'Debug',
       critical: 'Critical',
       logContent: 'Log',
-      source: 'Source'
+      source: 'Source',
+      historyMode: 'History',
+      runtimeMode: 'Live',
+      runtimeSearch: 'Search live logs',
+      runtimeConnecting: 'Connecting',
+      runtimeConnected: 'Live connected',
+      runtimeDisconnected: 'Disconnected',
+      runtimeStreamFailed: 'Live log connection failed: {message}',
+      runtimeEmpty: 'No live logs',
+      pause: 'Pause',
+      resume: 'Resume',
+      clear: 'Clear',
+      reconnect: 'Reconnect'
     },
     storage: {
       root: 'Root',
