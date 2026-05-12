@@ -1,66 +1,145 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { NButton, NCard, NEmpty, NIcon, NInput, NLog, NScrollbar, NSpace, NTag, useMessage } from 'naive-ui';
-import { PauseCircleOutline, PlayCircleOutline, ReloadOutline, TrashOutline } from '@vicons/ionicons5';
+import { NButton, NCard, NEmpty, NIcon, NInput, NScrollbar, NTag, NTooltip, useMessage } from 'naive-ui';
+import { ChevronDownOutline, ChevronUpOutline, PauseCircleOutline, PlayCircleOutline, TrashOutline } from '@vicons/ionicons5';
 import { useI18n } from 'vue-i18n';
 import { getAuthorization } from '@/service/request/shared';
 import { getServiceBaseUrl } from '@/utils/common';
 
+const logCache = new Map<string, string[]>();
+
 const props = defineProps<{
   appId?: string | null;
+  funcId?: string | null;
+  tail?: number;
+  title?: string;
+  compact?: boolean;
+}>();
+
+const emit = defineEmits<{
+  collapse: [];
+  expand: [];
 }>();
 
 const { t } = useI18n();
 const message = useMessage();
 
-const chunks = ref<string[]>([]);
+const lines = ref<string[]>([]);
 const search = ref('');
 const loading = ref(false);
 const connected = ref(false);
 const paused = ref(false);
+const pendingLines = ref<string[]>([]);
 const errorText = ref('');
 const scrollbarRef = ref<any>(null);
 const abortController = ref<AbortController | null>(null);
+const reconnectTimer = ref<number | null>(null);
+const reconnectAttempts = ref(0);
+const manualStop = ref(false);
+const panelTitle = computed(() => props.title || t('page.function.log'));
 
-const status = computed(() => {
-  if (errorText.value) return { type: 'error' as const, text: errorText.value };
-  if (loading.value) return { type: 'warning' as const, text: t('page.log.runtimeConnecting') };
-  if (connected.value) return { type: 'success' as const, text: t('page.log.runtimeConnected') };
-  return { type: 'default' as const, text: t('page.log.runtimeDisconnected') };
+const cacheKey = computed(() => `${props.appId || 'unknown'}:${props.funcId || 'all'}`);
+
+const statusDot = computed(() => {
+  if (connected.value) {
+    return { className: 'is-connected', label: t('page.log.runtimeConnected') };
+  }
+
+  if (loading.value || reconnectTimer.value !== null) {
+    return { className: 'is-reconnecting', label: t('page.log.runtimeReconnecting') };
+  }
+
+  if (errorText.value) {
+    return { className: 'is-error', label: errorText.value };
+  }
+
+  return { className: 'is-idle', label: t('page.log.runtimeDisconnected') };
 });
 
-const logText = computed(() => {
-  const text = chunks.value.join('');
-  const keyword = search.value.trim().toLowerCase();
-  if (!keyword) return text;
+const displayLines = computed(() => [...lines.value].reverse().map(formatLogLine));
 
-  return text
-    .split('\n')
+const visibleText = computed(() => {
+  const keyword = search.value.trim().toLowerCase();
+  if (!keyword) {
+    return displayLines.value.join('\n');
+  }
+
+  return displayLines.value
     .filter(line => line.toLowerCase().includes(keyword))
     .join('\n');
 });
 
-function appendLog(data: string) {
-  const normalized = data.endsWith('\n') ? data : `${data}\n`;
-  chunks.value = [...chunks.value, normalized].slice(-2000);
-}
+const lineCount = computed(() => {
+  if (!visibleText.value) return 0;
+  return visibleText.value.split('\n').length;
+});
 
-function buildLogUrl() {
+const latestLine = computed(() => {
+  const latest = [...lines.value].reverse().find(line => line.trim());
+  if (latest) return formatLogLine(latest);
+  if (loading.value) return t('page.log.runtimeConnecting');
+  return t('page.log.runtimeEmpty');
+});
+
+const currentFilterLabel = computed(() => {
+  if (props.funcId) {
+    return `${t('page.log.function')}: ${props.funcId}`;
+  }
+  return t('page.log.allFunctions');
+});
+
+function buildLogUrl(tail: number) {
   const baseUrl = getServiceBaseUrl()?.replace(/\/$/, '') || '';
-  const params = new URLSearchParams({ tail: '1000' });
+  const params = new URLSearchParams({ tail: String(tail) });
+  if (props.funcId) {
+    params.set('func_id', props.funcId);
+  }
   return `${baseUrl}/logs/runtime_stream/${props.appId}?${params.toString()}`;
 }
 
+function clearReconnectTimer() {
+  if (reconnectTimer.value !== null) {
+    window.clearTimeout(reconnectTimer.value);
+    reconnectTimer.value = null;
+  }
+}
+
+function normalizeChunk(data: string) {
+  return data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+}
+
+function formatLogLine(line: string) {
+  return line.replace(
+    /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+\|\s+([A-Z]+)\s+\|\s+[^|]*?\s+-\s+(?:\[func:[^\]]+\]\s*)?/,
+    '$1 | $2 | '
+  );
+}
+
+function appendLog(data: string) {
+  const normalized = normalizeChunk(data);
+  if (!normalized) return;
+
+  const incomingLines = normalized.split('\n');
+
+  if (paused.value) {
+    pendingLines.value = [...pendingLines.value, ...incomingLines].slice(-4000);
+    return;
+  }
+
+  lines.value = [...lines.value, ...incomingLines].slice(-4000);
+  logCache.set(cacheKey.value, lines.value);
+}
+
 function handleSseBlock(block: string) {
-  const lines = block.split(/\r?\n/);
+  const rows = block.split(/\r?\n/);
   const dataLines: string[] = [];
   let event = 'message';
 
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event = line.slice(6).trim();
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).replace(/^ /, ''));
+  for (const row of rows) {
+    if (row.startsWith('event:')) {
+      event = row.slice(6).trim();
+    } else if (row.startsWith('data:')) {
+      dataLines.push(row.slice(5).replace(/^ /, ''));
     }
   }
 
@@ -75,10 +154,27 @@ function handleSseBlock(block: string) {
   appendLog(data);
 }
 
-async function scrollToBottom() {
+async function scrollToTop() {
   if (paused.value) return;
   await nextTick();
-  scrollbarRef.value?.scrollTo({ top: Number.MAX_SAFE_INTEGER });
+  scrollbarRef.value?.scrollTo({ top: 0 });
+}
+
+function stopStream() {
+  abortController.value?.abort();
+  abortController.value = null;
+  connected.value = false;
+  loading.value = false;
+}
+
+function scheduleReconnect() {
+  if (manualStop.value || !props.appId) return;
+  clearReconnectTimer();
+  reconnectAttempts.value += 1;
+  const delay = Math.min(5000, 1000 * reconnectAttempts.value);
+  reconnectTimer.value = window.setTimeout(() => {
+    startStream({ preserveLogs: true, isReconnect: true });
+  }, delay);
 }
 
 async function consumeStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
@@ -100,29 +196,31 @@ async function consumeStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
   }
 }
 
-function stopStream() {
-  abortController.value?.abort();
-  abortController.value = null;
-  connected.value = false;
-  loading.value = false;
-}
-
-async function startStream() {
+async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boolean; tail?: number }) {
   if (!props.appId) {
     message.warning(t('page.log.selectAppFirst'));
     return;
   }
 
+  const preserveLogs = options?.preserveLogs ?? false;
+  const isReconnect = options?.isReconnect ?? false;
+
+  manualStop.value = false;
   stopStream();
+  clearReconnectTimer();
   loading.value = true;
   errorText.value = '';
+  if (!preserveLogs) {
+    lines.value = [];
+    reconnectAttempts.value = 0;
+  }
 
   const controller = new AbortController();
   abortController.value = controller;
 
   try {
     const Authorization = getAuthorization();
-    const response = await fetch(buildLogUrl(), {
+    const response = await fetch(buildLogUrl(isReconnect ? 0 : options?.tail ?? props.tail ?? 0), {
       headers: Authorization ? { Authorization } : undefined,
       signal: controller.signal
     });
@@ -133,132 +231,395 @@ async function startStream() {
 
     connected.value = true;
     loading.value = false;
+    errorText.value = '';
+    if (!isReconnect) {
+      reconnectAttempts.value = 0;
+    }
     await consumeStream(response.body.getReader());
+    if (!controller.signal.aborted) {
+      connected.value = false;
+      errorText.value = t('page.log.runtimeDisconnected');
+      scheduleReconnect();
+    }
   } catch (error: any) {
     if (error?.name !== 'AbortError') {
+      connected.value = false;
       errorText.value = error?.message || String(error);
-      message.error(t('page.log.runtimeStreamFailed', { message: errorText.value }));
+      scheduleReconnect();
     }
   } finally {
     if (abortController.value === controller) {
       abortController.value = null;
-      connected.value = false;
       loading.value = false;
     }
   }
 }
 
 function clearLogs() {
-  chunks.value = [];
+  lines.value = [];
+  pendingLines.value = [];
+  logCache.delete(cacheKey.value);
+}
+
+function togglePaused() {
+  paused.value = !paused.value;
+  if (!paused.value && pendingLines.value.length > 0) {
+    lines.value = [...lines.value, ...pendingLines.value].slice(-4000);
+    pendingLines.value = [];
+    logCache.set(cacheKey.value, lines.value);
+  }
 }
 
 watch(
-  () => props.appId,
+  () => [props.appId, props.funcId],
   () => {
+    clearReconnectTimer();
     stopStream();
-    chunks.value = [];
+    const cachedLines = logCache.get(cacheKey.value) || [];
+    lines.value = cachedLines;
+    pendingLines.value = [];
+    reconnectAttempts.value = 0;
     if (props.appId) {
-      startStream();
+      startStream({ preserveLogs: true, tail: cachedLines.length > 0 ? 0 : props.tail ?? 0 });
     }
   },
   { immediate: true }
 );
 
-watch(logText, scrollToBottom);
+watch(visibleText, scrollToTop);
 
-onBeforeUnmount(stopStream);
+onBeforeUnmount(() => {
+  manualStop.value = true;
+  clearReconnectTimer();
+  stopStream();
+});
 </script>
 
 <template>
-  <NCard class="runtime-panel" :bordered="false" :content-style="{ padding: '0px', height: '100%' }">
-    <div class="runtime-toolbar">
-      <NSpace align="center">
-        <NInput
-          v-model:value="search"
-          :placeholder="t('page.log.runtimeSearch')"
-          clearable
-          size="small"
-          class="runtime-search"
-        />
-        <NTag :type="status.type" size="small">
-          {{ status.text }}
-        </NTag>
-        <NButton size="small" @click="paused = !paused">
-          <template #icon>
-            <NIcon :component="paused ? PlayCircleOutline : PauseCircleOutline" />
-          </template>
-          {{ paused ? t('page.log.resume') : t('page.log.pause') }}
-        </NButton>
-        <NButton size="small" @click="clearLogs">
-          <template #icon>
-            <NIcon :component="TrashOutline" />
-          </template>
-          {{ t('page.log.clear') }}
-        </NButton>
-        <NButton type="primary" size="small" :loading="loading" @click="startStream">
-          <template #icon>
-            <NIcon :component="ReloadOutline" />
-          </template>
-          {{ t('page.log.reconnect') }}
-        </NButton>
-      </NSpace>
+  <NCard
+    class="runtime-panel"
+    :class="{ compact: compact }"
+    :bordered="false"
+    :content-style="{ padding: '0px', height: '100%', display: 'flex', flexDirection: 'column' }"
+  >
+    <div v-if="!compact" class="runtime-toolbar">
+      <div class="toolbar-main">
+        <div class="toolbar-title">
+          <span class="title-text">{{ panelTitle }}</span>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <span class="status-dot" :class="statusDot.className" :aria-label="statusDot.label" role="status" />
+            </template>
+            {{ statusDot.label }}
+          </NTooltip>
+        </div>
+        <div class="toolbar-actions">
+          <div class="toolbar-meta">
+            <NTag size="small" type="info" round class="meta-pill">
+              {{ currentFilterLabel }}
+            </NTag>
+            <span class="line-count">{{ t('page.log.entryCount', { count: lineCount }) }}</span>
+          </div>
+          <NInput
+            v-model:value="search"
+            :placeholder="t('page.log.runtimeSearch')"
+            clearable
+            size="small"
+            class="runtime-search"
+          />
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NButton quaternary circle size="small" @click="togglePaused">
+                <NIcon :component="paused ? PlayCircleOutline : PauseCircleOutline" />
+              </NButton>
+            </template>
+            {{ paused ? t('page.log.resume') : t('page.log.pause') }}
+          </NTooltip>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NButton quaternary circle size="small" @click="clearLogs">
+                <NIcon :component="TrashOutline" />
+              </NButton>
+            </template>
+            {{ t('page.log.clear') }}
+          </NTooltip>
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NButton quaternary circle size="small" class="collapse-trigger" @click="emit('collapse')">
+                <NIcon :component="ChevronDownOutline" />
+              </NButton>
+            </template>
+            {{ t('icon.collapse') }}
+          </NTooltip>
+        </div>
+      </div>
     </div>
 
-    <div class="runtime-log-shell">
+    <div v-if="!compact" class="runtime-log-shell">
       <NScrollbar ref="scrollbarRef" class="runtime-scroll">
-        <NLog v-if="logText" :log="logText" :rows="34" class="runtime-log" />
-        <NEmpty
-          v-else
-          :description="loading ? t('page.log.runtimeConnecting') : t('page.log.runtimeEmpty')"
-          class="h-full flex-center"
-        />
+        <pre v-if="visibleText" class="runtime-log-text">{{ visibleText }}</pre>
+        <div v-else class="runtime-empty">
+          <NEmpty :description="loading ? t('page.log.runtimeConnecting') : t('page.log.runtimeEmpty')" />
+        </div>
       </NScrollbar>
+    </div>
+
+    <div v-else class="runtime-collapsed-bar">
+      <span class="collapsed-preview">{{ latestLine }}</span>
+      <NTooltip trigger="hover">
+        <template #trigger>
+          <NButton quaternary circle size="small" @click="emit('expand')">
+            <NIcon :component="ChevronUpOutline" />
+          </NButton>
+        </template>
+        {{ t('icon.expand') }}
+      </NTooltip>
     </div>
   </NCard>
 </template>
 
 <style scoped>
 .runtime-panel {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  height: 100%;
   min-height: 0;
-  border-radius: 8px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), rgba(245, 247, 251, 0.9) 52%, rgba(239, 244, 250, 0.95) 100%);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  transition:
+    border-radius 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease;
+}
+
+.runtime-panel.compact {
+  border-radius: 14px;
+  transform: translateY(0);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .runtime-toolbar {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: #f9f9fb;
+  flex: none;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(18px);
+}
+
+.toolbar-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.title-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.line-count {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .runtime-search {
-  width: 260px;
+  width: 216px;
 }
 
 .runtime-log-shell {
-  height: calc(100% - 49px);
+  flex: 1;
   min-height: 0;
-  background: #0f172a;
+  background: transparent;
+  animation: runtime-panel-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .runtime-scroll {
   height: 100%;
 }
 
-.runtime-log {
-  min-height: 100%;
-  padding: 12px 14px;
-  background: #0f172a;
-  color: #dbeafe;
-  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+.runtime-scroll :deep(.n-scrollbar-content) {
+  height: 100%;
 }
 
-.flex-center {
+.runtime-log-text {
+  margin: 0;
+  min-height: 100%;
+  padding: 12px 16px 18px;
+  background: transparent;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.62;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.runtime-empty {
+  height: 100%;
+  min-height: 180px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.runtime-collapsed-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(14px);
+  animation: runtime-bar-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.collapsed-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-pill {
+  border-color: transparent;
+}
+
+.collapse-trigger {
+  opacity: 0.78;
+}
+
+.collapse-trigger:hover {
+  opacity: 1;
+}
+
+.status-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: 0 0 0 4px rgba(203, 213, 225, 0.28);
+}
+
+.status-dot.is-connected {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.status-dot.is-error {
+  background: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16);
+}
+
+.status-dot.is-reconnecting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+  animation: runtime-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes runtime-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+    box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.08);
+  }
+}
+
+@keyframes runtime-panel-in {
+  from {
+    opacity: 0.68;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes runtime-bar-in {
+  from {
+    opacity: 0.72;
+    transform: translateY(8px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runtime-panel,
+  .runtime-log-shell,
+  .runtime-collapsed-bar {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .toolbar-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-actions {
+    flex-wrap: wrap;
+  }
+
+  .runtime-search {
+    width: 100%;
+  }
 }
 </style>

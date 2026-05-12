@@ -244,16 +244,6 @@ declare namespace Api {
       pageSize: number;
     }
 
-    interface FunctionLogsInfo {
-      _id: string;
-      app_id: string;
-      function_id: string;
-      level: LogLevel;
-      logtype: 'function' | 'system';
-      message: string;
-      timestamp: string;
-      exception?: string | null;
-    }
   }
 
   /**
@@ -306,64 +296,6 @@ declare namespace Api {
 
     interface DownloadUrl {
       url: string;
-    }
-  }
-
-  /**
-   * namespace Log
-   *
-   * backend api module: "log"
-   */
-  namespace Log {
-    /**
-     * log level
-     *
-     * - "info": info
-     * - "warning": warning
-     * - "error": error
-     * - "debug": debug
-     */
-    type LogLevel = 'info' | 'warning' | 'error' | 'debug';
-
-    /**
-     * log type
-     *
-     * - "system": system log
-     * - "function": function call log
-     */
-    type LogType = 'system' | 'function';
-
-    interface LogsExtra {
-      function_id: string;
-      function_name: string;
-      app_id: string;
-    }
-    /** log entry record */
-    interface LogEntry {
-      _id: string;
-      app_id: string;
-      function_id?: string;
-      level: LogLevel;
-      logtype: LogType;
-      message: string;
-      timestamp: string;
-      extra: LogsExtra;
-    }
-
-    /** extra params for log query */
-    interface LogQueryExtra {
-      level?: LogLevel;
-      logtype?: LogType;
-      dateStart?: string; // ISO 8601 format
-      dateEnd?: string; // ISO 8601 format
-    }
-
-    /** paged log entry response */
-    interface PagedLogEntry {
-      data: LogEntry[];
-      total: number;
-      pageNum: number;
-      pageSize: number;
     }
   }
 

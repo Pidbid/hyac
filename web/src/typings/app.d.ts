@@ -776,12 +776,15 @@ declare namespace App {
           runtimeConnecting: string;
           runtimeConnected: string;
           runtimeDisconnected: string;
+          runtimeReconnecting: string;
+          runtimeDescription: string;
           runtimeStreamFailed: string;
           runtimeEmpty: string;
           pause: string;
           resume: string;
           clear: string;
           reconnect: string;
+          entryCount: string;
         };
         storage: {
           root: string;

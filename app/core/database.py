@@ -6,7 +6,6 @@ from core.config import settings
 from models.applications_model import Application
 from models.functions_model import Function
 from models.statistics_model import FunctionMetric
-from models.logger_model import LogEntry
 
 
 class MongoDBManager:
@@ -39,7 +38,7 @@ class MongoDBManager:
         """
         await init_beanie(
             database=self.db,
-            document_models=[Application, Function, FunctionMetric, LogEntry],
+            document_models=[Application, Function, FunctionMetric],
         )
 
     async def close(self):

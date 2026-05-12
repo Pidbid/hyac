@@ -530,12 +530,15 @@ const local: App.I18n.Schema = {
       runtimeConnecting: '连接中',
       runtimeConnected: '实时连接',
       runtimeDisconnected: '未连接',
+      runtimeReconnecting: '正在重连',
+      runtimeDescription: '自动重连的实时运行日志',
       runtimeStreamFailed: '实时日志连接失败: {message}',
-      runtimeEmpty: '暂无实时日志',
+      runtimeEmpty: '暂无日志',
       pause: '暂停',
       resume: '继续',
       clear: '清空',
-      reconnect: '重连'
+      reconnect: '重连',
+      entryCount: '{count} 行'
     },
     storage: {
       root: '根目录',

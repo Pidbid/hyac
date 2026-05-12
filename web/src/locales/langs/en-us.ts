@@ -533,12 +533,15 @@ const local: App.I18n.Schema = {
       runtimeConnecting: 'Connecting',
       runtimeConnected: 'Live connected',
       runtimeDisconnected: 'Disconnected',
+      runtimeReconnecting: 'Reconnecting',
+      runtimeDescription: 'Auto-reconnecting runtime console',
       runtimeStreamFailed: 'Live log connection failed: {message}',
-      runtimeEmpty: 'No live logs',
+      runtimeEmpty: 'No logs',
       pause: 'Pause',
       resume: 'Resume',
       clear: 'Clear',
-      reconnect: 'Reconnect'
+      reconnect: 'Reconnect',
+      entryCount: '{count} lines'
     },
     storage: {
       root: 'Root',

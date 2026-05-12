@@ -507,7 +507,7 @@ async def test_function(
             msg="function test success",
             data={
                 "status_code": proxied_response.status_code,
-                "content": proxied_response.content,
+                "content": proxied_response.text,
                 "headers": dict(proxied_response.headers),
             },
         )

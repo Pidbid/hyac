@@ -3,6 +3,7 @@ import inspect
 import io
 import json
 import time
+import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Dict, Tuple, Optional
 
@@ -19,7 +20,7 @@ from core.config import settings
 from core.db_manager import db_manager
 from core.exceptions import APIException
 from core.faas_s3 import app_id_context
-from core.logger import LogType
+from core.logger import LogType, prefix_runtime_lines
 from models.applications_model import Application
 from models.functions_model import Function
 from models.statistics_model import CallStatus, FunctionMetric
@@ -204,6 +205,7 @@ async def dynamic_handler(
         function_id=func_id,
         function_name=function_name,
         logtype=LogType.FUNCTION,
+        runtime_label=f"[func:{func_id}] ",
     )
 
     try:
@@ -232,6 +234,7 @@ async def dynamic_handler(
             function_id=func_id,
             function_name=function_name,
             logtype=LogType.FUNCTION,
+            runtime_label=f"[func:{func_id}] ",
         )
         function_log = log_func
 
@@ -252,8 +255,22 @@ async def dynamic_handler(
     except Exception as e:
         status = CallStatus.ERROR
         error_info = {"type": "Exception", "detail": str(e)}
-        function_log.opt(exception=e).error("Unhandled exception in dynamic_handler")
-        return BaseResponse(code=500, msg=str(e))
+        traceback_text = traceback.format_exc().strip()
+        runtime_traceback = prefix_runtime_lines(
+            traceback_text, f"[func:{func_id}] "
+        )
+        function_log.error(
+            "Unhandled exception in dynamic_handler\n{}", runtime_traceback
+        )
+        return BaseResponse(
+            code=500,
+            msg=str(e),
+            data={
+                "error_type": type(e).__name__,
+                "function_id": func_id,
+                "function_name": function_name,
+            },
+        )
     finally:
         # 5. Track the metric in the background
         background_tasks.add_task(

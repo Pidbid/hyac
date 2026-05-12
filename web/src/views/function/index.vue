@@ -62,7 +62,6 @@ import {
 } from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
-import { useLogStore } from '@/store/modules/log';
 import { useAppStore } from '@/store/modules/app';
 import { $t } from '@/locales';
 import FunctionList from './modules/FunctionList.vue';
@@ -78,7 +77,6 @@ const dialog = useDialog();
 const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
 const appStore = useAppStore();
-const logStore = useLogStore();
 const router = useRouter();
 
 const isDependenceLoading = ref(false);
@@ -137,6 +135,30 @@ const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const showAiWindow = ref(false);
 const activePanel = ref<'test' | 'cron'>('test');
+const logCollapsed = ref(false);
+const logExpanding = ref(false);
+let logExpandTimer: number | null = null;
+
+function handleCollapseLog() {
+  if (logExpandTimer !== null) {
+    window.clearTimeout(logExpandTimer);
+    logExpandTimer = null;
+  }
+  logCollapsed.value = true;
+  logExpanding.value = false;
+}
+
+function handleExpandLog() {
+  if (logExpandTimer !== null) {
+    window.clearTimeout(logExpandTimer);
+  }
+  logExpanding.value = true;
+  logExpandTimer = window.setTimeout(() => {
+    logCollapsed.value = false;
+    logExpanding.value = false;
+    logExpandTimer = null;
+  }, 180);
+}
 
 // Computed
 const functionAddress = computed(() => {
@@ -161,7 +183,6 @@ watch(
     if (newId && newId !== oldId) {
       originalCode.value = selectedFunction.value.code;
       codeChanged.value = false;
-      logStore.subscribe(newId);
     }
   }
 );
@@ -431,7 +452,6 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
             codeChanged.value = false;
           }
         }
-        logStore.unsubscribe();
       }
     }
   });
@@ -1482,11 +1502,12 @@ onMounted(async () => {
   }
   await fetchTags();
   await getFunctionData();
-  logStore.connect();
 });
 
 onBeforeUnmount(() => {
-  logStore.disconnect();
+  if (logExpandTimer !== null) {
+    window.clearTimeout(logExpandTimer);
+  }
 });
 </script>
 
@@ -1516,29 +1537,33 @@ onBeforeUnmount(() => {
             <NSplit class="workspace-split" :default-size="0.82" :min="0.42" :max="0.86">
               <template #1>
                 <section class="primary-column">
-                  <NSplit class="editor-log-split" direction="vertical" :default-size="0.7" :min="0.35" :max="0.86">
-                    <template #1>
-                      <div class="editor-section">
-                        <FunctionEditorPanel
-                          :func="selectedFunction"
-                          :code-changed="codeChanged"
-                          :is-saving="isSaving"
-                          :editor-config="editorConfig"
-                          @save-code="handleSaveCode"
-                          @open-history="handleOpenHistory"
-                          @update:code="selectedFunction.code = $event"
-                          @open-editor-settings="handleFunctionEditorSetting"
-                          @edit-meta="handleEditMeta"
-                        />
-                      </div>
-                    </template>
-
-                    <template #2>
-                      <div class="log-container">
-                        <FunctionLogPanel :logs="logStore.logs" />
-                      </div>
-                    </template>
-                  </NSplit>
+                  <div
+                    class="editor-log-layout"
+                    :class="{ 'log-collapsed': logCollapsed, 'log-expanding': logExpanding }"
+                  >
+                    <div class="editor-section">
+                      <FunctionEditorPanel
+                        :func="selectedFunction"
+                        :code-changed="codeChanged"
+                        :is-saving="isSaving"
+                        :editor-config="editorConfig"
+                        @save-code="handleSaveCode"
+                        @open-history="handleOpenHistory"
+                        @update:code="selectedFunction.code = $event"
+                        @open-editor-settings="handleFunctionEditorSetting"
+                        @edit-meta="handleEditMeta"
+                      />
+                    </div>
+                    <div class="log-container" :class="{ compact: logCollapsed }">
+                      <FunctionLogPanel
+                        :app-id="applicationStore.appId"
+                        :func-id="selectedFunction.id"
+                        :compact="logCollapsed"
+                        @collapse="handleCollapseLog"
+                        @expand="handleExpandLog"
+                      />
+                    </div>
+                  </div>
                 </section>
               </template>
 
@@ -1643,22 +1668,76 @@ onBeforeUnmount(() => {
 }
 
 .primary-column {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-width: 0;
   min-height: 0;
   padding-right: var(--function-panel-gap);
 }
 
-.editor-section {
-  height: 100%;
+.editor-log-layout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-height: 0;
-  padding-bottom: var(--function-panel-gap);
+  gap: var(--function-panel-gap);
+}
+
+.editor-section {
+  flex: 0 1 70%;
+  min-height: 0;
+  transition:
+    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-grow 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .log-container {
-  height: 100%;
+  flex: 1 1 30%;
   min-width: 0;
-  padding-top: var(--function-panel-gap);
+  min-height: 0;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-grow 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.editor-log-layout.log-collapsed .editor-section {
+  flex: 1 1 auto;
+}
+
+.log-container.compact {
+  flex: none;
+  height: 48px;
+  opacity: 0.96;
+  transform: translateY(2px);
+}
+
+.editor-log-layout.log-expanding .log-container {
+  animation: log-container-expand 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes log-container-expand {
+  0% {
+    height: 48px;
+    opacity: 0.78;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    height: 32%;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .panel-container {
