@@ -1,3 +1,5 @@
+import '@codingame/monaco-vscode-language-pack-zh-hans';
+
 import getConfigurationServiceOverride, {
   ConfigurationScope,
   configurationRegistry,
