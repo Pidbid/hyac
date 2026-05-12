@@ -173,6 +173,32 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
 - 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。
 - 生产环境 (`docker-compose.yml`) 继续使用 `.env` 中真实域名与 ACME 自动证书签发策略，不应设置为 `localhost`。
 
+### 🧪 测试环境调试方式
+
+测试环境建议始终显式指定 `.env.dev` 与 `docker-compose.dev.yml`，避免误用生产 `.env` 或生产编排文件。
+
+查看服务状态：
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml ps
+```
+
+查看核心服务日志：
+
+```bash
+docker logs -f hyac_server
+docker logs -f hyac_web
+docker logs -f hyac_app
+docker logs -f hyac_lsp_sidecar
+```
+
+调试具体应用运行时容器时，容器名格式为 `hyac-app-runtime-<app_id小写>`。例如 `appId=iEmSSuBk` 对应：
+
+```bash
+docker logs -f hyac-app-runtime-iemssubk
+docker inspect hyac-app-runtime-iemssubk
+```
+
 ## 📁 主要项目结构
 
 ```
