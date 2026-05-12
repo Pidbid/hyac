@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from core.beanie_compat import aggregate_to_list
 from core.config import settings
 from core.jwt_auth import get_current_user
 from models.applications_model import Application
@@ -447,8 +448,8 @@ async def get_tags(data: TagsRequestModel, current_user=Depends(get_current_user
         {"$project": {"tag": "$_id", "_id": 0}},
     ]
 
-    tags_cursor = Function.aggregate(pipeline)
-    tags = [doc["tag"] for doc in await tags_cursor.to_list(length=None)]
+    tags_result = await aggregate_to_list(Function, pipeline)
+    tags = [doc["tag"] for doc in tags_result]
 
     return BaseResponse(code=0, msg="success", data=tags)
 
