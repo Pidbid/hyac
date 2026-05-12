@@ -4,13 +4,14 @@ from loguru import logger
 
 from models.tasks_model import Task, TaskStatus, TaskAction
 from models.applications_model import Application, ApplicationStatus
-from core.s3_manager import s3_manager
+from core.app_storage import app_storage_service
 
 # 导入需要执行的函数
 from core.docker_manager import (
     start_app_container,
     stop_app_container,
     docker_manager,
+    running_apps,
     delete_application_background,
 )
 from core.utils import create_mongodb_user, check_mongodb_user_exists
@@ -55,36 +56,9 @@ async def process_task(task: Task):
                     f"MongoDB user for app {app_id} already exists, skipping creation."
                 )
 
-            # 2. 为应用创建 S3 Buckets 并配置
-            # 创建主应用 Bucket
-            app_bucket_name = app.app_id.lower()
-            if not await s3_manager.bucket_exists(app_bucket_name):
-                logger.info(
-                    f"S3 bucket '{app_bucket_name}' not found, creating now..."
-                )
-                await s3_manager.make_bucket(app_bucket_name)
-                logger.info(f"S3 bucket '{app_bucket_name}' created successfully.")
-            else:
-                logger.info(
-                    f"S3 bucket '{app_bucket_name}' already exists, skipping creation."
-                )
-
-            # 创建并配置 Web 托管 Bucket
-            web_bucket_name = f"web-{app.app_id.lower()}"
-            if not await s3_manager.bucket_exists(web_bucket_name):
-                logger.info(
-                    f"S3 web bucket '{web_bucket_name}' not found, creating now..."
-                )
-                await s3_manager.make_bucket(web_bucket_name)
-                # 设置为公共读
-                await s3_manager.set_bucket_to_public_read(web_bucket_name)
-                logger.info(
-                    f"S3 web bucket '{web_bucket_name}' created and set to public read."
-                )
-            else:
-                logger.info(
-                    f"S3 web bucket '{web_bucket_name}' already exists, skipping creation."
-                )
+            # 2. 为应用创建隔离的 S3 用户、默认 Bucket 和 Web 托管 Bucket
+            await app_storage_service.ensure_ready(app.app_id)
+            logger.info(f"Storage resources for app {app_id} are ready.")
 
             # 3. 启动应用容器
             result = await start_app_container(app)
@@ -189,11 +163,46 @@ async def reconcile_running_apps():
             container_name = f"hyac-app-runtime-{app.app_id.lower()}"
             if container_name not in running_app_container_names:
                 apps_to_restart_count += 1
+                running_apps.pop(app.app_id, None)
                 logger.warning(
                     f"App '{app.app_name}' ({app.app_id}) is marked as RUNNING but its container "
                     f"'{container_name}' is not found. Creating a new startup task."
                 )
                 # Create a new task to start this app
+                await Task(
+                    action=TaskAction.START_APP,
+                    payload={"app_id": app.app_id},
+                    status=TaskStatus.PENDING,
+                ).insert()
+                continue
+
+            storage = await app_storage_service.ensure_ready(app.app_id)
+            container_env = docker_manager.get_container_environment(container_name)
+            has_current_storage_env = (
+                container_env is not None
+                and container_env.get("S3_ACCESS_KEY") == storage.access_key
+                and container_env.get("S3_SECRET_KEY") == storage.secret_key
+            )
+            if not has_current_storage_env:
+                logger.warning(
+                    f"App '{app.app_name}' ({app.app_id}) runtime has non-app-scoped "
+                    "or missing storage credentials. Recreating container."
+                )
+                if not await docker_manager.stop_container(container_name):
+                    logger.error(
+                        f"Failed to stop non-app-scoped runtime container '{container_name}'."
+                    )
+                    continue
+                if not await docker_manager.remove_container(container_name):
+                    logger.error(
+                        f"Failed to remove non-app-scoped runtime container '{container_name}'."
+                    )
+                    continue
+
+                apps_to_restart_count += 1
+                running_apps.pop(app.app_id, None)
+                app.status = ApplicationStatus.STARTING
+                await app.save()
                 await Task(
                     action=TaskAction.START_APP,
                     payload={"app_id": app.app_id},

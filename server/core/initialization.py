@@ -6,6 +6,7 @@ from core.config import settings
 from core.docker_manager import create_traefik_console_config
 from core.faas_code import faas_templates
 from core.s3_manager import s3_manager
+from core.app_storage import app_storage_service
 from core.utils import create_mongodb_user, generate_short_id
 from models.applications_model import (
     Application,
@@ -215,20 +216,9 @@ class InitializationService:
                         f"Failed to create MongoDB user for demo application: {demo_app.app_id}"
                     )
 
-                # Create a dedicated S3 bucket for the demo application.
-                if s3_manager.client:
-                    # Create main app bucket
-                    app_bucket_name = demo_app.app_id.lower()
-                    await s3_manager.make_bucket(app_bucket_name)
-                    logger.info(f"Created S3 bucket for demo app: {app_bucket_name}")
-
-                    # Create and configure web hosting bucket
-                    web_bucket_name = f"web-{demo_app.app_id.lower()}"
-                    await s3_manager.make_bucket(web_bucket_name)
-                    await s3_manager.set_bucket_to_public_read(web_bucket_name)
-                    logger.info(
-                        f"Created and configured web hosting bucket: {web_bucket_name}"
-                    )
+                # Create app-scoped S3 credentials and buckets.
+                await app_storage_service.ensure_ready(demo_app.app_id)
+                logger.info(f"Created storage resources for demo app: {demo_app.app_id}")
 
         except Exception as e:
             logger.error(f"Failed to create initial application: {e}")

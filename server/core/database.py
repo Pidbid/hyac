@@ -15,6 +15,8 @@ from models import (
     FunctionTemplate,
     Task,
     ScheduledTask,
+    ApplicationStorage,
+    StorageBucket,
 )
 
 
@@ -60,6 +62,8 @@ class MongoDBManager:
                 SettingModel,
                 Task,
                 ScheduledTask,
+                ApplicationStorage,
+                StorageBucket,
             ],
         )
 

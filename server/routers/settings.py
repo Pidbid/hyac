@@ -22,6 +22,24 @@ from core.update_manager import update_manager
 from core.exceptions import APIException
 
 
+RESERVED_ENV_KEYS = {
+    "APP_ID",
+    "MONGODB_USERNAME",
+    "MONGODB_PASSWORD",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "S3_INTERNAL_ENDPOINT",
+    "S3_SECURE_INTERNAL",
+    "SECRET_KEY",
+    "DEV_MODE",
+    "DEBUG",
+    "LSP_MODE",
+    "LSP_SIDECAR_URL",
+    "LSP_SIDECAR_TIMEOUT_SECONDS",
+    "LSP_SIDECAR_FALLBACK_LEGACY",
+}
+
+
 class DependenceSearchRequest(BaseModel):
     appId: str
     name: str
@@ -344,6 +362,9 @@ async def env_add(
     data: EnvAddRequest,
     current_user: User = Depends(get_current_user),
 ):
+    if data.key in RESERVED_ENV_KEYS:
+        return BaseResponse(code=400, msg="Reserved environment variable cannot be modified.")
+
     app = await Application.find_one(
         Application.app_id == data.appId, Application.users == current_user.username
     )

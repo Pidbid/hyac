@@ -20,6 +20,7 @@ from core.jwt_auth import get_current_user
 from core.beanie_compat import aggregate_to_list
 from core.database_dynamic import dynamic_db
 from core.s3_manager import s3_manager
+from core.app_storage import app_storage_service
 
 router = APIRouter(
     prefix="/statistics",
@@ -204,8 +205,7 @@ async def get_statistics_summary(
     # --- Storage Statistics ---
     total_usage_bytes = 0
     try:
-        # S3 bucket names must be lowercase
-        bucket_name = data.appId.lower()
+        bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
         objects = await s3_manager.list_objects(
             bucket_name=bucket_name, recursive=True
         )

@@ -8,6 +8,35 @@ from core.database import mongodb_manager
 from models.applications_model import Application, EnvironmentVariable
 
 
+RESERVED_ENV_KEYS = {
+    "APP_ID",
+    "MONGODB_USERNAME",
+    "MONGODB_PASSWORD",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "S3_INTERNAL_ENDPOINT",
+    "S3_SECURE_INTERNAL",
+    "SECRET_KEY",
+    "DEV_MODE",
+    "DEBUG",
+    "LSP_MODE",
+    "LSP_SIDECAR_URL",
+    "LSP_SIDECAR_TIMEOUT_SECONDS",
+    "LSP_SIDECAR_FALLBACK_LEGACY",
+}
+
+
+def _filter_user_envs(environment_variables: list[EnvironmentVariable]) -> dict[str, str]:
+    """Returns user environment variables that are safe to inject at runtime."""
+    envs = {}
+    for item in environment_variables:
+        if item.key in RESERVED_ENV_KEYS:
+            logger.warning("Ignoring reserved environment variable: {}", item.key)
+            continue
+        envs[item.key] = str(item.value)
+    return envs
+
+
 async def get_dynamic_envs():
     """
     Asynchronously retrieves dynamic environment variables for the current application
@@ -22,10 +51,7 @@ async def get_dynamic_envs():
     if not application or not application.environment_variables:
         return {}
 
-    # Convert list of EnvironmentVariable objects to a single dict
-    envs = {item.key: str(item.value) for item in application.environment_variables}
-
-    return envs
+    return _filter_user_envs(application.environment_variables)
 
 
 async def set_dynamic_env(key: str, value: str):
@@ -34,6 +60,9 @@ async def set_dynamic_env(key: str, value: str):
     """
     app_id = settings.APP_ID
     if not app_id:
+        return
+    if key in RESERVED_ENV_KEYS:
+        logger.warning("Ignoring reserved environment variable: {}", key)
         return
 
     application = await Application.find_one({"app_id": app_id})
@@ -101,9 +130,15 @@ async def watch_for_env_changes():
 
                 # Get the latest environment variables from the document
                 latest_vars_list = full_document.get("environment_variables", [])
-                latest_vars_dict = {
-                    item["key"]: str(item["value"]) for item in latest_vars_list
-                }
+                latest_vars_dict = {}
+                for item in latest_vars_list:
+                    key = item["key"]
+                    if key in RESERVED_ENV_KEYS:
+                        logger.warning(
+                            "Ignoring reserved environment variable: {}", key
+                        )
+                        continue
+                    latest_vars_dict[key] = str(item["value"])
 
                 # Identify keys that are currently in os.environ but managed by this app
                 # This requires knowing which keys were set by this system initially.

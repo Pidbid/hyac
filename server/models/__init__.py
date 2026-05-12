@@ -15,3 +15,9 @@ from .users_model import User, Captcha
 from .settings_model import SettingModel
 from .tasks_model import Task, TaskStatus, TaskAction
 from .scheduled_tasks_model import ScheduledTask, TriggerType
+from .storage_model import (
+    ApplicationStorage,
+    StorageBucket,
+    StorageBucketPolicy,
+    StorageStatus,
+)

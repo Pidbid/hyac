@@ -4,7 +4,7 @@ from typing import Dict, Optional, List
 from enum import Enum
 
 from beanie import Document
-from pydantic import Field, model_validator, BaseModel
+from pydantic import Field, BaseModel
 from pymongo import IndexModel
 
 from core.utils import generate_short_id
@@ -105,10 +105,6 @@ class Application(Document):
     db_password: str = Field(
         description="Password for the database associated with the application."
     )
-    s3_bucket: Optional[str] = Field(
-        default=None,
-        description="Name of the S3 bucket associated with the application.",
-    )
     cors: CORSConfig = Field(default_factory=CORSConfig, description="cors config")
     notification: NotificationConfig = Field(
         default_factory=NotificationConfig, description="notification config"
@@ -120,15 +116,6 @@ class Application(Document):
         default=ApplicationStatus.STOPPED,
         description="Status of the application (e.g., running, stopped).",
     )
-
-    @model_validator(mode="after")
-    def set_s3_bucket(self) -> "Application":
-        """
-        Automatically sets the S3 bucket name based on the app_id.
-        """
-        if self.app_id:
-            self.s3_bucket = self.app_id.lower()
-        return self
 
     class Settings:
         """

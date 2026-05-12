@@ -10,8 +10,8 @@ from loguru import logger
 import socket
 
 from core.config import settings
-from models import Application, Function, FunctionTemplate
-from core.s3_manager import s3_manager
+from models import Application, Function, FunctionTemplate, StorageStatus
+from core.app_storage import app_storage_service
 from core.database_dynamic import dynamic_db
 
 
@@ -255,6 +255,28 @@ class DockerManager:
         except errors.APIError as e:
             logger.error(f"Failed to list containers: {e}")
         return []
+
+    def get_container_environment(self, name: str) -> Optional[Dict[str, str]]:
+        """
+        Returns a container's configured environment variables without logging values.
+        """
+        if not self._check_client():
+            return None
+        assert self.client is not None
+        try:
+            container = self.client.containers.get(name)
+            env_map = {}
+            for item in container.attrs["Config"].get("Env", []):
+                key, value = item.split("=", 1)
+                env_map[key] = value
+            return env_map
+        except errors.NotFound:
+            logger.info(f"Container '{name}' not found while reading environment.")
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Could not read environment for container '{name}': {e}")
+        except errors.APIError as e:
+            logger.error(f"Failed to inspect container '{name}': {e}")
+        return None
 
     def build_image(self, path: str, tag: str, target: Optional[str] = None) -> bool:
         """
@@ -668,218 +690,236 @@ async def start_app_container(app: Application) -> Optional[Dict[str, Any]]:
             await docker_manager.remove_container(container_name)
 
         # When running inside Docker, the app container needs to connect to other services
-    # using their service names as hostnames.
-    environment = {
-        "APP_ID": app.app_id,  # Pass the app_id to the container
-        "MONGODB_USERNAME": settings.MONGODB_USERNAME,
-        "MONGODB_PASSWORD": settings.MONGODB_PASSWORD,
-        "S3_ACCESS_KEY": settings.object_storage_access_key,
-        "S3_SECRET_KEY": settings.object_storage_secret_key,
-        "S3_INTERNAL_ENDPOINT": settings.object_storage_internal_endpoint,
-        "S3_SECURE_INTERNAL": settings.S3_SECURE_INTERNAL,
-        "SECRET_KEY": settings.SECRET_KEY,
-        "DEV_MODE": settings.DEV_MODE,
-        "DEBUG": True,  # Only for logger level
-        "LSP_MODE": settings.LSP_MODE,
-        "LSP_SIDECAR_URL": settings.LSP_SIDECAR_URL,
-        "LSP_SIDECAR_TIMEOUT_SECONDS": settings.LSP_SIDECAR_TIMEOUT_SECONDS,
-        "LSP_SIDECAR_FALLBACK_LEGACY": settings.LSP_SIDECAR_FALLBACK_LEGACY,
-    }
+        # using their service names as hostnames.
+        storage = await app_storage_service.get_storage(app.app_id)
+        if not storage or storage.status != StorageStatus.READY:
+            storage = await app_storage_service.ensure_ready(app.app_id)
 
-    # Add user-defined environment variables
-    for env_var in app.environment_variables:
-        environment[env_var.key] = env_var.value
-
-    # Define the healthcheck for the app container
-    healthcheck = {
-        "test": [
-            "CMD",
-            "python",
-            "-c",
-            "import httpx; httpx.get('http://localhost:8001/__runtime_health__').raise_for_status()",
-        ],
-        "interval": 10 * 1000000000,  # 10 seconds
-        "timeout": 5 * 1000000000,  # 5 seconds
-        "retries": 5,
-        "start_period": 15 * 1000000000,  # 15-second grace period
-    }
-
-    # Determine volumes based on DEV_MODE
-    volumes = {}
-    if settings.DEV_MODE:
-        if settings.APP_CODE_PATH_ON_HOST:
-            # In DEV_MODE, we mount the local app code directory into the container for hot-reloading.
-            # This path should be the absolute path to the 'app' directory on the host machine.
-            volumes = {
-                settings.APP_CODE_PATH_ON_HOST: {
-                    "bind": "/app",
-                    "mode": "rw",
-                }
-            }
-            logger.info(
-                f"DEV_MODE: Mounting app code from '{os.path.abspath(settings.APP_CODE_PATH_ON_HOST)}' to '/app'."
-            )
-        else:
-            logger.warning(
-                "DEV_MODE is enabled, but APP_CODE_PATH_ON_HOST is not set. "
-                "Hot-reloading for the app container will not work."
-            )
-
-    # --- Dynamic Network Attachment & Label Inheritance ---
-    network_name = "hyac_network"  # Default fallback
-    compose_labels = {}
-    try:
-        server_container = docker_manager.client.containers.get("hyac_server")
-        # Get the first network name from the list of networks
-        network_name = list(
-            server_container.attrs["NetworkSettings"]["Networks"].keys()
-        )[0]
-        logger.info(
-            f"Server container is on network '{network_name}'. Attaching app container to the same network."
-        )
-        # Inherit all docker-compose labels from the server container
-        server_labels = server_container.attrs["Config"]["Labels"]
-        compose_labels = {
-            k: v for k, v in server_labels.items() if k.startswith("com.docker.compose")
+        environment = {
+            "APP_ID": app.app_id,  # Pass the app_id to the container
+            "MONGODB_USERNAME": settings.MONGODB_USERNAME,
+            "MONGODB_PASSWORD": settings.MONGODB_PASSWORD,
+            "S3_ACCESS_KEY": storage.access_key,
+            "S3_SECRET_KEY": storage.secret_key,
+            "S3_INTERNAL_ENDPOINT": settings.object_storage_internal_endpoint,
+            "S3_SECURE_INTERNAL": settings.S3_SECURE_INTERNAL,
+            "SECRET_KEY": settings.SECRET_KEY,
+            "DEV_MODE": settings.DEV_MODE,
+            "DEBUG": True,  # Only for logger level
+            "LSP_MODE": settings.LSP_MODE,
+            "LSP_SIDECAR_URL": settings.LSP_SIDECAR_URL,
+            "LSP_SIDECAR_TIMEOUT_SECONDS": settings.LSP_SIDECAR_TIMEOUT_SECONDS,
+            "LSP_SIDECAR_FALLBACK_LEGACY": settings.LSP_SIDECAR_FALLBACK_LEGACY,
         }
-        # Set a specific, dynamic service name for the app container to distinguish it
-        if compose_labels:
-            compose_labels["com.docker.compose.service"] = (
-                f"app-runtime-{app.app_id.lower()}"
-            )
-            compose_labels["com.docker.compose.oneoff"] = "False"
-            logger.info(
-                f"Inheriting and customizing docker-compose labels: {compose_labels}"
-            )
-        else:
-            logger.warning(
-                "No docker-compose labels found on server container to inherit."
-            )
 
-    except (errors.NotFound, KeyError, IndexError) as e:
-        logger.warning(
-            f"Could not dynamically determine server network or labels (error: {e}). "
-            f"Falling back to default network 'hyac_network'. "
-            "This might fail if the project name in docker-compose is not 'hyac'."
-        )
+        # Add user-defined environment variables
+        reserved_env_keys = set(environment)
+        for env_var in app.environment_variables:
+            if env_var.key in reserved_env_keys:
+                logger.warning(
+                    "Ignoring reserved environment variable '%s' for app '%s'",
+                    env_var.key,
+                    app.app_id,
+                )
+                continue
+            environment[env_var.key] = env_var.value
 
-    # --- Traefik Labels for the runtime container ---
-    traefik_labels = {
-        "traefik.enable": "true",
-        f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
-        f"traefik.http.routers.{container_name}.entrypoints": "websecure",
-        f"traefik.http.routers.{container_name}.tls": "true",
-        f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
-    }
+        # Define the healthcheck for the app container
+        healthcheck = {
+            "test": [
+                "CMD",
+                "python",
+                "-c",
+                "import httpx; httpx.get('http://localhost:8001/__runtime_health__').raise_for_status()",
+            ],
+            "interval": 10 * 1000000000,  # 10 seconds
+            "timeout": 5 * 1000000000,  # 5 seconds
+            "retries": 5,
+            "start_period": 15 * 1000000000,  # 15-second grace period
+        }
 
-    if _use_acme_certresolver():
-        traefik_labels[
-            f"traefik.http.routers.{container_name}.tls.certresolver"
-        ] = "myresolver"
+        # Determine volumes based on DEV_MODE
+        volumes = {}
+        if settings.DEV_MODE:
+            if settings.APP_CODE_PATH_ON_HOST:
+                # In DEV_MODE, we mount the local app code directory into the container for hot-reloading.
+                # This path should be the absolute path to the 'app' directory on the host machine.
+                volumes = {
+                    settings.APP_CODE_PATH_ON_HOST: {
+                        "bind": "/app",
+                        "mode": "rw",
+                    }
+                }
+                logger.info(
+                    f"DEV_MODE: Mounting app code from '{os.path.abspath(settings.APP_CODE_PATH_ON_HOST)}' to '/app'."
+                )
+            else:
+                logger.warning(
+                    "DEV_MODE is enabled, but APP_CODE_PATH_ON_HOST is not set. "
+                    "Hot-reloading for the app container will not work."
+                )
 
-    # Merge compose labels with traefik labels
-    all_labels = {**compose_labels, **traefik_labels}
-
-    app_image_name = get_app_image_name()
-    container = docker_manager.create_container(
-        image=app_image_name,
-        name=container_name,
-        environment=environment,
-        network=network_name,
-        volumes=volumes,
-        restart=False,
-        healthcheck=healthcheck,
-        labels=all_labels,
-    )
-    if not container or not docker_manager.start_container(container_name):
-        return None
-
-    # New health check logic based on Docker's health status
-    is_ready = False
-    logger.info(f"Waiting for container '{container_name}' to become healthy...")
-    for i in range(30):  # Wait for up to 60 seconds
+        # --- Dynamic Network Attachment & Label Inheritance ---
+        network_name = "hyac_network"  # Default fallback
+        compose_labels = {}
         try:
-            container.reload()
-            health_status = container.attrs["State"]["Health"]["Status"]
+            server_container = docker_manager.client.containers.get("hyac_server")
+            # Get the first network name from the list of networks
+            network_name = list(
+                server_container.attrs["NetworkSettings"]["Networks"].keys()
+            )[0]
             logger.info(
-                f"Container '{container_name}' health status: {health_status} (Attempt {i+1}/30)"
+                f"Server container is on network '{network_name}'. Attaching app container to the same network."
             )
-            if health_status == "healthy":
-                logger.info(f"Container '{container_name}' is healthy.")
-                is_ready = True
-                break
-            elif health_status == "unhealthy":
-                logger.error(f"Container '{container_name}' is unhealthy. Aborting.")
-                is_ready = False
-                # break
-            # If status is 'starting', continue waiting
-            await asyncio.sleep(2)
-        except KeyError:
-            # This can happen if the health status is not yet available
-            logger.info(
-                f"Health status for '{container_name}' not available yet. Waiting... (Attempt {i+1}/30)"
+            # Inherit all docker-compose labels from the server container
+            server_labels = server_container.attrs["Config"]["Labels"]
+            compose_labels = {
+                k: v
+                for k, v in server_labels.items()
+                if k.startswith("com.docker.compose")
+            }
+            # Set a specific, dynamic service name for the app container to distinguish it
+            if compose_labels:
+                compose_labels["com.docker.compose.service"] = (
+                    f"app-runtime-{app.app_id.lower()}"
+                )
+                compose_labels["com.docker.compose.oneoff"] = "False"
+                logger.info(
+                    f"Inheriting and customizing docker-compose labels: {compose_labels}"
+                )
+            else:
+                logger.warning(
+                    "No docker-compose labels found on server container to inherit."
+                )
+
+        except (errors.NotFound, KeyError, IndexError) as e:
+            logger.warning(
+                f"Could not dynamically determine server network or labels (error: {e}). "
+                f"Falling back to default network 'hyac_network'. "
+                "This might fail if the project name in docker-compose is not 'hyac'."
             )
-            await asyncio.sleep(2)
-        except errors.NotFound:
-            logger.error(f"Container '{container_name}' not found during health check.")
+
+        # --- Traefik Labels for the runtime container ---
+        traefik_labels = {
+            "traefik.enable": "true",
+            f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
+            f"traefik.http.routers.{container_name}.entrypoints": "websecure",
+            f"traefik.http.routers.{container_name}.tls": "true",
+            f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
+        }
+
+        if _use_acme_certresolver():
+            traefik_labels[
+                f"traefik.http.routers.{container_name}.tls.certresolver"
+            ] = "myresolver"
+
+        # Merge compose labels with traefik labels
+        all_labels = {**compose_labels, **traefik_labels}
+
+        app_image_name = get_app_image_name()
+        container = docker_manager.create_container(
+            image=app_image_name,
+            name=container_name,
+            environment=environment,
+            network=network_name,
+            volumes=volumes,
+            restart=False,
+            healthcheck=healthcheck,
+            labels=all_labels,
+        )
+        if not container or not docker_manager.start_container(container_name):
             return None
 
-    if not is_ready:
-        logger.error(f"Container '{container_name}' did not become healthy in time.")
-        await docker_manager.stop_container(container_name)
-        await docker_manager.remove_container(container_name)
-        return None
+        # New health check logic based on Docker's health status
+        is_ready = False
+        logger.info(f"Waiting for container '{container_name}' to become healthy...")
+        for i in range(30):  # Wait for up to 60 seconds
+            try:
+                container.reload()
+                health_status = container.attrs["State"]["Health"]["Status"]
+                logger.info(
+                    f"Container '{container_name}' health status: {health_status} (Attempt {i+1}/30)"
+                )
+                if health_status == "healthy":
+                    logger.info(f"Container '{container_name}' is healthy.")
+                    is_ready = True
+                    break
+                elif health_status == "unhealthy":
+                    logger.error(f"Container '{container_name}' is unhealthy. Aborting.")
+                    is_ready = False
+                    # break
+                # If status is 'starting', continue waiting
+                await asyncio.sleep(2)
+            except KeyError:
+                # This can happen if the health status is not yet available
+                logger.info(
+                    f"Health status for '{container_name}' not available yet. Waiting... (Attempt {i+1}/30)"
+                )
+                await asyncio.sleep(2)
+            except errors.NotFound:
+                logger.error(
+                    f"Container '{container_name}' not found during health check."
+                )
+                return None
 
-    # --- New: Network Readiness Check ---
-    # Even if healthy, wait for Docker's internal DNS to resolve the container name.
-    logger.info(f"Verifying network readiness for container '{container_name}'...")
-    network_ready = False
-    for i in range(15):  # Wait for up to 15 seconds for DNS to propagate
-        try:
-            # This runs in a thread to avoid blocking the async event loop.
-            await asyncio.to_thread(socket.gethostbyname, container_name)
-            logger.info(
-                f"Successfully resolved hostname for '{container_name}'. Network is ready."
-            )
-            network_ready = True
-            break
-        except socket.gaierror:
-            logger.warning(
-                f"DNS resolution for '{container_name}' failed. Retrying... (Attempt {i+1}/15)"
-            )
-            await asyncio.sleep(1)
+        if not is_ready:
+            logger.error(f"Container '{container_name}' did not become healthy in time.")
+            await docker_manager.stop_container(container_name)
+            await docker_manager.remove_container(container_name)
+            return None
 
-    if not network_ready:
-        logger.error(
-            f"Could not resolve hostname for '{container_name}' after multiple attempts. Aborting."
+        # --- New: Network Readiness Check ---
+        # Even if healthy, wait for Docker's internal DNS to resolve the container name.
+        logger.info(f"Verifying network readiness for container '{container_name}'...")
+        network_ready = False
+        for i in range(15):  # Wait for up to 15 seconds for DNS to propagate
+            try:
+                # This runs in a thread to avoid blocking the async event loop.
+                await asyncio.to_thread(socket.gethostbyname, container_name)
+                logger.info(
+                    f"Successfully resolved hostname for '{container_name}'. Network is ready."
+                )
+                network_ready = True
+                break
+            except socket.gaierror:
+                logger.warning(
+                    f"DNS resolution for '{container_name}' failed. Retrying... (Attempt {i+1}/15)"
+                )
+                await asyncio.sleep(1)
+
+        if not network_ready:
+            logger.error(
+                f"Could not resolve hostname for '{container_name}' after multiple attempts. Aborting."
+            )
+            await docker_manager.stop_container(container_name)
+            await docker_manager.remove_container(container_name)
+            return None
+
+        # Initialize function templates for the newly created app
+        from core.initialization import create_function_templates_for_app
+
+        await create_function_templates_for_app(app.app_id)
+
+        # Create Traefik config for web hosting
+        create_traefik_web_config(app.app_id, domain_name)
+
+        container_info = {
+            "name": container_name,
+            "id": container.id,
+        }
+        running_apps[app.app_id] = container_info
+        logger.info(
+            f"Started container for app '{app.app_id}'. Traefik proxy configured."
         )
-        await docker_manager.stop_container(container_name)
-        await docker_manager.remove_container(container_name)
-        return None
 
-    # Initialize function templates for the newly created app
-    from core.initialization import create_function_templates_for_app
+        # Clean up the lock from the dictionary if it's no longer needed
+        # This prevents the dictionary from growing indefinitely.
+        # Note: This is a simple cleanup. A more robust solution might use a timeout
+        # or a more sophisticated cache eviction policy.
+        if app.app_id in _app_start_locks:
+            del _app_start_locks[app.app_id]
 
-    await create_function_templates_for_app(app.app_id)
-
-    # Create Traefik config for web hosting
-    create_traefik_web_config(app.app_id, domain_name)
-
-    container_info = {
-        "name": container_name,
-        "id": container.id,
-    }
-    running_apps[app.app_id] = container_info
-    logger.info(f"Started container for app '{app.app_id}'. Traefik proxy configured.")
-
-    # Clean up the lock from the dictionary if it's no longer needed
-    # This prevents the dictionary from growing indefinitely.
-    # Note: This is a simple cleanup. A more robust solution might use a timeout
-    # or a more sophisticated cache eviction policy.
-    if app.app_id in _app_start_locks:
-        del _app_start_locks[app.app_id]
-
-    return container_info
+        return container_info
 
 
 async def stop_app_container(app_id: str):
@@ -957,27 +997,10 @@ async def delete_application_background(app: Application):
     except Exception as e:
         logger.error(f"Error deleting function templates for app '{app.app_id}': {e}")
 
-    # 5. Delete S3 buckets
+    # 5. Delete S3 buckets and app-scoped storage user
     try:
-        # Delete the main app bucket
-        bucket_name = app.app_id.lower()
-        if await s3_manager.bucket_exists(bucket_name):
-            objects = await s3_manager.list_objects(bucket_name, recursive=True)
-            if objects:
-                for obj in objects:
-                    await s3_manager.delete_object(bucket_name, obj["name"])
-            await s3_manager.remove_bucket(bucket_name)
-            logger.info(f"Deleted S3 bucket '{bucket_name}'.")
-
-        # Delete the web hosting bucket
-        web_bucket_name = f"web-{app.app_id.lower()}"
-        if await s3_manager.bucket_exists(web_bucket_name):
-            objects = await s3_manager.list_objects(web_bucket_name, recursive=True)
-            if objects:
-                for obj in objects:
-                    await s3_manager.delete_object(web_bucket_name, obj["name"])
-            await s3_manager.remove_bucket(web_bucket_name)
-            logger.info(f"Deleted S3 bucket '{web_bucket_name}'.")
+        await app_storage_service.delete_resources(app.app_id)
+        logger.info(f"Deleted storage resources for app '{app.app_id}'.")
 
         # Also remove the web hosting Traefik config
         remove_traefik_web_config(app.app_id)
