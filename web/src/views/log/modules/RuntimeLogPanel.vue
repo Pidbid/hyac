@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NIcon, NInput, NScrollbar, NTag, NTooltip, useMessage } from 'naive-ui';
-import { ChevronDownOutline, ChevronUpOutline, PauseCircleOutline, PlayCircleOutline, TrashOutline } from '@vicons/ionicons5';
+import {
+  ChevronDownOutline,
+  ChevronUpOutline,
+  PauseCircleOutline,
+  PlayCircleOutline,
+  TrashOutline
+} from '@vicons/ionicons5';
 import { useI18n } from 'vue-i18n';
 import { getAuthorization } from '@/service/request/shared';
 import { getServiceBaseUrl } from '@/utils/common';
@@ -64,9 +70,7 @@ const visibleText = computed(() => {
     return displayLines.value.join('\n');
   }
 
-  return displayLines.value
-    .filter(line => line.toLowerCase().includes(keyword))
-    .join('\n');
+  return displayLines.value.filter(line => line.toLowerCase().includes(keyword)).join('\n');
 });
 
 const lineCount = computed(() => {
@@ -220,7 +224,7 @@ async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boo
 
   try {
     const Authorization = getAuthorization();
-    const response = await fetch(buildLogUrl(isReconnect ? 0 : options?.tail ?? props.tail ?? 0), {
+    const response = await fetch(buildLogUrl(isReconnect ? 0 : (options?.tail ?? props.tail ?? 0)), {
       headers: Authorization ? { Authorization } : undefined,
       signal: controller.signal
     });
@@ -280,7 +284,7 @@ watch(
     pendingLines.value = [];
     reconnectAttempts.value = 0;
     if (props.appId) {
-      startStream({ preserveLogs: true, tail: cachedLines.length > 0 ? 0 : props.tail ?? 0 });
+      startStream({ preserveLogs: true, tail: cachedLines.length > 0 ? 0 : (props.tail ?? 0) });
     }
   },
   { immediate: true }
@@ -388,16 +392,20 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), rgba(245, 247, 251, 0.9) 52%, rgba(239, 244, 250, 0.95) 100%);
+  background: radial-gradient(
+    circle at top left,
+    rgba(255, 255, 255, 0.96),
+    rgba(245, 247, 251, 0.9) 52%,
+    rgba(239, 244, 250, 0.95) 100%
+  );
   box-shadow:
     0 18px 40px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.78);
   transition:
-    border-radius 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 320ms ease;
+    border-radius 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1),
+    box-shadow 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1),
+    transform 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1),
+    opacity 300ms ease;
 }
 
 .runtime-panel.compact {
@@ -464,7 +472,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   background: transparent;
-  animation: runtime-panel-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: runtime-panel-in 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1);
 }
 
 .runtime-scroll {
@@ -507,7 +515,7 @@ onBeforeUnmount(() => {
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.52);
   backdrop-filter: blur(14px);
-  animation: runtime-bar-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: runtime-bar-in 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1);
 }
 
 .collapsed-preview {
@@ -577,20 +585,20 @@ onBeforeUnmount(() => {
 
 @keyframes runtime-panel-in {
   from {
-    opacity: 0.68;
-    transform: translateY(6px);
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes runtime-bar-in {
   from {
-    opacity: 0.72;
-    transform: translateY(8px) scale(0.99);
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
   }
 
   to {

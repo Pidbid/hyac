@@ -206,7 +206,7 @@ onMounted(async () => {
     insertSpaces: true,
     minimap: { enabled: props.showMinimap },
     lineNumbers: props.showLineNumbers ? 'on' : 'off',
-    automaticLayout: true,
+    automaticLayout: false,
     scrollBeyondLastLine: false,
     wordWrap: 'on',
     fontFamily: "'Courier New', monospace",
@@ -228,7 +228,14 @@ onMounted(async () => {
     emit('update:code', editor?.getValue() || '');
   });
 
+  editor.layout();
   syncLspConnection();
+});
+
+defineExpose({
+  layout() {
+    editor?.layout();
+  }
 });
 
 onBeforeUnmount(() => {

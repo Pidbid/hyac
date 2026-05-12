@@ -243,7 +243,6 @@ declare namespace Api {
       pageNum: number;
       pageSize: number;
     }
-
   }
 
   /**

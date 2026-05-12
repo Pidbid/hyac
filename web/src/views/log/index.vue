@@ -1,13 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
 import { onMounted, ref } from 'vue';
-import {
-  NButton,
-  NIcon,
-  NSelect,
-  NSpace,
-  useMessage
-} from 'naive-ui';
+import { NButton, NIcon, NSelect, NSpace, useMessage } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { ReloadOutline, TerminalOutline } from '@vicons/ionicons5';
 import { GetFunctionData } from '@/service/api/function';

@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { NIcon, NTooltip } from 'naive-ui';
-import { AddOutline, CodeSlashOutline, CubeOutline, HammerOutline, ShareSocialOutline, TrashSharp } from '@vicons/ionicons5';
+import {
+  AddOutline,
+  CodeSlashOutline,
+  CubeOutline,
+  HammerOutline,
+  ShareSocialOutline,
+  TrashSharp
+} from '@vicons/ionicons5';
 import { $t } from '@/locales';
 
 const props = defineProps<{

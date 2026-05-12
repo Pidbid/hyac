@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { NIcon } from 'naive-ui';
 import {
   BrushOutline,
@@ -9,6 +10,14 @@ import {
 } from '@vicons/ionicons5';
 import { $t } from '@/locales';
 import EditorMonaco from './EditorMonaco.vue';
+
+const editorMonacoRef = ref<InstanceType<typeof EditorMonaco> | null>(null);
+
+defineExpose({
+  layoutEditor() {
+    editorMonacoRef.value?.layout();
+  }
+});
 
 interface editorConfigT {
   language: string;
@@ -61,6 +70,7 @@ const emit = defineEmits(['save-code', 'open-history', 'update:code', 'open-edit
     </div>
     <div class="editor-content">
       <EditorMonaco
+        ref="editorMonacoRef"
         :key="func.id"
         :code="func.code"
         :show-minimap="editorConfig.minimap"

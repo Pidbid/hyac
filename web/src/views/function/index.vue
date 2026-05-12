@@ -19,8 +19,8 @@ import {
   NScrollbar,
   NSelect,
   NSpace,
-  NSplit,
   NSpin,
+  NSplit,
   NSwitch,
   NTabPane,
   NTabs,
@@ -136,28 +136,52 @@ const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const showAiWindow = ref(false);
 const activePanel = ref<'test' | 'cron'>('test');
 const logCollapsed = ref(false);
-const logExpanding = ref(false);
-let logExpandTimer: number | null = null;
+const logAnimState = ref<'idle' | 'collapsing' | 'expanding'>('idle');
+let logAnimTimer: number | null = null;
+let editorLayoutTimer: number | null = null;
+const editorPanelRef = ref<InstanceType<typeof FunctionEditorPanel> | null>(null);
+
+function scheduleEditorLayout(delay: number) {
+  if (editorLayoutTimer !== null) {
+    window.clearTimeout(editorLayoutTimer);
+  }
+  editorLayoutTimer = window.setTimeout(() => {
+    editorPanelRef.value?.layoutEditor();
+    editorLayoutTimer = null;
+  }, delay);
+}
+
+function clearLogAnimTimer() {
+  if (logAnimTimer !== null) {
+    window.clearTimeout(logAnimTimer);
+    logAnimTimer = null;
+  }
+  if (editorLayoutTimer !== null) {
+    window.clearTimeout(editorLayoutTimer);
+    editorLayoutTimer = null;
+  }
+}
 
 function handleCollapseLog() {
-  if (logExpandTimer !== null) {
-    window.clearTimeout(logExpandTimer);
-    logExpandTimer = null;
-  }
-  logCollapsed.value = true;
-  logExpanding.value = false;
+  clearLogAnimTimer();
+  logAnimState.value = 'collapsing';
+  logAnimTimer = window.setTimeout(() => {
+    logCollapsed.value = true;
+    logAnimState.value = 'idle';
+    logAnimTimer = null;
+    scheduleEditorLayout(50);
+  }, 300);
 }
 
 function handleExpandLog() {
-  if (logExpandTimer !== null) {
-    window.clearTimeout(logExpandTimer);
-  }
-  logExpanding.value = true;
-  logExpandTimer = window.setTimeout(() => {
-    logCollapsed.value = false;
-    logExpanding.value = false;
-    logExpandTimer = null;
-  }, 180);
+  clearLogAnimTimer();
+  logCollapsed.value = false;
+  logAnimState.value = 'expanding';
+  scheduleEditorLayout(50);
+  logAnimTimer = window.setTimeout(() => {
+    logAnimState.value = 'idle';
+    logAnimTimer = null;
+  }, 350);
 }
 
 // Computed
@@ -1505,9 +1529,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (logExpandTimer !== null) {
-    window.clearTimeout(logExpandTimer);
-  }
+  clearLogAnimTimer();
 });
 </script>
 
@@ -1537,12 +1559,10 @@ onBeforeUnmount(() => {
             <NSplit class="workspace-split" :default-size="0.82" :min="0.42" :max="0.86">
               <template #1>
                 <section class="primary-column">
-                  <div
-                    class="editor-log-layout"
-                    :class="{ 'log-collapsed': logCollapsed, 'log-expanding': logExpanding }"
-                  >
+                  <div class="editor-log-layout" :class="{ 'log-collapsed': logCollapsed }">
                     <div class="editor-section">
                       <FunctionEditorPanel
+                        ref="editorPanelRef"
                         :func="selectedFunction"
                         :code-changed="codeChanged"
                         :is-saving="isSaving"
@@ -1554,7 +1574,14 @@ onBeforeUnmount(() => {
                         @edit-meta="handleEditMeta"
                       />
                     </div>
-                    <div class="log-container" :class="{ compact: logCollapsed }">
+                    <div
+                      class="log-container"
+                      :class="{
+                        compact: logCollapsed,
+                        'log-anim-collapsing': logAnimState === 'collapsing',
+                        'log-anim-expanding': logAnimState === 'expanding'
+                      }"
+                    >
                       <FunctionLogPanel
                         :app-id="applicationStore.appId"
                         :func-id="selectedFunction.id"
@@ -1687,23 +1714,12 @@ onBeforeUnmount(() => {
 .editor-section {
   flex: 0 1 70%;
   min-height: 0;
-  transition:
-    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    flex-grow 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .log-container {
   flex: 1 1 30%;
   min-width: 0;
   min-height: 0;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    height 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    flex-grow 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 320ms ease,
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .editor-log-layout.log-collapsed .editor-section {
@@ -1713,30 +1729,46 @@ onBeforeUnmount(() => {
 .log-container.compact {
   flex: none;
   height: 48px;
-  opacity: 0.96;
-  transform: translateY(2px);
+  max-height: 48px;
 }
 
-.editor-log-layout.log-expanding .log-container {
-  animation: log-container-expand 420ms cubic-bezier(0.22, 1, 0.36, 1);
+.log-container.log-anim-collapsing {
+  animation: log-collapse 300ms cubic-bezier(0.6, 0, 0.4, 1) forwards;
 }
 
-@keyframes log-container-expand {
+.log-container.log-anim-expanding {
+  animation: log-expand 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+}
+
+@keyframes log-collapse {
   0% {
-    height: 48px;
-    opacity: 0.78;
-    transform: translateY(10px) scale(0.985);
-  }
-
-  55% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-
   100% {
-    height: 32%;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes log-expand {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-container.log-anim-collapsing,
+  .log-container.log-anim-expanding {
+    animation: none;
   }
 }
 

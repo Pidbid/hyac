@@ -23,8 +23,8 @@ import type { DataTableColumns } from 'naive-ui';
 import {
   AddOutline,
   BanOutline,
-  CubeOutline,
   CreateOutline,
+  CubeOutline,
   DocumentTextOutline,
   RefreshOutline,
   TrashOutline
@@ -523,11 +523,7 @@ onMounted(async () => {
             </NCard>
           </template>
           <template #2>
-            <NCard
-              :bordered="false"
-              size="small"
-              class="apple-panel operation-panel"
-            >
+            <NCard :bordered="false" size="small" class="apple-panel operation-panel">
               <template #header>
                 <div class="panel-title">
                   <NIcon :component="CreateOutline" :size="16" />
