@@ -835,6 +835,7 @@ const local: App.I18n.Schema = {
     fullscreenExit: '退出全屏',
     reload: '刷新页面',
     collapse: '折叠菜单',
+    collapseLog: '折叠日志',
     expand: '展开菜单',
     pin: '固定',
     unpin: '取消固定'

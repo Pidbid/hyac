@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
                 <NIcon :component="ChevronDownOutline" />
               </NButton>
             </template>
-            {{ t('icon.collapse') }}
+            {{ t('icon.collapseLog') }}
           </NTooltip>
         </div>
       </div>

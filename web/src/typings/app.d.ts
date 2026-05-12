@@ -1055,6 +1055,7 @@ declare namespace App {
         fullscreenExit: string;
         reload: string;
         collapse: string;
+        collapseLog: string;
         expand: string;
         pin: string;
         unpin: string;
