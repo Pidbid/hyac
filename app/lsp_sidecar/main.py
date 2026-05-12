@@ -1,9 +1,10 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from shutil import which
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from starlette.websockets import WebSocketState
 
@@ -24,6 +25,20 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 async def health():
+    missing = [
+        command
+        for command in ("node", "pyright-langserver")
+        if which(command) is None
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unhealthy",
+                "missing": missing,
+                "hint": "Rebuild the lsp-sidecar image.",
+            },
+        )
     return {"status": "ok"}
 
 
