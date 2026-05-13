@@ -12,6 +12,8 @@ import { useI18n } from 'vue-i18n';
 import { getAuthorization } from '@/service/request/shared';
 import { getServiceBaseUrl } from '@/utils/common';
 
+const LOG_ENTRY_LIMIT = 4000;
+const timestampedLogLinePattern = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+\|\s+[A-Z]+\s+\|/;
 const logCache = new Map<string, string[]>();
 
 const props = defineProps<{
@@ -30,12 +32,12 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const message = useMessage();
 
-const lines = ref<string[]>([]);
+const logEntries = ref<string[]>([]);
 const search = ref('');
 const loading = ref(false);
 const connected = ref(false);
 const paused = ref(false);
-const pendingLines = ref<string[]>([]);
+const pendingChunks = ref<string[]>([]);
 const errorText = ref('');
 const scrollbarRef = ref<any>(null);
 const abortController = ref<AbortController | null>(null);
@@ -62,15 +64,15 @@ const statusDot = computed(() => {
   return { className: 'is-idle', label: t('page.log.runtimeDisconnected') };
 });
 
-const displayLines = computed(() => [...lines.value].reverse().map(formatLogLine));
+const displayEntries = computed(() => [...logEntries.value].reverse().map(formatLogEntry));
 
 const visibleText = computed(() => {
   const keyword = search.value.trim().toLowerCase();
   if (!keyword) {
-    return displayLines.value.join('\n');
+    return displayEntries.value.join('\n');
   }
 
-  return displayLines.value.filter(line => line.toLowerCase().includes(keyword)).join('\n');
+  return displayEntries.value.filter(entry => entry.toLowerCase().includes(keyword)).join('\n');
 });
 
 const lineCount = computed(() => {
@@ -79,8 +81,8 @@ const lineCount = computed(() => {
 });
 
 const latestLine = computed(() => {
-  const latest = [...lines.value].reverse().find(line => line.trim());
-  if (latest) return formatLogLine(latest);
+  const latest = [...logEntries.value].reverse().find(entry => entry.trim());
+  if (latest) return formatLogEntry(latest).split('\n').find(line => line.trim()) || '';
   if (loading.value) return t('page.log.runtimeConnecting');
   return t('page.log.runtimeEmpty');
 });
@@ -119,19 +121,38 @@ function formatLogLine(line: string) {
   );
 }
 
+function formatLogEntry(entry: string) {
+  return entry.split('\n').map(formatLogLine).join('\n');
+}
+
+function mergeLogChunk(entries: string[], data: string) {
+  const normalized = normalizeChunk(data);
+  if (!normalized) return entries;
+
+  const nextEntries = [...entries];
+
+  for (const line of normalized.split('\n')) {
+    if (timestampedLogLinePattern.test(line) || nextEntries.length === 0) {
+      nextEntries.push(line);
+    } else {
+      nextEntries[nextEntries.length - 1] = `${nextEntries[nextEntries.length - 1]}\n${line}`;
+    }
+  }
+
+  return nextEntries.slice(-LOG_ENTRY_LIMIT);
+}
+
 function appendLog(data: string) {
   const normalized = normalizeChunk(data);
   if (!normalized) return;
 
-  const incomingLines = normalized.split('\n');
-
   if (paused.value) {
-    pendingLines.value = [...pendingLines.value, ...incomingLines].slice(-4000);
+    pendingChunks.value = [...pendingChunks.value, normalized].slice(-LOG_ENTRY_LIMIT);
     return;
   }
 
-  lines.value = [...lines.value, ...incomingLines].slice(-4000);
-  logCache.set(cacheKey.value, lines.value);
+  logEntries.value = mergeLogChunk(logEntries.value, normalized);
+  logCache.set(cacheKey.value, logEntries.value);
 }
 
 function handleSseBlock(block: string) {
@@ -215,7 +236,7 @@ async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boo
   loading.value = true;
   errorText.value = '';
   if (!preserveLogs) {
-    lines.value = [];
+    logEntries.value = [];
     reconnectAttempts.value = 0;
   }
 
@@ -260,17 +281,17 @@ async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boo
 }
 
 function clearLogs() {
-  lines.value = [];
-  pendingLines.value = [];
+  logEntries.value = [];
+  pendingChunks.value = [];
   logCache.delete(cacheKey.value);
 }
 
 function togglePaused() {
   paused.value = !paused.value;
-  if (!paused.value && pendingLines.value.length > 0) {
-    lines.value = [...lines.value, ...pendingLines.value].slice(-4000);
-    pendingLines.value = [];
-    logCache.set(cacheKey.value, lines.value);
+  if (!paused.value && pendingChunks.value.length > 0) {
+    logEntries.value = pendingChunks.value.reduce(mergeLogChunk, logEntries.value);
+    pendingChunks.value = [];
+    logCache.set(cacheKey.value, logEntries.value);
   }
 }
 
@@ -279,12 +300,12 @@ watch(
   () => {
     clearReconnectTimer();
     stopStream();
-    const cachedLines = logCache.get(cacheKey.value) || [];
-    lines.value = cachedLines;
-    pendingLines.value = [];
+    const cachedEntries = logCache.get(cacheKey.value) || [];
+    logEntries.value = cachedEntries;
+    pendingChunks.value = [];
     reconnectAttempts.value = 0;
     if (props.appId) {
-      startStream({ preserveLogs: true, tail: cachedLines.length > 0 ? 0 : (props.tail ?? 0) });
+      startStream({ preserveLogs: true, tail: cachedEntries.length > 0 ? 0 : (props.tail ?? 0) });
     }
   },
   { immediate: true }
