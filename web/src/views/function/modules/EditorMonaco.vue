@@ -4,7 +4,12 @@ import '@/utils/monaco-worker';
 import * as monaco from 'monaco-editor';
 import { useApplicationStore } from '@/store/modules/application';
 import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
-import { connectLsp, disconnectLsp, requestLspCompletionItems } from '@/utils/lsp';
+import {
+  connectLsp,
+  disconnectLsp,
+  requestLspCompletionItems,
+  requestLspFormattingEdits
+} from '@/utils/lsp';
 import { convertDomain, getServiceBaseUrl } from '@/utils/common';
 import { localStg } from '@/utils/storage';
 
@@ -195,6 +200,20 @@ function registerPythonLanguage() {
           return { suggestions: await requestLspCompletionItems(model, position) };
         } catch {
           return { suggestions: [] };
+        }
+      }
+    });
+  } catch {
+    // Monaco internal services may not be fully available; skip gracefully.
+  }
+
+  try {
+    monaco.languages.registerDocumentFormattingEditProvider('python', {
+      provideDocumentFormattingEdits: async model => {
+        try {
+          return await requestLspFormattingEdits(model);
+        } catch {
+          return [];
         }
       }
     });

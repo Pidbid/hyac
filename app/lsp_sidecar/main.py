@@ -27,7 +27,7 @@ app = FastAPI(lifespan=lifespan)
 async def health():
     missing = [
         command
-        for command in ("node", "pyright-langserver")
+        for command in ("node", "pyright-langserver", "autopep8")
         if which(command) is None
     ]
     if missing:
@@ -129,7 +129,7 @@ def _track_document(docs: dict[str, str], payload: str) -> None:
 
 
 def _handle_formatting(payload: str, docs: dict[str, str]) -> str | None:
-    """Intercept textDocument/formatting and run ruff format. Returns response or None."""
+    """Intercept textDocument/formatting and run autopep8."""
     try:
         msg = json.loads(payload)
     except json.JSONDecodeError:
