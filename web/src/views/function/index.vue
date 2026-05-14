@@ -125,6 +125,7 @@ const selectedFunction = ref<Api.Function.FunctionInfo>({
 });
 const originalCode = ref('');
 const codeChanged = ref(false);
+const codeDrafts = reactive<Record<string, { code: string; originalCode: string }>>({});
 const isSaving = ref(false);
 const functionRequestData = ref({ page: 1, length: 50 });
 const tags = ref<string[]>([]);
@@ -193,21 +194,43 @@ const functionAddress = computed(() => {
   return '';
 });
 
+function cloneFunctionInfo(func: Api.Function.FunctionInfo): Api.Function.FunctionInfo {
+  return {
+    ...func,
+    tags: [...func.tags]
+  };
+}
+
+function cacheCurrentCodeDraft() {
+  const { id, code } = selectedFunction.value;
+  if (!id) return;
+
+  if (code !== originalCode.value) {
+    codeDrafts[id] = { code, originalCode: originalCode.value };
+  } else {
+    delete codeDrafts[id];
+  }
+}
+
+function setSelectedFunction(func: Api.Function.FunctionInfo) {
+  const draft = codeDrafts[func.id];
+  const nextFunction = cloneFunctionInfo(func);
+
+  if (draft) {
+    nextFunction.code = draft.code;
+  }
+
+  selectedFunction.value = nextFunction;
+  originalCode.value = draft?.originalCode ?? func.code;
+  codeChanged.value = selectedFunction.value.code !== originalCode.value;
+  functionStore.setFuncInfo(cloneFunctionInfo(selectedFunction.value));
+}
+
 // Watchers
 watch(
   () => selectedFunction.value.code,
   newCode => {
     codeChanged.value = newCode !== originalCode.value;
-  }
-);
-
-watch(
-  () => selectedFunction.value.id,
-  (newId, oldId) => {
-    if (newId && newId !== oldId) {
-      originalCode.value = selectedFunction.value.code;
-      codeChanged.value = false;
-    }
   }
 );
 
@@ -233,6 +256,7 @@ const getFunctionData = async () => {
   );
 
   if (!error) {
+    cacheCurrentCodeDraft();
     functions.value = data.data.map((func: Api.Function.FunctionRecord) => ({
       id: func.function_id,
       name: func.function_name,
@@ -243,11 +267,9 @@ const getFunctionData = async () => {
       code: func.code
     }));
     if (functions.value.length > 0) {
-      const funcToSelect =
-        functionStore.funcInfo && functions.value.some(f => f.id === functionStore.funcInfo?.id)
-          ? functionStore.funcInfo
-          : functions.value[0];
-      functionSelect(funcToSelect);
+      const selectedId = selectedFunction.value.id || functionStore.funcInfo?.id;
+      const funcToSelect = functions.value.find(f => f.id === selectedId) ?? functions.value[0];
+      setSelectedFunction(funcToSelect);
     } else {
       selectedFunction.value = {
         id: '',
@@ -258,6 +280,9 @@ const getFunctionData = async () => {
         tags: [],
         code: ''
       };
+      originalCode.value = '';
+      codeChanged.value = false;
+      functionStore.setFuncInfo(null);
     }
   }
 };
@@ -275,10 +300,8 @@ const handleTagSelect = (tag: string) => {
 };
 
 const functionSelect = (func: Api.Function.FunctionInfo) => {
-  selectedFunction.value = func;
-  originalCode.value = func.code;
-  codeChanged.value = false;
-  functionStore.setFuncInfo(func);
+  cacheCurrentCodeDraft();
+  setSelectedFunction(func);
 };
 
 const handleCreateFunction = () => {
@@ -483,23 +506,31 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
 
 const handleSaveCode = async () => {
   if (!codeChanged.value || isSaving.value) return;
+  const savingFunctionId = selectedFunction.value.id;
+  const savedCode = selectedFunction.value.code;
+
   isSaving.value = true;
   try {
-    const { error } = await UpdateFunctionCode(
-      applicationStore.appId,
-      selectedFunction.value.id,
-      selectedFunction.value.code
-    );
+    const { error } = await UpdateFunctionCode(applicationStore.appId, savingFunctionId, savedCode);
     if (!error) {
-      const currentEditFunctionId = selectedFunction.value.id;
       message.success($t('page.function.saveSuccess'));
-      originalCode.value = selectedFunction.value.code;
-      codeChanged.value = false;
-      await getFunctionData();
-      const updatedFunc = functions.value.find(f => f.id === currentEditFunctionId);
-      if (updatedFunc) {
-        selectedFunction.value = updatedFunc;
+
+      if (selectedFunction.value.id === savingFunctionId) {
+        originalCode.value = savedCode;
+        codeChanged.value = selectedFunction.value.code !== savedCode;
+        if (codeChanged.value) {
+          codeDrafts[savingFunctionId] = { code: selectedFunction.value.code, originalCode: savedCode };
+        } else {
+          delete codeDrafts[savingFunctionId];
+        }
+        functionStore.setFuncInfo(cloneFunctionInfo(selectedFunction.value));
+      } else if (codeDrafts[savingFunctionId]?.code === savedCode) {
+        delete codeDrafts[savingFunctionId];
+      } else if (codeDrafts[savingFunctionId]) {
+        codeDrafts[savingFunctionId].originalCode = savedCode;
       }
+
+      await getFunctionData();
     } else {
       message.error($t('page.function.saveFailed'));
     }

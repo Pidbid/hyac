@@ -79,6 +79,17 @@ function createPythonModel(value: string) {
   return editorModel;
 }
 
+function syncEditorCode(value: string) {
+  if (!editorModel || editorModel.getValue() === value) return;
+  const position = editor?.getPosition();
+  editorModel.setValue(value);
+  if (position) {
+    const lineNumber = Math.min(position.lineNumber, editorModel.getLineCount());
+    const column = Math.min(position.column, editorModel.getLineMaxColumn(lineNumber));
+    editor?.setPosition({ lineNumber, column });
+  }
+}
+
 function registerPythonLanguage() {
   if (monacoRegistered) return;
   monacoRegistered = true;
@@ -285,6 +296,12 @@ watch(
   () => [applicationStore.appId, applicationStore.appInfo.appId],
   () => {
     syncLspConnection();
+  }
+);
+watch(
+  () => props.code,
+  value => {
+    syncEditorCode(value ?? '');
   }
 );
 </script>
