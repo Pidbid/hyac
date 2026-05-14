@@ -1,47 +1,74 @@
 # Architecture
 
-Hyac is built on a modern, container-based architecture. It's designed to be scalable, resilient, and easy to maintain.
+Hyac is deployed with Docker Compose. The main components are Traefik, Web console, Server, MongoDB, RustFS, application runtime image, and LSP sidecar.
 
 ```mermaid
 graph TD
-    A[User] --> B{Nginx};
-    B --> C[Web UI (Vue3)];
-    B --> D[Server API (FastAPI)];
-    D --> E{Docker Manager};
-    E --> F[App Container (FaaS)];
-    D --> G[MongoDB];
-    D --> H[RustFS];
-    F --> G;
-    F --> H;
+    U[User Browser] --> T[Traefik]
+    T --> W[Web Console]
+    T --> S[Server / FastAPI]
+    T --> O[RustFS / S3-Compatible Object Storage]
+    T --> R[Application Runtime Container]
+
+    W --> S
+    S --> M[(MongoDB replica set)]
+    S --> O
+    S --> D[Docker API]
+    S --> L[LSP sidecar]
+    D --> R
+    R --> M
+    R --> O
+    R --> L
 ```
 
-## Components
+## Entry Routing
 
-### Web UI
+Traefik is the external traffic entry point.
 
-The Web UI is a single-page application built with Vue 3 and Naive UI. It provides a user-friendly interface for managing applications, functions, and other resources.
+- `https://console.<DOMAIN_NAME>` opens the Web console.
+- `https://server.<DOMAIN_NAME>` reaches Server.
+- `https://oss.<DOMAIN_NAME>` reaches RustFS/S3-compatible object storage.
+- `https://<app_id>.<DOMAIN_NAME>/<function_id>` invokes an application function.
 
-### Server API
+Production uses `docker-compose.yml` and ACME certificates. Development uses `docker-compose.dev.yml`, `.env.dev`, and local TLS certificates.
 
-The Server API is the core of the Hyac platform. It's a FastAPI application that provides a RESTful API for managing resources. It's responsible for:
+## Web Console
 
-- Authenticating users
-- Managing applications and functions
-- Interacting with the database and object storage
-- Managing the lifecycle of FaaS containers
+The Web console is built with Vue 3, Vite, Naive UI, and TypeScript. Users manage applications, functions, database, object storage, logs, and settings through the console.
 
-### Database
+## Server
 
-Hyac uses MongoDB to store metadata about applications, functions, and other resources.
+Server is a FastAPI service responsible for:
 
-### Object Storage
+- Authentication and permission checks.
+- Application, function, template, setting, log, and statistics management.
+- MongoDB reads and writes.
+- RustFS/S3-compatible object storage management.
+- Creating and managing application runtime containers through Docker API.
+- Forwarding LSP requests for the online editor.
 
-Hyac uses RustFS as S3-compatible object storage for function code, dependencies, and other files.
+On startup, Server initializes the database, default resources, application image, task worker, and dynamic scheduler.
 
-### Docker Manager
+## MongoDB
 
-The Docker Manager is responsible for managing the lifecycle of FaaS containers. It uses the Docker API to create, start, stop, and remove containers.
+MongoDB runs as a replica set. Hyac stores users, applications, functions, statistics, logs, settings, captchas, and other platform data in it.
 
-### FaaS Container
+Each application also has its own database account and database name. Runtime functions access the current application database through `ctx.db` or `ctx.sync_db`.
 
-A FaaS Container is a Docker container that runs a single FaaS application. It's responsible for executing functions and managing dependencies.
+## RustFS Object Storage
+
+RustFS provides S3-compatible object storage. The Object Storage page and function `ctx.s3` calls use the same application bucket.
+
+## Application Runtime Container
+
+Application functions do not run inside the Server process. On the first request to an application, Server starts a dedicated runtime container through Docker API:
+
+```text
+hyac-app-runtime-<lowercase_app_id>
+```
+
+The runtime container loads the current application's function code, common functions, environment variables, dependencies, database connection, and object storage context. After the container is healthy, Traefik and Server route application requests to port `8001` in the container.
+
+## LSP Sidecar
+
+The LSP sidecar provides Python language service for the online editor. In development, sidecar mode is enabled by default, and Server/runtime forward editor LSP requests to `hyac_lsp_sidecar:9002`.

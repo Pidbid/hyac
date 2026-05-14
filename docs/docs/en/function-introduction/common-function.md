@@ -2,6 +2,10 @@
 
 When your business logic becomes complex, putting all the code in a single API function can become difficult to maintain. In such cases, you can extract the reusable parts into **Common Functions**.
 
+![Common Functions in Function Management](../../assets/user-guide/function-management.png)
+
+Common functions and API functions are managed on the same "Function" page. Use the left-side filters to switch between API and common functions.
+
 Common functions are like reusable code libraries. They cannot be called directly via an API but can be referenced by any API function, enabling code reuse and logical decoupling.
 
 A common function module can contain any number of functions and classes.

@@ -58,16 +58,8 @@ plugins:
               - '函数管理': 'user-guide/function-management.md'
               - '数据库访问': 'user-guide/database-access.md'
               - '对象存储': 'user-guide/storage-access.md'
+              - '日志': 'user-guide/logs.md'
               - '用户设置': 'user-guide/user-settings.md'
-            - '开发':
-              - '开发环境': 'development/dev-environment.md'
-              - '开发者部署': 'development/developer-deployment.md'
-              - '项目结构': 'development/project-structure.md'
-              - '贡献': 'development/contributing.md'
-            - 'API 参考':
-              - '认证': 'api-reference/authentication.md'
-              - '函数 API': 'api-reference/functions-api.md'
-              - '应用 API': 'api-reference/applications-api.md'
         - locale: en
           name: English
           build: true
@@ -92,13 +84,5 @@ plugins:
               - 'Function Management': 'user-guide/function-management.md'
               - 'Database Access': 'user-guide/database-access.md'
               - 'Storage Access': 'user-guide/storage-access.md'
+              - 'Logs': 'user-guide/logs.md'
               - 'User Settings': 'user-guide/user-settings.md'
-            - 'Development':
-              - 'Dev Environment': 'development/dev-environment.md'
-              - 'Developer Deployment': 'development/developer-deployment.md'
-              - 'Project Structure': 'development/project-structure.md'
-              - 'Contributing': 'development/contributing.md'
-            - 'API Reference':
-              - 'Authentication': 'api-reference/authentication.md'
-              - 'Functions API': 'api-reference/functions-api.md'
-              - 'Applications API': 'api-reference/applications-api.md'

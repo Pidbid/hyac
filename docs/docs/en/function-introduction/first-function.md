@@ -2,6 +2,10 @@
 
 This guide will walk you through the process of creating and deploying your first function on Hyac.
 
+![Function Management Page](../../assets/user-guide/function-management.png)
+
+Creating and testing functions mainly happens on the "Function" page. Select a function on the left, edit code and view live logs in the middle, and run function tests on the right.
+
 ## 1. About Applications
 
 After starting the Hyac project for the first time, a default application will be created for you automatically. Of course, you can also create new applications to group and manage your functions according to your business needs.
@@ -48,3 +52,4 @@ You can use a tool like `curl` or Postman to send a request to the endpoint.
 # Replace <your-domain> with your configured domain
 # Replace <function-id> with your Function ID
 curl -X POST https://<app-id>.<your-domain>/<function-id>
+```

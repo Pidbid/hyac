@@ -2,6 +2,10 @@
 
 本指南将引导您完成在 Hyac 上创建和部署您的第一个函数的过程。
 
+![函数管理页面](../../assets/user-guide/function-management.png)
+
+创建和测试函数主要在“云函数”页面完成。左侧选择函数，中间编辑代码并查看实时日志，右侧执行函数测试。
+
 ## 1. 关于应用
 
 在初次启动 Hyac 项目后，系统会自动为您创建一个默认的应用。当然，您也可以根据业务需求自行创建新的应用来对函数进行分组管理。
@@ -48,3 +52,4 @@
 # 将 <your-domain> 替换为您的配置域名
 # 将 <function-id> 替换为您的函数ID
 curl -X POST https://<app-id>.<your-domain>/<function-id>
+```

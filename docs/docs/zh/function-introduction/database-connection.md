@@ -1,104 +1,109 @@
-# 链接数据库
+# 连接数据库
 
-在 Hyac 的端点函数中，您可以通过 `context` 对象轻松地与数据库进行交互。平台同时提供了两种操作 MongoDB 的方式：
+Hyac 会为每个应用准备独立的 MongoDB 数据库，并在函数运行时自动注入数据库对象。函数代码不需要手动创建 MongoDB 连接，也不需要维护数据库账号密码。
 
--   **异步 (Motor)**: 通过 `context.motor_db` 访问，性能更高，是**推荐**的方式。
--   **同步 (PyMongo)**: 通过 `context.pymongo_db` 访问，写法更传统，适合不熟悉异步编程的场景。
+当前版本已经不再使用 Motor。新函数请使用 PyMongo 的异步入口 `ctx.db`，必要时再使用同步入口 `ctx.sync_db`。
 
-## 1. 异步操作 (Motor) - 推荐
+![数据库页面](../../assets/user-guide/database-access.png)
 
-使用异步方式可以充分利用 Python 的 `asyncio` 特性，避免在等待数据库响应时阻塞整个应用，从而实现更高的并发性能。
+控制台“数据库”页用于查看当前应用的集合和文档。函数中的 `ctx.db` 与该应用数据库对应。
 
-### 关键点
+## 推荐：`ctx.db`
 
--   函数必须使用 `async def` 定义。
--   通过 `context.motor_db` 获取异步数据库实例。
--   在所有数据库操作前使用 `await` 关键字。
-
-### 示例代码
-
-下面的示例展示了如何在一个端点函数中使用 Motor 来执行完整的增、删、改、查（CRUD）操作。
+`ctx.db` 是当前应用的异步 PyMongo 数据库对象，适合大多数函数。
 
 ```python
-from datetime import datetime
-from loguru import logger
-from bson import ObjectId
+async def handler(ctx, request):
+    tasks = ctx.db["tasks"]
 
-async def handler(context, request, name: str = "World", value: int = 0):
-    """
-    一个使用 Motor (异步) 进行数据库操作的完整示例。
-    """
-    
-    logger.info(f"[异步] 接收到参数: name='{name}', value={value}")
-    db = context.motor_db  # 获取异步 Motor 数据库客户端
-    demo_collection = db["hyac_demo_async"]
-    
-    # 1. 创建 (CREATE)
-    doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
-    res = await demo_collection.insert_one(doc)
-    inserted_id = res.inserted_id
-    logger.info(f"[异步] CREATE: 文档已插入, ID: {inserted_id}")
+    result = await tasks.insert_one({
+        "title": "hello hyac",
+        "done": False
+    })
 
-    # 2. 读取 (READ)
-    read_doc = await demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[异步] READ: 查找到文档: {read_doc}")
+    task = await tasks.find_one({"_id": result.inserted_id})
+    task["_id"] = str(task["_id"])
 
-    # 3. 更新 (UPDATE)
-    await demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
-    updated_doc = await demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[异步] UPDATE: 文档状态已更新: {updated_doc}")
-
-    # 4. 删除 (DELETE)
-    await demo_collection.delete_one({"_id": inserted_id})
-    logger.info(f"[异步] DELETE: 文档已清理")
-    
-    return {"status": "ok", "driver": "motor (async)", "inserted_id": str(inserted_id)}
+    return task
 ```
 
-## 2. 同步操作 (PyMongo)
-
-如果您更习惯传统的同步编程方式，或者需要执行一些不支持异步的库，可以使用 PyMongo。
-
-Hyac 在后台对同步操作进行了优化：虽然您的代码是同步的，但 FastAPI 会在一个独立的线程池中运行它，从而避免阻塞主事件循环。
-
-### 关键点
-
--   函数仍建议使用 `async def` 定义，以保持一致性。
--   通过 `context.pymongo_db` 获取同步数据库实例。
--   数据库操作是标准的同步写法，无需 `await`。
-
-### 示例代码
+查询多条数据时使用异步迭代：
 
 ```python
-from datetime import datetime
-from loguru import logger
-from bson import ObjectId
+async def handler(ctx, request):
+    rows = []
 
-async def handler(context, request, name: str = "World", value: int = 0):
-    """
-    一个使用 PyMongo (同步) 进行数据库操作的完整示例。
-    """
-    logger.info(f"[同步] 接收到参数: name='{name}', value={value}")
-    db = context.pymongo_db  # 获取同步 PyMongo 数据库客户端
-    demo_collection = db["hyac_demo_sync"]
-    
-    # 1. 创建 (CREATE)
-    doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
-    res = demo_collection.insert_one(doc)
-    inserted_id = res.inserted_id
-    logger.info(f"[同步] CREATE: 文档已插入, ID: {inserted_id}")
+    async for item in ctx.db["tasks"].find({"done": False}).limit(20):
+        item["_id"] = str(item["_id"])
+        rows.append(item)
 
-    # 2. 读取 (READ)
-    read_doc = demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[同步] READ: 查找到文档: {read_doc}")
+    return {"items": rows}
+```
 
-    # 3. 更新 (UPDATE)
-    demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
-    updated_doc = demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[同步] UPDATE: 文档状态已更新: {updated_doc}")
+## 同步入口：`ctx.sync_db`
 
-    # 4. 删除 (DELETE)
-    demo_collection.delete_one({"_id": inserted_id})
-    logger.info(f"[同步] DELETE: 文档已清理")
-    
-    return {"status": "ok", "driver": "pymongo (sync)", "inserted_id": str(inserted_id)}
+如果某些旧代码或第三方库只能同步执行，可以使用 `ctx.sync_db`。
+
+```python
+async def handler(ctx, request):
+    logs = ctx.sync_db["logs"]
+    result = logs.insert_one({"message": "created from sync PyMongo"})
+    return {"id": str(result.inserted_id)}
+```
+
+同步操作会阻塞当前执行线程。面向高并发访问的函数应优先使用 `ctx.db`。
+
+## 数据库隔离
+
+每个应用都有自己的数据库和账号。函数运行时会基于当前应用创建连接，因此：
+
+- 不要在函数里硬编码 MongoDB 管理员账号。
+- 不要跨应用访问其他应用数据库。
+- 集合名称由业务自行定义，例如 `orders`、`users`、`events`。
+
+## 常见操作示例
+
+### 插入
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].insert_one({"type": "signup"})
+    return {"id": str(result.inserted_id)}
+```
+
+### 更新
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].update_one(
+        {"type": "signup"},
+        {"$set": {"handled": True}}
+    )
+    return {"matched": result.matched_count, "modified": result.modified_count}
+```
+
+### 删除
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].delete_many({"handled": True})
+    return {"deleted": result.deleted_count}
+```
+
+删除前必须确认过滤条件，避免误删整集合。
+
+## 旧代码迁移
+
+如果旧函数使用了 `ctx.motor_db` 或 `context.motor_db`，请改为：
+
+```python
+db = ctx.db
+```
+
+如果旧函数使用了 `context.pymongo_db`，请改为：
+
+```python
+db = ctx.sync_db
+```
+
+`motor_db` 当前只保留为兼容别名，不再作为文档推荐用法。

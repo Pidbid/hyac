@@ -48,3 +48,7 @@ This will start all the required services in the background.
 You can now access the Hyac console at:
 
 - `https://console.your-domain.name`
+
+![Application list after opening the console](../../assets/user-guide/application-management.png)
+
+After the first login, you will see the application list. Confirm that the default application or your newly created application is `running`, then enter the application workspace to create functions.

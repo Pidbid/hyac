@@ -2,6 +2,10 @@
 
 API 函数 (Endpoint Function) 是您业务逻辑的入口，可以通过唯一的 URL 直接从外部访问。每个 API 函数都必须定义一个名为 `handler` 的异步函数。
 
+![API 函数编辑与测试](../../assets/user-guide/function-management.png)
+
+API 函数在“云函数”页面编辑。保存后，可以直接在右侧测试面板发起请求，确认返回值和日志。
+
 `handler` 函数的参数非常灵活，但 `context` 是必需的第一个参数。
 
 ```python
@@ -27,3 +31,4 @@ async def handler(context, name: str = "World"):
     如果请求中包含 'name' 参数 (如 ?name=Hyac)，它将被自动注入。
     """
     return {"hello": name}
+```

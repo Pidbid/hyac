@@ -2,6 +2,10 @@
 
 Hyac 使用 RustFS 提供 S3 兼容对象存储。函数运行时会通过 `ctx.s3` 访问当前应用对应的 Bucket，不需要在函数代码中直接维护 RustFS 的访问密钥。
 
+![对象存储页面](../../assets/user-guide/storage-access.png)
+
+控制台“存储”页展示当前应用 Bucket 的文件。函数中通过 `ctx.s3` 读写的也是这份应用存储。
+
 常见用途包括：
 
 - 读取应用文件

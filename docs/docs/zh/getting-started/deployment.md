@@ -49,3 +49,7 @@ docker-compose up -d
 
 - `https://console.your-domain.name` 
 -- 如 官方测试地址为：`https://console.hyacos.top`
+
+![访问控制台后的应用列表](../../assets/user-guide/application-management.png)
+
+首次登录后会进入应用列表。确认默认应用或新建应用处于 `running` 状态后，就可以进入应用工作台创建函数。

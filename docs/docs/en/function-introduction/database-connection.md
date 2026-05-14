@@ -1,104 +1,109 @@
 # Database Connection
 
-In Hyac's endpoint functions, you can easily interact with the database through the `context` object. The platform provides two ways to operate MongoDB:
+Hyac prepares an isolated MongoDB database for each application and injects database objects into the function runtime automatically. Function code does not need to create MongoDB connections or manage database credentials.
 
--   **Asynchronous (Motor)**: Accessed via `context.motor_db`, offers higher performance and is the **recommended** method.
--   **Synchronous (PyMongo)**: Accessed via `context.pymongo_db`, uses a more traditional syntax, suitable for scenarios where you are not familiar with asynchronous programming.
+The current version no longer uses Motor. New functions should use PyMongo's async entry `ctx.db`, and use `ctx.sync_db` only when synchronous code is required.
 
-## 1. Asynchronous Operations (Motor) - Recommended
+![Database Page](../../assets/user-guide/database-access.png)
 
-Using the asynchronous approach allows you to take full advantage of Python's `asyncio` features, avoiding blocking the entire application while waiting for a database response, thus achieving higher concurrency.
+The "Database" page shows collections and documents for the current application. Function `ctx.db` points to the same application database.
 
-### Key Points
+## Recommended: `ctx.db`
 
--   The function must be defined with `async def`.
--   Get the asynchronous database instance via `context.motor_db`.
--   Use the `await` keyword before all database operations.
-
-### Code Example
-
-The following example demonstrates how to perform complete CRUD (Create, Read, Update, Delete) operations using Motor in an endpoint function.
+`ctx.db` is the async PyMongo database object for the current application. It is suitable for most functions.
 
 ```python
-from datetime import datetime
-from loguru import logger
-from bson import ObjectId
+async def handler(ctx, request):
+    tasks = ctx.db["tasks"]
 
-async def handler(context, request, name: str = "World", value: int = 0):
-    """
-    A complete example of database operations using Motor (asynchronous).
-    """
-    
-    logger.info(f"[Async] Received parameters: name='{name}', value={value}")
-    db = context.motor_db  # Get the asynchronous Motor database client
-    demo_collection = db["hyac_demo_async"]
-    
-    # 1. CREATE
-    doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
-    res = await demo_collection.insert_one(doc)
-    inserted_id = res.inserted_id
-    logger.info(f"[Async] CREATE: Document inserted, ID: {inserted_id}")
+    result = await tasks.insert_one({
+        "title": "hello hyac",
+        "done": False
+    })
 
-    # 2. READ
-    read_doc = await demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[Async] READ: Found document: {read_doc}")
+    task = await tasks.find_one({"_id": result.inserted_id})
+    task["_id"] = str(task["_id"])
 
-    # 3. UPDATE
-    await demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
-    updated_doc = await demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[Async] UPDATE: Document status updated: {updated_doc}")
-
-    # 4. DELETE
-    await demo_collection.delete_one({"_id": inserted_id})
-    logger.info(f"[Async] DELETE: Document cleaned up")
-    
-    return {"status": "ok", "driver": "motor (async)", "inserted_id": str(inserted_id)}
+    return task
 ```
 
-## 2. Synchronous Operations (PyMongo)
-
-If you are more accustomed to traditional synchronous programming or need to use libraries that do not support asynchronous operations, you can use PyMongo.
-
-Hyac optimizes synchronous operations in the background: although your code is synchronous, FastAPI runs it in a separate thread pool to avoid blocking the main event loop.
-
-### Key Points
-
--   It is still recommended to define the function with `async def` for consistency.
--   Get the synchronous database instance via `context.pymongo_db`.
--   Database operations use standard synchronous syntax, with no need for `await`.
-
-### Code Example
+Use async iteration when querying multiple documents:
 
 ```python
-from datetime import datetime
-from loguru import logger
-from bson import ObjectId
+async def handler(ctx, request):
+    rows = []
 
-async def handler(context, request, name: str = "World", value: int = 0):
-    """
-    A complete example of database operations using PyMongo (synchronous).
-    """
-    logger.info(f"[Sync] Received parameters: name='{name}', value={value}")
-    db = context.pymongo_db  # Get the synchronous PyMongo database client
-    demo_collection = db["hyac_demo_sync"]
-    
-    # 1. CREATE
-    doc = {"name": name, "value": value, "createdAt": datetime.utcnow()}
-    res = demo_collection.insert_one(doc)
-    inserted_id = res.inserted_id
-    logger.info(f"[Sync] CREATE: Document inserted, ID: {inserted_id}")
+    async for item in ctx.db["tasks"].find({"done": False}).limit(20):
+        item["_id"] = str(item["_id"])
+        rows.append(item)
 
-    # 2. READ
-    read_doc = demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[Sync] READ: Found document: {read_doc}")
+    return {"items": rows}
+```
 
-    # 3. UPDATE
-    demo_collection.update_one({"_id": inserted_id}, {"$set": {"status": "updated"}})
-    updated_doc = demo_collection.find_one({"_id": inserted_id})
-    logger.info(f"[Sync] UPDATE: Document status updated: {updated_doc}")
+## Sync Entry: `ctx.sync_db`
 
-    # 4. DELETE
-    demo_collection.delete_one({"_id": inserted_id})
-    logger.info(f"[Sync] DELETE: Document cleaned up")
-    
-    return {"status": "ok", "driver": "pymongo (sync)", "inserted_id": str(inserted_id)}
+If legacy code or a third-party library must run synchronously, use `ctx.sync_db`.
+
+```python
+async def handler(ctx, request):
+    logs = ctx.sync_db["logs"]
+    result = logs.insert_one({"message": "created from sync PyMongo"})
+    return {"id": str(result.inserted_id)}
+```
+
+Synchronous operations block the current execution thread. For high-concurrency functions, prefer `ctx.db`.
+
+## Database Isolation
+
+Each application has its own database and account. The runtime creates the connection for the current application, so:
+
+- Do not hard-code MongoDB administrator credentials in functions.
+- Do not access another application's database.
+- Define collection names by business domain, such as `orders`, `users`, or `events`.
+
+## Common Operations
+
+### Insert
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].insert_one({"type": "signup"})
+    return {"id": str(result.inserted_id)}
+```
+
+### Update
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].update_one(
+        {"type": "signup"},
+        {"$set": {"handled": True}}
+    )
+    return {"matched": result.matched_count, "modified": result.modified_count}
+```
+
+### Delete
+
+```python
+async def handler(ctx, request):
+    result = await ctx.db["events"].delete_many({"handled": True})
+    return {"deleted": result.deleted_count}
+```
+
+Always verify the filter before deleting data to avoid removing an entire collection by mistake.
+
+## Migrating Old Code
+
+If older functions use `ctx.motor_db` or `context.motor_db`, replace it with:
+
+```python
+db = ctx.db
+```
+
+If older functions use `context.pymongo_db`, replace it with:
+
+```python
+db = ctx.sync_db
+```
+
+`motor_db` remains only as a compatibility alias and is no longer the recommended documented entry.

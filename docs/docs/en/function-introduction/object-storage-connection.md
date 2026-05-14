@@ -2,6 +2,10 @@
 
 Hyac uses RustFS as S3-compatible object storage. FaaS functions access the current application's bucket through `ctx.s3`, so function code does not need to manage RustFS access keys directly.
 
+![Object Storage Page](../../assets/user-guide/storage-access.png)
+
+The "Storage" page displays files in the current application's bucket. Function `ctx.s3` reads and writes the same application storage.
+
 Common use cases include:
 
 - Reading application files

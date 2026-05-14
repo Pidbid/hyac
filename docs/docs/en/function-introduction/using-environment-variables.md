@@ -2,7 +2,11 @@
 
 In Hyac, you can dynamically read and set environment variables specific to a function instance using the `context.env` object. This is very useful for managing configurations, secrets, or other data needed at runtime.
 
-A core feature is that all changes to environment variables (whether made through the admin dashboard or via code) **take effect in real-time, without needing to restart the application or function**.
+![Environment Variable Settings](../../assets/user-guide/environment-variables.png)
+
+Use "Settings / Environment Variables" to manage application-level environment variables. The runtime watches environment changes and updates the process environment dynamically; restarting the application runtime is not required.
+
+Calling `ctx.env.set(...)` from code persists the value and immediately updates `os.environ` in the current runtime process. When environment variables are changed from the console, the runtime environment watcher receives MongoDB Change Stream events and refreshes `os.environ` dynamically.
 
 ## 1. Getting an Environment Variable
 
@@ -26,7 +30,7 @@ async def handler(context):
 
 You can use the `await context.env.set("VARIABLE_NAME", "VALUE")` method to set or update an environment variable. This is an asynchronous operation.
 
-**Important**: Environment variables set this way are persistent. They will override any variable of the same name set in the admin dashboard and will be available in all future executions of the function, without requiring a restart.
+**Important**: Environment variables set this way are persistent. They override any variable of the same name set in the admin dashboard and are immediately readable in the current runtime.
 
 ```python
 async def handler(context):

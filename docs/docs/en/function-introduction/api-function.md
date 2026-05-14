@@ -2,6 +2,10 @@
 
 An API Function (or Endpoint Function) is the entry point for your business logic and can be accessed directly from the outside world via a unique URL. Every API function must define an asynchronous function named `handler`.
 
+![API Function Editing and Testing](../../assets/user-guide/function-management.png)
+
+API functions are edited on the "Function" page. After saving, use the test panel on the right to send a request and verify the response and logs.
+
 The parameters for the `handler` function are flexible, but `context` is a required first parameter.
 
 ```python
@@ -27,3 +31,4 @@ async def handler(context, name: str = "World"):
     If the request includes a 'name' parameter (e.g., ?name=Hyac), it will be automatically injected.
     """
     return {"hello": name}
+```
