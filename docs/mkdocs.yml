@@ -1,4 +1,5 @@
 site_name: Hyac Docs
+site_url: https://docs.hyacos.top/
 theme:
   name: material
   palette:
