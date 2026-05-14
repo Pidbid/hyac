@@ -4,7 +4,7 @@
 
 ![对象存储](../../assets/user-guide/storage-access.png)
 
-对象存储页面展示当前应用 Bucket 的文件。控制台中的上传、下载和预览操作，与函数代码中的 `ctx.s3` 访问的是同一份应用存储。
+对象存储页面展示当前应用 Bucket 的文件。控制台中的上传、下载和预览操作，与函数代码中的 `ctx.cloud.storage()` 访问的是同一份应用存储。旧入口 `ctx.s3` 仍保持兼容。
 
 ## 控制台文件管理
 
@@ -37,23 +37,28 @@ tmp/upload.csv
 
 ## 函数中读取文件
 
-函数运行时通过 `ctx.s3` 访问当前应用的对象存储。
+函数运行时推荐通过 `ctx.cloud.storage()` 访问当前应用的对象存储。`get()` 在读取失败或对象不存在时返回 `None`，应显式处理。
 
 ```python
 async def handler(ctx, request):
-    data = await ctx.s3.get("demo/hello.txt")
-    if not data:
-        return {"content": ""}
+    storage = ctx.cloud.storage()
+    data = await storage.get("demo/hello.txt")
+    if data is None:
+        return {"ok": False, "message": "file not found or read failed"}
 
-    return {"content": data.decode("utf-8")}
+    return {"ok": True, "content": data.decode("utf-8")}
 ```
 
 ## 函数中写入文件
 
 ```python
 async def handler(ctx, request):
-    ok = await ctx.s3.put("demo/hello.txt", b"Hello from Hyac")
-    return {"ok": ok}
+    storage = ctx.cloud.storage()
+    ok = await storage.put("demo/hello.txt", b"Hello from Hyac")
+    if not ok:
+        return {"ok": False, "message": "write failed"}
+
+    return {"ok": True}
 ```
 
 ## 常见场景
@@ -65,10 +70,14 @@ import json
 
 async def handler(ctx, request):
     payload = {"status": "ok"}
-    await ctx.s3.put(
+    storage = ctx.cloud.storage()
+    ok = await storage.put(
         "exports/result.json",
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
+    if not ok:
+        return {"saved": False, "message": "write failed"}
+
     return {"saved": True}
 ```
 
@@ -78,8 +87,9 @@ async def handler(ctx, request):
 import json
 
 async def handler(ctx, request):
-    raw = await ctx.s3.get("config/settings.json")
-    if not raw:
+    storage = ctx.cloud.storage()
+    raw = await storage.get("config/settings.json")
+    if raw is None:
         return {"error": "settings.json not found"}
 
     settings = json.loads(raw.decode("utf-8"))
@@ -89,6 +99,8 @@ async def handler(ctx, request):
 ## 权限和隔离
 
 对象存储按应用隔离。一个应用的函数默认只应访问自己的 Bucket。
+
+`ctx.s3` 是兼容入口，新函数建议使用 `ctx.cloud.storage()`。`put()` 返回 `False` 表示写入失败，`get()` 返回 `None` 表示读取失败或对象不存在。
 
 不要在函数代码中硬编码全局 S3 密钥。需要访问外部对象存储时，应把外部凭据放在环境变量中，并限制权限。
 

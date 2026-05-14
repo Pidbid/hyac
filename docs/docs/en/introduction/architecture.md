@@ -53,11 +53,11 @@ On startup, Server initializes the database, default resources, application imag
 
 MongoDB runs as a replica set. Hyac stores users, applications, functions, statistics, logs, settings, captchas, and other platform data in it.
 
-Each application also has its own database account and database name. Runtime functions access the current application database through `ctx.db` or `ctx.sync_db`.
+Each application also has its own database account and database name. Runtime functions should access the current async database through `ctx.cloud.database()` and the sync database through `ctx.cloud.database(sync=True)`. Legacy entries such as `ctx.db` and `ctx.sync_db` remain compatible.
 
 ## RustFS Object Storage
 
-RustFS provides S3-compatible object storage. The Object Storage page and function `ctx.s3` calls use the same application bucket.
+RustFS provides S3-compatible object storage. The Object Storage page and function `ctx.cloud.storage()` calls use the same application bucket. The legacy `ctx.s3` entry remains compatible.
 
 ## Application Runtime Container
 

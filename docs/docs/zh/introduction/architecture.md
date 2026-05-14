@@ -53,11 +53,11 @@ Server 启动时会初始化数据库、默认资源、应用镜像、任务 wor
 
 MongoDB 以 replica set 模式运行。Hyac 使用它保存用户、应用、函数、统计、日志、设置和验证码等平台数据。
 
-每个应用也会拥有自己的数据库账号和数据库名。函数运行时通过 `ctx.db` 或 `ctx.sync_db` 访问当前应用数据库。
+每个应用也会拥有自己的数据库账号和数据库名。函数运行时推荐通过 `ctx.cloud.database()` 访问当前应用异步数据库，通过 `ctx.cloud.database(sync=True)` 访问同步数据库；`ctx.db`、`ctx.sync_db` 等旧入口仍保持兼容。
 
 ## RustFS 对象存储
 
-RustFS 提供 S3 兼容对象存储。控制台对象存储页和函数中的 `ctx.s3` 使用同一份应用 Bucket。
+RustFS 提供 S3 兼容对象存储。控制台对象存储页和函数中的 `ctx.cloud.storage()` 使用同一份应用 Bucket；`ctx.s3` 仍是兼容入口。
 
 ## 应用运行时容器
 

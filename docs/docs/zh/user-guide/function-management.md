@@ -38,7 +38,19 @@ async def handler(ctx, request):
     return {"code": 0, "msg": "success", "data": {"app": ctx.app_id}}
 ```
 
-`ctx` 是 Hyac 注入的运行上下文，包含数据库、对象存储、环境变量、公共函数和日志能力。
+`ctx` 是 Hyac 注入的运行上下文，包含数据库、对象存储、环境变量、公共函数、通知和日志能力。新函数推荐通过稳定门面 `ctx.cloud` 访问这些资源；旧的 `ctx.db`、`ctx.s3`、`ctx.env`、`ctx.logger`、`ctx.common` 等入口仍保持兼容。
+
+常用入口：
+
+| 能力 | 推荐入口 | 兼容入口 |
+|------|----------|----------|
+| 异步数据库 | `ctx.cloud.database()` | `ctx.db`, `ctx.async_db` |
+| 同步数据库 | `ctx.cloud.database(sync=True)` | `ctx.sync_db`, `ctx.pymongo_db` |
+| 对象存储 | `ctx.cloud.storage()` | `ctx.s3` |
+| 环境变量 | `ctx.cloud.env()` | `ctx.env` |
+| 日志 | `ctx.cloud.logger()` | `ctx.logger` |
+| 通知 | `ctx.cloud.notification()` | `ctx.notification` |
+| 公共函数 | `ctx.cloud.common()` | `ctx.common` |
 
 ## 编辑和保存
 
@@ -80,7 +92,8 @@ docker logs -f hyac-app-runtime-<app_id小写>
 
 ```python
 async def handler(ctx, request):
-    ctx.logger.info("function started")
+    logger = ctx.cloud.logger()
+    logger.info("function started")
     return {"ok": True}
 ```
 
@@ -96,11 +109,12 @@ async def handler(ctx, request):
 
 ## 环境变量
 
-应用环境变量会注入到运行时进程中。函数内可通过 `ctx.env` 读取或更新：
+应用环境变量会注入到运行时进程中。函数内推荐通过 `ctx.cloud.env()` 读取或更新：
 
 ```python
 async def handler(ctx, request):
-    api_key = ctx.env.get("API_KEY")
+    env = ctx.cloud.env()
+    api_key = env.get("API_KEY")
     return {"configured": bool(api_key)}
 ```
 
@@ -108,7 +122,8 @@ async def handler(ctx, request):
 
 ```python
 async def handler(ctx, request):
-    await ctx.env.set("FEATURE_FLAG", "enabled")
+    env = ctx.cloud.env()
+    await env.set("FEATURE_FLAG", "enabled")
     return {"ok": True}
 ```
 
@@ -131,7 +146,8 @@ def add(a, b):
 
 ```python
 async def handler(ctx, request):
-    value = ctx.common.math_utils.add(1, 2)
+    common = ctx.cloud.common()
+    value = common.math_utils.add(1, 2)
     return {"value": value}
 ```
 

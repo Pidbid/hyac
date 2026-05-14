@@ -171,6 +171,12 @@ async def create_function(
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
 
+        if template.app_id != app.app_id and not template.shared:
+            raise HTTPException(
+                status_code=403,
+                detail="Template not found or you don't have permission",
+            )
+
         # Check if the template's function type is compatible.
         if FunctionType(data.type) != template.function_type:
             raise HTTPException(
@@ -183,6 +189,7 @@ async def create_function(
         default_template = await FunctionTemplate.find_one(
             FunctionTemplate.type == "system",
             FunctionTemplate.function_type == FunctionType(data.type),
+            FunctionTemplate.app_id == app.app_id,
         )
         if default_template:
             code = default_template.code

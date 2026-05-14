@@ -13,6 +13,7 @@ from code_loader import CodeLoader
 from core.env_manager import set_dynamic_env
 from core.notification_manager import NotificationManager
 from models.applications_model import NotificationConfig
+from cloud import CloudFacade
 
 
 class EnvContext:
@@ -83,6 +84,7 @@ class FunctionContext:
         self.common = common
         self.notification = NotificationManager(notification_config)
         self.s3 = S3Context(bucket_name=app_id)
+        self.cloud = CloudFacade(self)
 
     @property
     def db(self) -> AsyncDatabase:

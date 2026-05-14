@@ -26,11 +26,12 @@ hyac-app-runtime-<app_id小写>
 
 ## 函数中输出日志
 
-函数内可以使用 `ctx.logger` 输出日志：
+函数内推荐使用 `ctx.cloud.logger()` 输出日志。旧入口 `ctx.logger` 仍保持兼容：
 
 ```python
 async def handler(ctx, request):
-    ctx.logger.info("start handling request")
+    logger = ctx.cloud.logger()
+    logger.info("start handling request")
     return {"ok": True}
 ```
 

@@ -26,11 +26,12 @@ The Logs page includes:
 
 ## Output Logs from Functions
 
-Use `ctx.logger` in function code:
+Use `ctx.cloud.logger()` in function code. The legacy `ctx.logger` entry remains compatible:
 
 ```python
 async def handler(ctx, request):
-    ctx.logger.info("start handling request")
+    logger = ctx.cloud.logger()
+    logger.info("start handling request")
     return {"ok": True}
 ```
 

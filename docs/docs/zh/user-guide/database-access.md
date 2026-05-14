@@ -8,13 +8,14 @@ Hyac 为每个应用提供独立的 MongoDB 数据库。函数运行时会根据
 
 数据库页面用于查看和管理当前应用数据库中的集合与文档。函数代码访问数据库时使用同一个应用上下文。
 
-## 推荐方式：异步 PyMongo
+## 推荐方式：`ctx.cloud.database()`
 
-推荐使用 `ctx.db` 访问当前应用的异步数据库。它来自 `pymongo.AsyncMongoClient`，适合绝大多数函数。
+推荐使用 `ctx.cloud.database()` 访问当前应用的异步数据库。它返回 PyMongo Async 数据库对象，适合绝大多数函数。旧入口 `ctx.db` 和 `ctx.async_db` 仍兼容，但新函数建议使用 `ctx.cloud.database()`。
 
 ```python
 async def handler(ctx, request):
-    collection = ctx.db["todos"]
+    db = ctx.cloud.database()
+    collection = db["todos"]
 
     result = await collection.insert_one({
         "title": "Write Hyac docs",
@@ -34,7 +35,8 @@ async def handler(ctx, request):
 
 ```python
 async def handler(ctx, request):
-    users = ctx.db["users"]
+    db = ctx.cloud.database()
+    users = db["users"]
 
     await users.insert_one({"name": "Alice"})
     one = await users.find_one({"name": "Alice"})
@@ -48,18 +50,19 @@ async def handler(ctx, request):
     return {"one": str(one["_id"]), "rows": rows}
 ```
 
-## 同步方式：`ctx.sync_db`
+## 同步方式：`ctx.cloud.database(sync=True)`
 
-如果你使用的第三方库或代码逻辑暂时只能同步执行，可以通过 `ctx.sync_db` 获取同步 PyMongo 数据库。
+如果你使用的第三方库或代码逻辑暂时只能同步执行，可以通过 `ctx.cloud.database(sync=True)` 获取同步 PyMongo 数据库。旧入口 `ctx.sync_db` 和 `ctx.pymongo_db` 仍兼容。
 
 ```python
 async def handler(ctx, request):
-    collection = ctx.sync_db["events"]
+    db = ctx.cloud.database(sync=True)
+    collection = db["events"]
     result = collection.insert_one({"type": "login"})
     return {"id": str(result.inserted_id)}
 ```
 
-同步数据库操作会阻塞当前执行线程。高并发函数应优先使用 `ctx.db`。
+同步数据库操作会阻塞当前执行线程。高并发函数应优先使用 `ctx.cloud.database()`。
 
 ## 数据库隔离
 
@@ -69,7 +72,7 @@ async def handler(ctx, request):
 mongodb://<app_id>:<db_password>@mongodb:27017/<app_id>?authSource=admin&replicaSet=rs0
 ```
 
-用户函数通常不需要知道这个连接串。你只需要使用 `ctx.db` 或 `ctx.sync_db`。
+用户函数通常不需要知道这个连接串。你只需要使用 `ctx.cloud.database()` 或 `ctx.cloud.database(sync=True)`。
 
 ## ObjectId 处理
 
@@ -77,7 +80,8 @@ MongoDB 的 `_id` 默认是 `ObjectId`，不能直接作为 JSON 返回。返回
 
 ```python
 async def handler(ctx, request):
-    doc = await ctx.db["items"].find_one({})
+    db = ctx.cloud.database()
+    doc = await db["items"].find_one({})
     if not doc:
         return None
 
@@ -93,34 +97,36 @@ async def handler(ctx, request):
 from pymongo.errors import PyMongoError
 
 async def handler(ctx, request):
+    db = ctx.cloud.database()
+    logger = ctx.cloud.logger()
     try:
-        await ctx.db["orders"].insert_one({"status": "created"})
+        await db["orders"].insert_one({"status": "created"})
         return {"ok": True}
     except PyMongoError as exc:
-        ctx.logger.error(f"database write failed: {exc}")
+        logger.error(f"database write failed: {exc}")
         return {"ok": False, "message": "database write failed"}
 ```
 
 ## 迁移提示
 
-旧文档和旧函数中可能出现 `ctx.motor_db` 或 `context.motor_db`。当前代码中它只是兼容别名，不再作为推荐用法。
+旧文档和旧函数中可能出现 `ctx.motor_db` 或 `context.motor_db`。当前代码中它只是兼容别名，不再作为推荐用法。`ctx.db`、`ctx.async_db`、`ctx.sync_db`、`ctx.pymongo_db` 仍可用于旧函数，新函数建议使用 `ctx.cloud.database()`。
 
 建议替换为：
 
 ```python
-db = ctx.db
+db = ctx.cloud.database()
 ```
 
 同步代码使用：
 
 ```python
-db = ctx.sync_db
+db = ctx.cloud.database(sync=True)
 ```
 
 ## 使用建议
 
 - 不要在函数中硬编码 MongoDB 管理员账号。
 - 不要跨应用读写其他应用数据库。
-- 高并发请求优先使用 `ctx.db`。
+- 高并发请求优先使用 `ctx.cloud.database()`。
 - 返回文档前处理 `_id`、`datetime` 等非 JSON 原生类型。
 - 删除和批量更新前先明确查询条件，避免误操作。

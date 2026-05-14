@@ -38,7 +38,19 @@ async def handler(ctx, request):
     return {"code": 0, "msg": "success", "data": {"app": ctx.app_id}}
 ```
 
-`ctx` is the runtime context injected by Hyac. It contains database, object storage, environment variables, common functions, and logging.
+`ctx` is the runtime context injected by Hyac. It contains database, object storage, environment variables, common functions, notifications, and logging. New functions should use the stable `ctx.cloud` facade to access these resources. Legacy entries such as `ctx.db`, `ctx.s3`, `ctx.env`, `ctx.logger`, and `ctx.common` remain compatible.
+
+Common entries:
+
+| Capability | Recommended entry | Compatible entry |
+|------------|-------------------|------------------|
+| Async database | `ctx.cloud.database()` | `ctx.db`, `ctx.async_db` |
+| Sync database | `ctx.cloud.database(sync=True)` | `ctx.sync_db`, `ctx.pymongo_db` |
+| Object storage | `ctx.cloud.storage()` | `ctx.s3` |
+| Environment variables | `ctx.cloud.env()` | `ctx.env` |
+| Logging | `ctx.cloud.logger()` | `ctx.logger` |
+| Notifications | `ctx.cloud.notification()` | `ctx.notification` |
+| Common functions | `ctx.cloud.common()` | `ctx.common` |
 
 ## Edit and Save
 
@@ -80,7 +92,8 @@ In function code:
 
 ```python
 async def handler(ctx, request):
-    ctx.logger.info("function started")
+    logger = ctx.cloud.logger()
+    logger.info("function started")
     return {"ok": True}
 ```
 
@@ -96,11 +109,12 @@ Recommendations:
 
 ## Environment Variables
 
-Application environment variables are injected into the runtime process. Functions can read or update them through `ctx.env`:
+Application environment variables are injected into the runtime process. Functions should read or update them through `ctx.cloud.env()`:
 
 ```python
 async def handler(ctx, request):
-    api_key = ctx.env.get("API_KEY")
+    env = ctx.cloud.env()
+    api_key = env.get("API_KEY")
     return {"configured": bool(api_key)}
 ```
 
@@ -108,7 +122,8 @@ Update an environment variable:
 
 ```python
 async def handler(ctx, request):
-    await ctx.env.set("FEATURE_FLAG", "enabled")
+    env = ctx.cloud.env()
+    await env.set("FEATURE_FLAG", "enabled")
     return {"ok": True}
 ```
 
@@ -131,7 +146,8 @@ Call it from an endpoint function:
 
 ```python
 async def handler(ctx, request):
-    value = ctx.common.math_utils.add(1, 2)
+    common = ctx.cloud.common()
+    value = common.math_utils.add(1, 2)
     return {"value": value}
 ```
 

@@ -1,10 +1,10 @@
 # Object Storage Connection
 
-Hyac uses RustFS as S3-compatible object storage. FaaS functions access the current application's bucket through `ctx.s3`, so function code does not need to manage RustFS access keys directly.
+Hyac uses RustFS as S3-compatible object storage. FaaS functions should access the current application's bucket through `ctx.cloud.storage()`, so function code does not need to manage RustFS access keys directly. The legacy `ctx.s3` entry remains compatible.
 
 ![Object Storage Page](../../assets/user-guide/storage-access.png)
 
-The "Storage" page displays files in the current application's bucket. Function `ctx.s3` reads and writes the same application storage.
+The "Storage" page displays files in the current application's bucket. Function `ctx.cloud.storage()` reads and writes the same application storage.
 
 Common use cases include:
 
@@ -16,17 +16,26 @@ Example:
 
 ```python
 async def handler(ctx):
-    data = await ctx.s3.get("demo/hello.txt")
-    content = data.decode("utf-8") if data else ""
-    return {"content": content}
+    storage = ctx.cloud.storage()
+    data = await storage.get("demo/hello.txt")
+    if data is None:
+        return {"ok": False, "message": "file not found or read failed"}
+
+    return {"ok": True, "content": data.decode("utf-8")}
 ```
 
 To write an object:
 
 ```python
 async def handler(ctx):
-    ok = await ctx.s3.put("demo/hello.txt", "Hello from Hyac".encode("utf-8"))
-    return {"ok": ok}
+    storage = ctx.cloud.storage()
+    ok = await storage.put("demo/hello.txt", "Hello from Hyac".encode("utf-8"))
+    if not ok:
+        return {"ok": False, "message": "write failed"}
+
+    return {"ok": True}
 ```
+
+`put()` returns `False` when the write fails, and `get()` returns `None` when the read fails or the object does not exist.
 
 The backing storage service is RustFS, while the API remains S3-compatible, so configuration keys still use the `S3_*` prefix.

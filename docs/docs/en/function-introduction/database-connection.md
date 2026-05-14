@@ -2,19 +2,20 @@
 
 Hyac prepares an isolated MongoDB database for each application and injects database objects into the function runtime automatically. Function code does not need to create MongoDB connections or manage database credentials.
 
-The current version no longer uses Motor. New functions should use PyMongo's async entry `ctx.db`, and use `ctx.sync_db` only when synchronous code is required.
+The current version no longer uses Motor. New functions should use PyMongo's async database through the stable `ctx.cloud.database()` facade, and use `ctx.cloud.database(sync=True)` only when synchronous code is required. Legacy entries `ctx.db`, `ctx.async_db`, `ctx.sync_db`, and `ctx.pymongo_db` remain compatible.
 
 ![Database Page](../../assets/user-guide/database-access.png)
 
-The "Database" page shows collections and documents for the current application. Function `ctx.db` points to the same application database.
+The "Database" page shows collections and documents for the current application. Function `ctx.cloud.database()` points to the same application database.
 
-## Recommended: `ctx.db`
+## Recommended: `ctx.cloud.database()`
 
-`ctx.db` is the async PyMongo database object for the current application. It is suitable for most functions.
+`ctx.cloud.database()` returns the async PyMongo database object for the current application. It is suitable for most functions.
 
 ```python
 async def handler(ctx, request):
-    tasks = ctx.db["tasks"]
+    db = ctx.cloud.database()
+    tasks = db["tasks"]
 
     result = await tasks.insert_one({
         "title": "hello hyac",
@@ -32,26 +33,28 @@ Use async iteration when querying multiple documents:
 ```python
 async def handler(ctx, request):
     rows = []
+    db = ctx.cloud.database()
 
-    async for item in ctx.db["tasks"].find({"done": False}).limit(20):
+    async for item in db["tasks"].find({"done": False}).limit(20):
         item["_id"] = str(item["_id"])
         rows.append(item)
 
     return {"items": rows}
 ```
 
-## Sync Entry: `ctx.sync_db`
+## Sync Entry: `ctx.cloud.database(sync=True)`
 
-If legacy code or a third-party library must run synchronously, use `ctx.sync_db`.
+If legacy code or a third-party library must run synchronously, use `ctx.cloud.database(sync=True)`.
 
 ```python
 async def handler(ctx, request):
-    logs = ctx.sync_db["logs"]
+    db = ctx.cloud.database(sync=True)
+    logs = db["logs"]
     result = logs.insert_one({"message": "created from sync PyMongo"})
     return {"id": str(result.inserted_id)}
 ```
 
-Synchronous operations block the current execution thread. For high-concurrency functions, prefer `ctx.db`.
+Synchronous operations block the current execution thread. For high-concurrency functions, prefer `ctx.cloud.database()`.
 
 ## Database Isolation
 
@@ -67,7 +70,8 @@ Each application has its own database and account. The runtime creates the conne
 
 ```python
 async def handler(ctx, request):
-    result = await ctx.db["events"].insert_one({"type": "signup"})
+    db = ctx.cloud.database()
+    result = await db["events"].insert_one({"type": "signup"})
     return {"id": str(result.inserted_id)}
 ```
 
@@ -75,7 +79,8 @@ async def handler(ctx, request):
 
 ```python
 async def handler(ctx, request):
-    result = await ctx.db["events"].update_one(
+    db = ctx.cloud.database()
+    result = await db["events"].update_one(
         {"type": "signup"},
         {"$set": {"handled": True}}
     )
@@ -86,7 +91,8 @@ async def handler(ctx, request):
 
 ```python
 async def handler(ctx, request):
-    result = await ctx.db["events"].delete_many({"handled": True})
+    db = ctx.cloud.database()
+    result = await db["events"].delete_many({"handled": True})
     return {"deleted": result.deleted_count}
 ```
 
@@ -106,4 +112,4 @@ If older functions use `context.pymongo_db`, replace it with:
 db = ctx.sync_db
 ```
 
-`motor_db` remains only as a compatibility alias and is no longer the recommended documented entry.
+`motor_db` remains only as a compatibility alias and is no longer the recommended documented entry. New code should use `ctx.cloud.database()` or `ctx.cloud.database(sync=True)` directly.

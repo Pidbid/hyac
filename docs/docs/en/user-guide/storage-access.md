@@ -4,7 +4,7 @@ Object storage manages files for the current application. Hyac uses RustFS as th
 
 ![Storage Access](../../assets/user-guide/storage-access.png)
 
-The Object Storage page displays files in the current application's bucket. Console upload/download/preview operations and function `ctx.s3` calls use the same application storage.
+The Object Storage page displays files in the current application's bucket. Console upload/download/preview operations and function `ctx.cloud.storage()` calls use the same application storage. The legacy `ctx.s3` entry remains compatible.
 
 ## File Management in Console
 
@@ -37,23 +37,28 @@ Organize files by business category instead of putting everything at the root.
 
 ## Read Files in Functions
 
-Functions use `ctx.s3` to access the current application's object storage.
+Functions should use `ctx.cloud.storage()` to access the current application's object storage. `get()` returns `None` when the read fails or the object does not exist, so handle it explicitly.
 
 ```python
 async def handler(ctx, request):
-    data = await ctx.s3.get("demo/hello.txt")
-    if not data:
-        return {"content": ""}
+    storage = ctx.cloud.storage()
+    data = await storage.get("demo/hello.txt")
+    if data is None:
+        return {"ok": False, "message": "file not found or read failed"}
 
-    return {"content": data.decode("utf-8")}
+    return {"ok": True, "content": data.decode("utf-8")}
 ```
 
 ## Write Files in Functions
 
 ```python
 async def handler(ctx, request):
-    ok = await ctx.s3.put("demo/hello.txt", b"Hello from Hyac")
-    return {"ok": ok}
+    storage = ctx.cloud.storage()
+    ok = await storage.put("demo/hello.txt", b"Hello from Hyac")
+    if not ok:
+        return {"ok": False, "message": "write failed"}
+
+    return {"ok": True}
 ```
 
 ## Common Scenarios
@@ -65,10 +70,14 @@ import json
 
 async def handler(ctx, request):
     payload = {"status": "ok"}
-    await ctx.s3.put(
+    storage = ctx.cloud.storage()
+    ok = await storage.put(
         "exports/result.json",
         json.dumps(payload, ensure_ascii=False).encode("utf-8")
     )
+    if not ok:
+        return {"saved": False, "message": "write failed"}
+
     return {"saved": True}
 ```
 
@@ -78,8 +87,9 @@ async def handler(ctx, request):
 import json
 
 async def handler(ctx, request):
-    raw = await ctx.s3.get("config/settings.json")
-    if not raw:
+    storage = ctx.cloud.storage()
+    raw = await storage.get("config/settings.json")
+    if raw is None:
         return {"error": "settings.json not found"}
 
     settings = json.loads(raw.decode("utf-8"))
@@ -89,6 +99,8 @@ async def handler(ctx, request):
 ## Permissions and Isolation
 
 Object storage is isolated by application. A function should only access its own application's bucket by default.
+
+`ctx.s3` is a compatibility entry. New functions should use `ctx.cloud.storage()`. `put()` returns `False` when the write fails, and `get()` returns `None` when the read fails or the object does not exist.
 
 Do not hard-code global S3 credentials in function code. If a function needs to access external object storage, store external credentials in environment variables and keep their permissions limited.
 

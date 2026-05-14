@@ -73,7 +73,7 @@ Recommendations:
 
 ## Application Storage
 
-Each application has its own object storage space. Function code can use `ctx.s3` to access the current application's bucket, and the Object Storage page shows the same files.
+Each application has its own object storage space. Function code should use `ctx.cloud.storage()` to access the current application's bucket, and the Object Storage page shows the same files. The legacy `ctx.s3` entry remains compatible.
 
 This prevents accidental reads or writes across applications.
 
