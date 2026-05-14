@@ -1,0 +1,103 @@
+site_name: Hyac Docs
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - toc.integrate
+    # - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+  favicon: favicon.ico
+  language: zh
+repo_url: https://github.com/Pidbid/hyac
+repo_name: Pidbid/hyac
+
+plugins:
+  - search
+  - mermaid2
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: zh
+          name: 中文
+          default: true
+          build: true
+          nav:
+            - '首页': 'index.md'
+            - '介绍':
+              - 'Hyac 是什么?': 'introduction/what-is-hyac.md'
+              - '核心概念': 'introduction/core-concepts.md'
+              - '架构': 'introduction/architecture.md'
+            - '快速开始':
+              - '部署': 'getting-started/deployment.md'
+            - '函数介绍':
+              - '你的第一个函数': 'function-introduction/first-function.md'
+              - 'API 函数': 'function-introduction/api-function.md'
+              - '公共函数': 'function-introduction/common-function.md'
+              - '使用环境变量': 'function-introduction/using-environment-variables.md'
+              - '链接数据库': 'function-introduction/database-connection.md'
+              - '连接对象存储': 'function-introduction/object-storage-connection.md'
+            - '用户指南':
+              - '仪表盘': 'user-guide/dashboard.md'
+              - '应用管理': 'user-guide/application-management.md'
+              - '函数管理': 'user-guide/function-management.md'
+              - '数据库访问': 'user-guide/database-access.md'
+              - '对象存储': 'user-guide/storage-access.md'
+              - '用户设置': 'user-guide/user-settings.md'
+            - '开发':
+              - '开发环境': 'development/dev-environment.md'
+              - '开发者部署': 'development/developer-deployment.md'
+              - '项目结构': 'development/project-structure.md'
+              - '贡献': 'development/contributing.md'
+            - 'API 参考':
+              - '认证': 'api-reference/authentication.md'
+              - '函数 API': 'api-reference/functions-api.md'
+              - '应用 API': 'api-reference/applications-api.md'
+        - locale: en
+          name: English
+          build: true
+          nav:
+            - 'Home': 'index.md'
+            - 'Introduction':
+              - 'What is Hyac?': 'introduction/what-is-hyac.md'
+              - 'Core Concepts': 'introduction/core-concepts.md'
+              - 'Architecture': 'introduction/architecture.md'
+            - 'Getting Started':
+              - 'Deployment': 'getting-started/deployment.md'
+            - 'Function Introduction':
+              - 'Your First Function': 'function-introduction/first-function.md'
+              - 'API Function': 'function-introduction/api-function.md'
+              - 'Common Function': 'function-introduction/common-function.md'
+              - 'Using Environment Variables': 'function-introduction/using-environment-variables.md'
+              - 'Database Connection': 'function-introduction/database-connection.md'
+              - 'Object Storage Connection': 'function-introduction/object-storage-connection.md'
+            - 'User Guide':
+              - 'Dashboard': 'user-guide/dashboard.md'
+              - 'Application Management': 'user-guide/application-management.md'
+              - 'Function Management': 'user-guide/function-management.md'
+              - 'Database Access': 'user-guide/database-access.md'
+              - 'Storage Access': 'user-guide/storage-access.md'
+              - 'User Settings': 'user-guide/user-settings.md'
+            - 'Development':
+              - 'Dev Environment': 'development/dev-environment.md'
+              - 'Developer Deployment': 'development/developer-deployment.md'
+              - 'Project Structure': 'development/project-structure.md'
+              - 'Contributing': 'development/contributing.md'
+            - 'API Reference':
+              - 'Authentication': 'api-reference/authentication.md'
+              - 'Functions API': 'api-reference/functions-api.md'
+              - 'Applications API': 'api-reference/applications-api.md'

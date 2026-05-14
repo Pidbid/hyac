@@ -20,6 +20,9 @@ web/src/typings/components.d.ts
 
 # IDEs and Editors
 .github
+!.github/
+!.github/workflows/
+!.github/workflows/docs-pages.yml
 .vscode
 .idea
 .clinerules
