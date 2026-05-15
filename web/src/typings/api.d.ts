@@ -102,6 +102,30 @@ declare namespace Api {
     interface GetCollectionData {
       data: string[];
     }
+
+    type IndexDirection = 'asc' | 'desc' | 'text';
+
+    interface IndexField {
+      field: string;
+      direction: IndexDirection;
+    }
+
+    interface IndexRecord {
+      name: string;
+      keys: IndexField[];
+      unique: boolean;
+      sparse: boolean;
+      expireAfterSeconds?: number | null;
+      isDefault: boolean;
+    }
+
+    interface GetIndexData {
+      data: IndexRecord[];
+    }
+
+    interface IndexMutationResult {
+      indexName: string;
+    }
   }
 
   /**

@@ -345,7 +345,24 @@ const local: App.I18n.Schema = {
       noCollections: 'No collections, go and create one',
       selectDocumentsToDelete: 'Please select documents to delete',
       deleteSelectedConfirm: 'Are you sure you want to delete the selected {count} documents?',
-      deleteSelected: 'Delete Selected'
+      deleteSelected: 'Delete Selected',
+      indexes: 'Indexes',
+      indexName: 'Index Name',
+      indexFields: 'Index Fields',
+      indexFieldPlaceholder: 'Field name, e.g. created_at',
+      indexOptions: 'Index Options',
+      addIndexField: 'Add Field',
+      uniqueIndex: 'Unique Index',
+      sparseIndex: 'Sparse Index',
+      ttlSeconds: 'TTL Seconds',
+      ttlPlaceholder: 'Leave empty to disable TTL',
+      createIndex: 'Create Index',
+      updateIndex: 'Update Index',
+      resetIndexForm: 'Reset',
+      indexFieldRequired: 'Please enter at least one index field',
+      ttlSingleFieldOnly: 'TTL indexes only support a single field',
+      indexSaveSuccess: 'Index saved successfully',
+      deleteIndexConfirm: 'Are you sure you want to delete index: {name}?'
     },
     function: {
       tagsGroup: {

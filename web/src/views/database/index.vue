@@ -7,14 +7,20 @@ import {
   NCard,
   NDataTable,
   NEmpty,
+  NForm,
+  NFormItem,
   NIcon,
   NInput,
+  NInputNumber,
   NList,
   NListItem,
   NPagination,
   NScrollbar,
+  NSelect,
   NSpace,
   NSplit,
+  NSwitch,
+  NTag,
   NThing,
   useDialog,
   useMessage
@@ -33,11 +39,16 @@ import {
   ClearCollection,
   CreateCollection,
   CreateDocument,
+  CreateIndex,
   DeleteCollection,
   DeleteDocument,
   DeleteDocuments,
+  DropIndex,
   GetCollectionData,
   GetDocumentData,
+  GetIndexData,
+  type IndexPayload,
+  UpdateIndex,
   UpdateDocument
 } from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
@@ -56,6 +67,7 @@ const collections = ref<string[]>([]);
 const selectedCollection = ref(collections.value[0] || '');
 
 const documents = ref<object[]>([]);
+const indexes = ref<Api.Database.IndexRecord[]>([]);
 
 // 分页相关
 const pageSize = ref(15);
@@ -65,6 +77,19 @@ const totalDocuments = ref(0);
 const editingDocument = ref<any>(null);
 const editingDocumentJson = ref<string>('{}');
 const checkedRowKeys = ref<string[]>([]);
+const activeOperationTab = ref<'document' | 'index'>('document');
+const editingIndexName = ref('');
+const indexForm = ref<IndexPayload>({
+  keys: [{ field: '', direction: 'asc' }],
+  unique: false,
+  sparse: false,
+  expireAfterSeconds: null
+});
+const indexDirectionOptions = [
+  { label: 'ASC', value: 'asc' },
+  { label: 'DESC', value: 'desc' },
+  { label: 'TEXT', value: 'text' }
+];
 
 // 监听选中集合变化，重置文档和页码
 watch(selectedCollection, () => {
@@ -72,6 +97,8 @@ watch(selectedCollection, () => {
   editingDocument.value = null; // 清空编辑中的文档
   editingDocumentJson.value = '';
   checkedRowKeys.value = [];
+  indexes.value = [];
+  resetIndexForm();
 });
 
 // 操作函数
@@ -258,6 +285,112 @@ const handleRefreshDocuments = async () => {
   message.success($t('page.database.refreshSuccess'));
 };
 
+function resetIndexForm() {
+  editingIndexName.value = '';
+  indexForm.value = {
+    keys: [{ field: '', direction: 'asc' }],
+    unique: false,
+    sparse: false,
+    expireAfterSeconds: null
+  };
+}
+
+function addIndexField() {
+  indexForm.value.keys.push({ field: '', direction: 'asc' });
+}
+
+function removeIndexField(index: number) {
+  if (indexForm.value.keys.length === 1) return;
+  indexForm.value.keys.splice(index, 1);
+}
+
+function normalizeIndexPayload(): IndexPayload | null {
+  const keys = indexForm.value.keys
+    .map(item => ({ field: item.field.trim(), direction: item.direction }))
+    .filter(item => item.field);
+
+  if (keys.length === 0) {
+    message.warning($t('page.database.indexFieldRequired'));
+    return null;
+  }
+
+  const expireAfterSeconds = indexForm.value.expireAfterSeconds;
+  if (expireAfterSeconds !== null && expireAfterSeconds !== undefined && keys.length > 1) {
+    message.warning($t('page.database.ttlSingleFieldOnly'));
+    return null;
+  }
+
+  return {
+    keys,
+    unique: Boolean(indexForm.value.unique),
+    sparse: Boolean(indexForm.value.sparse),
+    expireAfterSeconds: expireAfterSeconds ?? null
+  };
+}
+
+async function getCollectionIndexes(colName: string) {
+  if (!colName) return;
+  const { data, error } = await GetIndexData(applicationStore.appId, colName);
+  if (!error) {
+    indexes.value = data.data;
+  }
+}
+
+async function handleSaveIndex() {
+  if (!selectedCollection.value) {
+    message.warning($t('page.database.noCollections'));
+    return;
+  }
+
+  const payload = normalizeIndexPayload();
+  if (!payload) return;
+
+  const { error } = editingIndexName.value
+    ? await UpdateIndex(applicationStore.appId, selectedCollection.value, editingIndexName.value, payload)
+    : await CreateIndex(applicationStore.appId, selectedCollection.value, payload);
+
+  if (!error) {
+    await getCollectionIndexes(selectedCollection.value);
+    resetIndexForm();
+    message.success($t('page.database.indexSaveSuccess'));
+  }
+}
+
+function handleEditIndex(index: Api.Database.IndexRecord) {
+  if (index.isDefault) return;
+  activeOperationTab.value = 'index';
+  editingIndexName.value = index.name;
+  indexForm.value = {
+    keys: index.keys.map(item => ({
+      field: item.field,
+      direction: item.direction === 'text' ? 'text' : item.direction
+    })),
+    unique: index.unique,
+    sparse: index.sparse,
+    expireAfterSeconds: index.expireAfterSeconds ?? null
+  };
+}
+
+function handleDropIndex(index: Api.Database.IndexRecord) {
+  if (index.isDefault) return;
+  dialog.warning({
+    title: $t('page.database.confirmDelete'),
+    content: $t('page.database.deleteIndexConfirm', { name: index.name }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
+    onPositiveClick: async () => {
+      const { error } = await DropIndex(applicationStore.appId, selectedCollection.value, index.name);
+      if (!error) {
+        await getCollectionIndexes(selectedCollection.value);
+        if (editingIndexName.value === index.name) {
+          resetIndexForm();
+        }
+        message.success($t('page.database.deleteSuccess'));
+      }
+    }
+  });
+}
+
 // JSON格式化显示
 const formatJson = (data: any) => {
   try {
@@ -334,6 +467,71 @@ const documentColumns: DataTableColumns<any> = [
   }
 ];
 
+const indexColumns: DataTableColumns<Api.Database.IndexRecord> = [
+  {
+    title: $t('page.database.indexName'),
+    key: 'name',
+    minWidth: 150,
+    render: row =>
+      h(NSpace, { align: 'center', size: 6 }, () => [
+        h('span', row.name),
+        row.isDefault ? h(NTag, { size: 'small', type: 'info' }, () => '_id') : null
+      ])
+  },
+  {
+    title: $t('page.database.indexFields'),
+    key: 'keys',
+    minWidth: 190,
+    render: row => row.keys.map(item => `${item.field} ${item.direction}`).join(', ')
+  },
+  {
+    title: $t('page.database.indexOptions'),
+    key: 'options',
+    minWidth: 150,
+    render: row => {
+      const options = [
+        row.unique ? 'unique' : '',
+        row.sparse ? 'sparse' : '',
+        row.expireAfterSeconds !== null && row.expireAfterSeconds !== undefined
+          ? `ttl ${row.expireAfterSeconds}s`
+          : ''
+      ].filter(Boolean);
+      return options.length ? options.join(', ') : '-';
+    }
+  },
+  {
+    title: $t('common.action._self'),
+    key: 'actions',
+    width: 120,
+    render: row =>
+      h(NSpace, { justify: 'center' }, () => [
+        h(
+          NButton,
+          {
+            quaternary: true,
+            circle: true,
+            size: 'small',
+            disabled: row.isDefault,
+            onClick: () => handleEditIndex(row)
+          },
+          { default: () => h(NIcon, null, { default: () => h(CreateOutline) }) }
+        ),
+        h(
+          NButton,
+          {
+            quaternary: true,
+            circle: true,
+            size: 'small',
+            type: 'error',
+            disabled: row.isDefault,
+            onClick: () => handleDropIndex(row)
+          },
+          { default: () => h(NIcon, null, { default: () => h(TrashOutline) }) }
+        )
+      ])
+  }
+];
+
 const handleCheck = (rowKeys: any) => {
   checkedRowKeys.value = rowKeys;
 };
@@ -341,6 +539,7 @@ const handleCheck = (rowKeys: any) => {
 const handleCollectionClick = async (collection: string) => {
   selectedCollection.value = collection;
   await getCollectionDocuments(selectedCollection.value, 1, 15);
+  await getCollectionIndexes(selectedCollection.value);
 };
 
 const getCollectionDocuments = async (docName: string, pageNum: number, length: number) => {
@@ -374,6 +573,7 @@ onMounted(async () => {
   if (collections.value.length > 0) {
     selectedCollection.value = collections.value[0];
     await getCollectionDocuments(collections.value[0], 1, 15);
+    await getCollectionIndexes(collections.value[0]);
   }
 });
 </script>
@@ -523,31 +723,125 @@ onMounted(async () => {
             </NCard>
           </template>
           <template #2>
-            <NCard :bordered="false" size="small" class="apple-panel operation-panel">
+            <NCard
+              :bordered="false"
+              size="small"
+              class="apple-panel operation-panel"
+              :content-style="{ padding: '0px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }"
+            >
               <template #header>
                 <div class="panel-title">
                   <NIcon :component="CreateOutline" :size="16" />
                   <span>{{ $t('page.database.documentOperations') }}</span>
                 </div>
               </template>
-              <div class="min-h-0 flex-1 p-4">
-                <div v-if="editingDocument">
-                  <NThing :title="$t('page.database.editContent')"></NThing>
-                  <JsonEditor v-model="editingDocumentJson" :height="400" />
-                  <div class="flex flex-row flex-row-reverse gap-2">
-                    <NButton type="primary" @click="handleSaveDocument">{{ $t('page.database.save') }}</NButton>
-                    <NButton type="error" @click="handleCancelEdit">{{ $t('page.database.cancel') }}</NButton>
+              <div class="operation-panel-body">
+                <div class="panel-tabs">
+                  <button
+                    class="panel-tab"
+                    :class="{ active: activeOperationTab === 'document' }"
+                    @click="activeOperationTab = 'document'"
+                  >
+                    <NIcon :component="DocumentTextOutline" :size="15" />
+                    <span>{{ $t('page.database.document') }}</span>
+                  </button>
+                  <button
+                    class="panel-tab"
+                    :class="{ active: activeOperationTab === 'index' }"
+                    @click="activeOperationTab = 'index'"
+                  >
+                    <NIcon :component="CreateOutline" :size="15" />
+                    <span>{{ $t('page.database.indexes') }}</span>
+                  </button>
+                </div>
+                <div class="panel-content">
+                  <div v-if="activeOperationTab === 'document'" class="document-operation-pane">
+                    <div v-if="editingDocument">
+                      <NThing :title="$t('page.database.editContent')"></NThing>
+                      <JsonEditor v-model="editingDocumentJson" :height="400" />
+                      <div class="flex flex-row flex-row-reverse gap-2">
+                        <NButton type="primary" @click="handleSaveDocument">{{ $t('page.database.save') }}</NButton>
+                        <NButton type="error" @click="handleCancelEdit">{{ $t('page.database.cancel') }}</NButton>
+                      </div>
+                    </div>
+                    <NEmpty
+                      v-else
+                      :description="$t('page.database.emptyDescription')"
+                      class="h-full flex items-center justify-center"
+                    >
+                      <template #icon>
+                        <NIcon :component="DocumentTextOutline" />
+                      </template>
+                    </NEmpty>
+                  </div>
+                  <div v-else class="index-manager">
+                    <NForm label-placement="top" size="small" class="index-form">
+                      <NFormItem :label="$t('page.database.indexFields')">
+                        <div class="index-field-list">
+                          <div v-for="(field, index) in indexForm.keys" :key="index" class="index-field-row">
+                            <NInput
+                              v-model:value="field.field"
+                              :placeholder="$t('page.database.indexFieldPlaceholder')"
+                            />
+                            <NSelect
+                              v-model:value="field.direction"
+                              :options="indexDirectionOptions"
+                              class="direction-select"
+                            />
+                            <NButton
+                              quaternary
+                              circle
+                              size="small"
+                              :disabled="indexForm.keys.length === 1"
+                              @click="removeIndexField(index)"
+                            >
+                              <template #icon>
+                                <NIcon :component="TrashOutline" />
+                              </template>
+                            </NButton>
+                          </div>
+                          <NButton size="small" dashed @click="addIndexField">
+                            <template #icon>
+                              <NIcon :component="AddOutline" />
+                            </template>
+                            {{ $t('page.database.addIndexField') }}
+                          </NButton>
+                        </div>
+                      </NFormItem>
+                      <div class="index-option-grid">
+                        <NFormItem :label="$t('page.database.uniqueIndex')">
+                          <NSwitch v-model:value="indexForm.unique" />
+                        </NFormItem>
+                        <NFormItem :label="$t('page.database.sparseIndex')">
+                          <NSwitch v-model:value="indexForm.sparse" />
+                        </NFormItem>
+                      </div>
+                      <NFormItem :label="$t('page.database.ttlSeconds')">
+                        <NInputNumber
+                          v-model:value="indexForm.expireAfterSeconds"
+                          clearable
+                          :min="0"
+                          :placeholder="$t('page.database.ttlPlaceholder')"
+                          class="w-full"
+                        />
+                      </NFormItem>
+                      <div class="index-actions">
+                        <NButton type="primary" :disabled="!selectedCollection" @click="handleSaveIndex">
+                          {{ editingIndexName ? $t('page.database.updateIndex') : $t('page.database.createIndex') }}
+                        </NButton>
+                        <NButton @click="resetIndexForm">{{ $t('page.database.resetIndexForm') }}</NButton>
+                      </div>
+                    </NForm>
+                    <NDataTable
+                      :columns="indexColumns"
+                      :data="indexes"
+                      :bordered="false"
+                      :single-line="false"
+                      size="small"
+                      class="index-table"
+                    />
                   </div>
                 </div>
-                <NEmpty
-                  v-else
-                  :description="$t('page.database.emptyDescription')"
-                  class="h-full flex items-center justify-center"
-                >
-                  <template #icon>
-                    <NIcon :component="DocumentTextOutline" />
-                  </template>
-                </NEmpty>
               </div>
             </NCard>
           </template>
@@ -615,6 +909,109 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 600;
   color: #1d1d1f;
+}
+
+.operation-panel-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.panel-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.panel-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6e6e73;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel-tab:hover {
+  color: #1d1d1f;
+}
+
+.panel-tab.active {
+  background: #ffffff;
+  color: #007aff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.document-operation-pane {
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+
+.index-manager {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.index-form {
+  flex-shrink: 0;
+}
+
+.index-field-list {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.index-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 32px;
+  gap: 8px;
+  align-items: center;
+}
+
+.direction-select {
+  width: 96px;
+}
+
+.index-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.index-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.index-table {
+  min-height: 0;
+  flex: 1;
 }
 
 .selected-collection-item {

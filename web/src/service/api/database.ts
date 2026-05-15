@@ -174,3 +174,58 @@ export function UpdateDocument(appId: string, colName: string, docId: string, do
     }
   });
 }
+
+export interface IndexPayload {
+  keys: Api.Database.IndexField[];
+  unique?: boolean;
+  sparse?: boolean;
+  expireAfterSeconds?: number | null;
+}
+
+export function GetIndexData(appId: string, colName: string) {
+  return request<Api.Database.GetIndexData>({
+    url: '/database/indexes',
+    method: 'post',
+    data: {
+      appId,
+      colName
+    }
+  });
+}
+
+export function CreateIndex(appId: string, colName: string, payload: IndexPayload) {
+  return request<Api.Database.IndexMutationResult>({
+    url: '/database/create_index',
+    method: 'post',
+    data: {
+      appId,
+      colName,
+      ...payload
+    }
+  });
+}
+
+export function DropIndex(appId: string, colName: string, indexName: string) {
+  return request<Record<string, never>>({
+    url: '/database/drop_index',
+    method: 'post',
+    data: {
+      appId,
+      colName,
+      indexName
+    }
+  });
+}
+
+export function UpdateIndex(appId: string, colName: string, oldIndexName: string, payload: IndexPayload) {
+  return request<Api.Database.IndexMutationResult>({
+    url: '/database/update_index',
+    method: 'post',
+    data: {
+      appId,
+      colName,
+      oldIndexName,
+      ...payload
+    }
+  });
+}

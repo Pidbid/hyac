@@ -192,5 +192,50 @@ class DynamicDB:
         count = await self.app_db(app_id)[col_name].count_documents({})
         return count
 
+    async def app_collection_indexes(self, app_id: str, col_name: str):
+        """
+        Retrieves index definitions from the specified collection.
+
+        Args:
+            app_id (str): The ID of the application (database name).
+            col_name (str): The name of the collection.
+
+        Returns:
+            list[dict]: Index definitions from MongoDB.
+        """
+        indexes = []
+        cursor = self.app_db(app_id)[col_name].list_indexes()
+        async for index in cursor:
+            indexes.append(index)
+        return indexes
+
+    async def app_create_collection_index(
+        self, app_id: str, col_name: str, keys: list[tuple[str, int | str]], **options
+    ):
+        """
+        Creates an index on the specified collection.
+
+        Args:
+            app_id (str): The ID of the application (database name).
+            col_name (str): The name of the collection.
+            keys (list[tuple[str, int | str]]): PyMongo index key specification.
+            **options: Index options passed to PyMongo.
+
+        Returns:
+            str: Created index name.
+        """
+        return await self.app_db(app_id)[col_name].create_index(keys, **options)
+
+    async def app_drop_collection_index(self, app_id: str, col_name: str, index_name: str):
+        """
+        Drops an index from the specified collection.
+
+        Args:
+            app_id (str): The ID of the application (database name).
+            col_name (str): The name of the collection.
+            index_name (str): The index name to drop.
+        """
+        return await self.app_db(app_id)[col_name].drop_index(index_name)
+
 
 dynamic_db = DynamicDB()

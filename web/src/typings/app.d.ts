@@ -589,6 +589,23 @@ declare namespace App {
           selectDocumentsToDelete: string;
           deleteSelectedConfirm: string;
           deleteSelected: string;
+          indexes: string;
+          indexName: string;
+          indexFields: string;
+          indexFieldPlaceholder: string;
+          indexOptions: string;
+          addIndexField: string;
+          uniqueIndex: string;
+          sparseIndex: string;
+          ttlSeconds: string;
+          ttlPlaceholder: string;
+          createIndex: string;
+          updateIndex: string;
+          resetIndexForm: string;
+          indexFieldRequired: string;
+          ttlSingleFieldOnly: string;
+          indexSaveSuccess: string;
+          deleteIndexConfirm: string;
         };
         function: {
           tagsGroup: {

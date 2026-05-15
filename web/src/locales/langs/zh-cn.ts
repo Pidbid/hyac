@@ -342,7 +342,24 @@ const local: App.I18n.Schema = {
       noCollections: '暂无集合，快去创建一个吧',
       selectDocumentsToDelete: '请先选择要删除的文档',
       deleteSelectedConfirm: '确定要删除选中的 {count} 个文档吗？',
-      deleteSelected: '批量删除'
+      deleteSelected: '批量删除',
+      indexes: '索引',
+      indexName: '索引名称',
+      indexFields: '索引字段',
+      indexFieldPlaceholder: '字段名，如 created_at',
+      indexOptions: '索引选项',
+      addIndexField: '添加字段',
+      uniqueIndex: '唯一索引',
+      sparseIndex: '稀疏索引',
+      ttlSeconds: 'TTL 秒数',
+      ttlPlaceholder: '留空表示不启用 TTL',
+      createIndex: '创建索引',
+      updateIndex: '更新索引',
+      resetIndexForm: '重置',
+      indexFieldRequired: '请至少填写一个索引字段',
+      ttlSingleFieldOnly: 'TTL 索引只支持单字段',
+      indexSaveSuccess: '索引保存成功',
+      deleteIndexConfirm: '确定要删除索引: {name} 吗？'
     },
     function: {
       tagsGroup: {
