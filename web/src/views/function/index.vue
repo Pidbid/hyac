@@ -210,6 +210,10 @@ const functionAddress = computed(() => {
   }
   return '';
 });
+const hasSelectedFunction = computed(() => Boolean(selectedFunction.value.id));
+const functionWorkspaceDescription = computed(() =>
+  functions.value.length > 0 ? $t('page.function.selectFunctionToEdit') : $t('page.function.emptyDescription')
+);
 
 function cloneFunctionInfo(func: Api.Function.FunctionInfo): Api.Function.FunctionInfo {
   return {
@@ -1610,7 +1614,7 @@ onBeforeUnmount(() => {
 
       <template #2>
         <main class="main-container">
-          <template v-if="functions.length > 0">
+          <template v-if="hasSelectedFunction">
             <NSplit
               v-model:size="workspaceSplitSize"
               class="workspace-split"
@@ -1703,7 +1707,7 @@ onBeforeUnmount(() => {
           <div v-else class="empty-state">
             <div class="empty-content">
               <div class="empty-icon-large">ƒ</div>
-              <h2>{{ $t('page.function.emptyDescription') }}</h2>
+              <h2>{{ functionWorkspaceDescription }}</h2>
               <button class="create-btn" @click="handleCreateFunction">
                 <NIcon :component="AddOutline" :size="18" />
                 <span>{{ $t('page.function.createFunction') }}</span>

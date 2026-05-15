@@ -488,6 +488,7 @@ declare namespace App {
           appDesc: string;
           appStatus: string;
           appId: string;
+          applications: string;
           emptyApp: string;
           createApp: string;
           welcome: string;
@@ -688,6 +689,7 @@ declare namespace App {
           confirmDeleteEnv: string;
           deleteEnvConfirm: string;
           emptyDescription: string;
+          selectFunctionToEdit: string;
           functionEditor: string;
           publish: string;
           published: string;
