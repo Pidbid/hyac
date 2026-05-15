@@ -1,5 +1,7 @@
 import sys
+from contextlib import contextmanager
 from enum import Enum
+from typing import Iterator
 
 from loguru import logger
 
@@ -18,6 +20,13 @@ def prefix_runtime_lines(text: str, runtime_label: str) -> str:
         return normalized
 
     return "\n".join(f"{runtime_label}{line}" for line in normalized.splitlines())
+
+
+@contextmanager
+def function_runtime_log_context(**extra: object) -> Iterator[None]:
+    """Attach function metadata to global Loguru logs emitted during execution."""
+    with logger.contextualize(**extra):
+        yield
 
 
 def configure_logging():

@@ -20,7 +20,7 @@ from core.config import settings
 from core.db_manager import db_manager
 from core.exceptions import APIException
 from core.faas_s3 import app_id_context
-from core.logger import LogType, prefix_runtime_lines
+from core.logger import LogType, function_runtime_log_context, prefix_runtime_lines
 from models.applications_model import Application
 from models.functions_model import Function
 from models.statistics_model import CallStatus, FunctionMetric
@@ -126,14 +126,20 @@ async def _prepare_arguments(
     return handler_args
 
 
-async def _execute_and_log(handler_func, handler_args: dict, log_func: logger) -> Any:
+async def _execute_and_log(
+    handler_func,
+    handler_args: dict,
+    log_func: logger,
+    log_context: Optional[dict[str, object]] = None,
+) -> Any:
     """Executes the handler, capturing and logging its stdout/stderr."""
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
     result = None
     try:
-        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-            result = await handler_func(**handler_args)
+        with function_runtime_log_context(**(log_context or {})):
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                result = await handler_func(**handler_args)
     finally:
         stdout = stdout_capture.getvalue().strip()
         stderr = stderr_capture.getvalue().strip()
@@ -237,6 +243,13 @@ async def dynamic_handler(
             runtime_label=f"[func:{func_id}] ",
         )
         function_log = log_func
+        log_context = {
+            "app_id": app_id,
+            "function_id": func_id,
+            "function_name": function_name,
+            "logtype": LogType.FUNCTION,
+            "runtime_label": f"[func:{func_id}] ",
+        }
 
         # 3. Prepare arguments for the handler
         handler_args = await _prepare_arguments(
@@ -244,7 +257,12 @@ async def dynamic_handler(
         )
 
         # 4. Execute the function and return its result
-        result = await _execute_and_log(handler_func, handler_args, log_func)
+        result = await _execute_and_log(
+            handler_func,
+            handler_args,
+            log_func,
+            log_context=log_context,
+        )
         return _serialize_handler_result(result)
 
     except APIException as api_exc:
