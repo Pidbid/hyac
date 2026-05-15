@@ -577,7 +577,6 @@ declare namespace App {
           cancelEdit: string;
           refreshSuccess: string;
           document: string;
-          documentOperations: string;
           editContent: string;
           save: string;
           cancel: string;
@@ -590,6 +589,7 @@ declare namespace App {
           deleteSelectedConfirm: string;
           deleteSelected: string;
           indexes: string;
+          noIndexes: string;
           indexName: string;
           indexFields: string;
           indexFieldPlaceholder: string;

@@ -48,8 +48,8 @@ import {
   GetDocumentData,
   GetIndexData,
   type IndexPayload,
-  UpdateIndex,
-  UpdateDocument
+  UpdateDocument,
+  UpdateIndex
 } from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
 import jsonEditor from '@/components/custom/jsonEditor.vue';
@@ -492,9 +492,7 @@ const indexColumns: DataTableColumns<Api.Database.IndexRecord> = [
       const options = [
         row.unique ? 'unique' : '',
         row.sparse ? 'sparse' : '',
-        row.expireAfterSeconds !== null && row.expireAfterSeconds !== undefined
-          ? `ttl ${row.expireAfterSeconds}s`
-          : ''
+        row.expireAfterSeconds !== null && row.expireAfterSeconds !== undefined ? `ttl ${row.expireAfterSeconds}s` : ''
       ].filter(Boolean);
       return options.length ? options.join(', ') : '-';
     }
@@ -697,7 +695,7 @@ onMounted(async () => {
                   </NButton>
                 </NSpace>
               </template>
-              <div class="flex-grow-1" style="overflow: hidden">
+              <div class="document-table-wrap">
                 <NDataTable
                   :columns="documentColumns"
                   :data="documents"
@@ -705,7 +703,7 @@ onMounted(async () => {
                   flex-height
                   :single-line="false"
                   :row-key="(row: any) => row._id"
-                  style="height: 100%"
+                  class="document-table"
                   @update:checked-row-keys="handleCheck"
                 />
               </div>
@@ -729,30 +727,32 @@ onMounted(async () => {
               class="apple-panel operation-panel"
               :content-style="{ padding: '0px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }"
             >
-              <template #header>
-                <div class="panel-title">
-                  <NIcon :component="CreateOutline" :size="16" />
-                  <span>{{ $t('page.database.documentOperations') }}</span>
-                </div>
-              </template>
               <div class="operation-panel-body">
-                <div class="panel-tabs">
-                  <button
-                    class="panel-tab"
-                    :class="{ active: activeOperationTab === 'document' }"
-                    @click="activeOperationTab = 'document'"
-                  >
-                    <NIcon :component="DocumentTextOutline" :size="15" />
-                    <span>{{ $t('page.database.document') }}</span>
-                  </button>
-                  <button
-                    class="panel-tab"
-                    :class="{ active: activeOperationTab === 'index' }"
-                    @click="activeOperationTab = 'index'"
-                  >
-                    <NIcon :component="CreateOutline" :size="15" />
-                    <span>{{ $t('page.database.indexes') }}</span>
-                  </button>
+                <div class="inspector-toolbar">
+                  <div class="inspector-tabs" role="tablist">
+                    <button
+                      type="button"
+                      class="inspector-tab"
+                      :class="{ active: activeOperationTab === 'document' }"
+                      role="tab"
+                      :aria-selected="activeOperationTab === 'document'"
+                      @click="activeOperationTab = 'document'"
+                    >
+                      <NIcon :component="DocumentTextOutline" :size="15" />
+                      <span>{{ $t('page.database.document') }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="inspector-tab"
+                      :class="{ active: activeOperationTab === 'index' }"
+                      role="tab"
+                      :aria-selected="activeOperationTab === 'index'"
+                      @click="activeOperationTab = 'index'"
+                    >
+                      <NIcon :component="CreateOutline" :size="15" />
+                      <span>{{ $t('page.database.indexes') }}</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="panel-content">
                   <div v-if="activeOperationTab === 'document'" class="document-operation-pane">
@@ -833,12 +833,20 @@ onMounted(async () => {
                       </div>
                     </NForm>
                     <NDataTable
+                      v-if="selectedCollection && indexes.length > 0"
                       :columns="indexColumns"
                       :data="indexes"
                       :bordered="false"
                       :single-line="false"
                       size="small"
                       class="index-table"
+                    />
+                    <NEmpty
+                      v-else
+                      :description="
+                        selectedCollection ? $t('page.database.noIndexes') : $t('page.database.noCollections')
+                      "
+                      class="index-empty-state"
                     />
                   </div>
                 </div>
@@ -911,6 +919,15 @@ onMounted(async () => {
   color: #1d1d1f;
 }
 
+.document-table-wrap {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.document-table {
+  height: 100%;
+}
+
 .operation-panel-body {
   display: flex;
   flex: 1;
@@ -918,36 +935,56 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.panel-tabs {
+.inspector-toolbar {
   display: flex;
+  align-items: center;
   flex-shrink: 0;
-  gap: 2px;
-  padding: 6px 8px;
+  padding: 8px;
   background: rgba(0, 0, 0, 0.02);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.panel-tab {
+.inspector-tabs {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.inspector-tab {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 6px 8px;
   font-size: 12px;
   font-weight: 500;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: #6e6e73;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
 }
 
-.panel-tab:hover {
+.inspector-tab span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-tab:hover {
   color: #1d1d1f;
 }
 
-.panel-tab.active {
+.inspector-tab.active {
   background: #ffffff;
   color: #007aff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -1012,6 +1049,18 @@ onMounted(async () => {
 .index-table {
   min-height: 0;
   flex: 1;
+}
+
+.index-empty-state {
+  display: flex;
+  min-height: 180px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  border: 1px dashed rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .selected-collection-item {
