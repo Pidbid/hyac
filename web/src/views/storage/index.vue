@@ -520,26 +520,24 @@ onBeforeUnmount(() => {});
 <template>
   <div class="storage-page">
     <header class="storage-toolbar">
-      <div class="toolbar-title">
-        <NIcon :component="CloudUploadOutline" :size="18" />
-        <span>{{ t('route.storage') }}</span>
-      </div>
       <div class="toolbar-actions">
-        <NBreadcrumb class="path-breadcrumb">
-          <NBreadcrumbItem @click="handleBakToRootPath">
-            <NIcon :component="FolderOutline" class="mr-1" />
-            <span>{{ t('page.storage.root') }}</span>
-          </NBreadcrumbItem>
-          <NBreadcrumbItem
-            v-for="(path, index) in breadcrumbPath"
-            :key="path.key"
-            @click="handleBreadcrumbClick(path, index)"
-          >
-            <NIcon :component="FolderOutline" class="mr-1" />
-            {{ path.name }}
-          </NBreadcrumbItem>
-        </NBreadcrumb>
-        <NSpace>
+        <div class="path-nav">
+          <NBreadcrumb class="path-breadcrumb">
+            <NBreadcrumbItem @click="handleBakToRootPath">
+              <NIcon :component="FolderOutline" class="mr-1" />
+              <span>{{ t('page.storage.root') }}</span>
+            </NBreadcrumbItem>
+            <NBreadcrumbItem
+              v-for="(path, index) in breadcrumbPath"
+              :key="path.key"
+              @click="handleBreadcrumbClick(path, index)"
+            >
+              <NIcon :component="FolderOutline" class="mr-1" />
+              {{ path.name }}
+            </NBreadcrumbItem>
+          </NBreadcrumb>
+        </div>
+        <NSpace class="storage-actions">
           <NButton v-if="checkedRowKeys.length > 0" size="small" type="error" @click="handleDeleteSelected">
             <template #icon>
               <NIcon :component="TrashOutline" />
@@ -683,10 +681,10 @@ onBeforeUnmount(() => {});
 .storage-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
@@ -694,7 +692,6 @@ onBeforeUnmount(() => {});
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
-.toolbar-title,
 .panel-title {
   display: flex;
   align-items: center;
@@ -708,9 +705,21 @@ onBeforeUnmount(() => {});
 .toolbar-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
+  width: 100%;
   min-width: 0;
+}
+
+.path-nav {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.storage-actions {
+  flex: 0 0 auto;
 }
 
 .storage-split {
@@ -742,6 +751,7 @@ onBeforeUnmount(() => {});
 
 .path-breadcrumb {
   min-width: 0;
+  max-width: 100%;
   background-color: #f5f5f7;
   padding: 8px 12px;
   border-radius: 8px;
@@ -776,5 +786,28 @@ onBeforeUnmount(() => {});
 :deep(.n-data-table) {
   --n-td-color-hover: #f5f5f7;
   --n-merged-border-color: rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 768px) {
+  .storage-toolbar {
+    align-items: stretch;
+  }
+
+  .toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .path-nav {
+    width: 100%;
+  }
+
+  .path-breadcrumb {
+    width: 100%;
+  }
+
+  .storage-actions {
+    justify-content: flex-start;
+  }
 }
 </style>
