@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
 import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useStorage } from '@vueuse/core';
 import {
   NButton,
   NButtonGroup,
@@ -135,8 +136,11 @@ const sidebarCollapsed = ref(false);
 const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const showAiWindow = ref(false);
-const activePanel = ref<'test' | 'cron'>('test');
-const logCollapsed = ref(false);
+const pageSplitSize = useStorage('function-page-split-size', 0.12);
+const workspaceSplitSize = useStorage('function-workspace-split-size', 0.82);
+const editorLogSplitSize = useStorage('function-editor-log-split-size', 0.7);
+const activePanel = useStorage<'test' | 'cron'>('function-active-panel', 'test');
+const logCollapsed = useStorage('function-log-collapsed', false);
 const logAnimState = ref<'idle' | 'collapsing' | 'expanding'>('idle');
 let logAnimTimer: number | null = null;
 let editorLayoutTimer: number | null = null;
@@ -147,7 +151,12 @@ function scheduleEditorLayout(delay: number) {
     window.clearTimeout(editorLayoutTimer);
   }
   editorLayoutTimer = window.setTimeout(() => {
-    editorPanelRef.value?.layoutEditor();
+    nextTick(() => {
+      editorPanelRef.value?.layoutEditor();
+      window.requestAnimationFrame(() => {
+        editorPanelRef.value?.layoutEditor();
+      });
+    });
     editorLayoutTimer = null;
   }, delay);
 }
@@ -183,6 +192,14 @@ function handleExpandLog() {
     logAnimState.value = 'idle';
     logAnimTimer = null;
   }, 350);
+}
+
+function handleSplitDragMove() {
+  scheduleEditorLayout(0);
+}
+
+function handleSplitDragEnd() {
+  scheduleEditorLayout(80);
 }
 
 // Computed
@@ -1566,7 +1583,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="function-page">
-    <NSplit class="page-split" :default-size="0.12" :min="0.12" :max="0.34">
+    <NSplit
+      v-model:size="pageSplitSize"
+      class="page-split"
+      :min="0.12"
+      :max="0.34"
+      @drag-move="handleSplitDragMove"
+      @drag-end="handleSplitDragEnd"
+    >
       <template #1>
         <aside class="sidebar-container" :class="{ collapsed: sidebarCollapsed }">
           <FunctionList
@@ -1587,41 +1611,61 @@ onBeforeUnmount(() => {
       <template #2>
         <main class="main-container">
           <template v-if="functions.length > 0">
-            <NSplit class="workspace-split" :default-size="0.82" :min="0.42" :max="0.86">
+            <NSplit
+              v-model:size="workspaceSplitSize"
+              class="workspace-split"
+              :min="0.42"
+              :max="0.86"
+              @drag-move="handleSplitDragMove"
+              @drag-end="handleSplitDragEnd"
+            >
               <template #1>
                 <section class="primary-column">
-                  <div class="editor-log-layout" :class="{ 'log-collapsed': logCollapsed }">
-                    <div class="editor-section">
-                      <FunctionEditorPanel
-                        ref="editorPanelRef"
-                        :func="selectedFunction"
-                        :code-changed="codeChanged"
-                        :is-saving="isSaving"
-                        :editor-config="editorConfig"
-                        @save-code="handleSaveCode"
-                        @open-history="handleOpenHistory"
-                        @update:code="selectedFunction.code = $event"
-                        @open-editor-settings="handleFunctionEditorSetting"
-                        @edit-meta="handleEditMeta"
-                      />
-                    </div>
-                    <div
-                      class="log-container"
-                      :class="{
-                        compact: logCollapsed,
-                        'log-anim-collapsing': logAnimState === 'collapsing',
-                        'log-anim-expanding': logAnimState === 'expanding'
-                      }"
-                    >
-                      <FunctionLogPanel
-                        :app-id="applicationStore.appId"
-                        :func-id="selectedFunction.id"
-                        :compact="logCollapsed"
-                        @collapse="handleCollapseLog"
-                        @expand="handleExpandLog"
-                      />
-                    </div>
-                  </div>
+                  <NSplit
+                    v-model:size="editorLogSplitSize"
+                    class="editor-log-split"
+                    :class="{ 'log-collapsed': logCollapsed }"
+                    direction="vertical"
+                    :min="0.35"
+                    :max="0.86"
+                    @drag-move="handleSplitDragMove"
+                    @drag-end="handleSplitDragEnd"
+                  >
+                    <template #1>
+                      <div class="editor-section">
+                        <FunctionEditorPanel
+                          ref="editorPanelRef"
+                          :func="selectedFunction"
+                          :code-changed="codeChanged"
+                          :is-saving="isSaving"
+                          :editor-config="editorConfig"
+                          @save-code="handleSaveCode"
+                          @open-history="handleOpenHistory"
+                          @update:code="selectedFunction.code = $event"
+                          @open-editor-settings="handleFunctionEditorSetting"
+                          @edit-meta="handleEditMeta"
+                        />
+                      </div>
+                    </template>
+                    <template #2>
+                      <div
+                        class="log-container"
+                        :class="{
+                          compact: logCollapsed,
+                          'log-anim-collapsing': logAnimState === 'collapsing',
+                          'log-anim-expanding': logAnimState === 'expanding'
+                        }"
+                      >
+                        <FunctionLogPanel
+                          :app-id="applicationStore.appId"
+                          :func-id="selectedFunction.id"
+                          :compact="logCollapsed"
+                          @collapse="handleCollapseLog"
+                          @expand="handleExpandLog"
+                        />
+                      </div>
+                    </template>
+                  </NSplit>
                 </section>
               </template>
 
@@ -1734,31 +1778,28 @@ onBeforeUnmount(() => {
   padding-right: var(--function-panel-gap);
 }
 
-.editor-log-layout {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  gap: var(--function-panel-gap);
-}
-
 .editor-section {
-  flex: 0 1 70%;
+  height: 100%;
   min-height: 0;
 }
 
 .log-container {
-  flex: 1 1 30%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
 
-.editor-log-layout.log-collapsed .editor-section {
-  flex: 1 1 auto;
+.editor-log-split.log-collapsed :deep(.n-split-pane-1) {
+  flex-basis: calc(100% - 48px) !important;
+  max-height: calc(100% - 48px) !important;
+}
+
+.editor-log-split.log-collapsed :deep(.n-split-pane-2) {
+  flex-basis: 48px !important;
+  max-height: 48px !important;
 }
 
 .log-container.compact {
-  flex: none;
   height: 48px;
   max-height: 48px;
 }
