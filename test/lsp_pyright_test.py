@@ -150,7 +150,7 @@ async def test_pyright():
         }
         await write_lsp_payload(process.stdin, json.dumps(shutdown_req))
         try:
-            shutdown_resp = await recv_until_id(process.stdout, 99, timeout=5.0)
+            await recv_until_id(process.stdout, 99, timeout=5.0)
             print(f"[OK] shutdown response received")
         except asyncio.TimeoutError:
             print(f"[WARN] shutdown timed out")

@@ -229,7 +229,7 @@ function cacheCurrentCodeDraft() {
   if (code !== originalCode.value) {
     codeDrafts[id] = { code, originalCode: originalCode.value };
   } else {
-    delete codeDrafts[id];
+    Reflect.deleteProperty(codeDrafts, id);
   }
 }
 
@@ -542,11 +542,11 @@ const handleSaveCode = async () => {
         if (codeChanged.value) {
           codeDrafts[savingFunctionId] = { code: selectedFunction.value.code, originalCode: savedCode };
         } else {
-          delete codeDrafts[savingFunctionId];
+          Reflect.deleteProperty(codeDrafts, savingFunctionId);
         }
         functionStore.setFuncInfo(cloneFunctionInfo(selectedFunction.value));
       } else if (codeDrafts[savingFunctionId]?.code === savedCode) {
-        delete codeDrafts[savingFunctionId];
+        Reflect.deleteProperty(codeDrafts, savingFunctionId);
       } else if (codeDrafts[savingFunctionId]) {
         codeDrafts[savingFunctionId].originalCode = savedCode;
       }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RuntimeLogPanel from '@/views/log/modules/RuntimeLogPanel.vue';
 
-const props = defineProps<{
+defineProps<{
   appId?: string | null;
   funcId?: string | null;
   compact?: boolean;

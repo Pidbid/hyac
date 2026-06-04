@@ -1,12 +1,10 @@
 # app/context.py
 import os
-import asyncio
 from typing import Any
 from types import SimpleNamespace
 from loguru import logger
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
-from pymongo import MongoClient
 
 from core.s3_context import S3Context
 from code_loader import CodeLoader

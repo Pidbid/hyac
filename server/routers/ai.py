@@ -1,14 +1,12 @@
-import httpx
 import os
 from fastapi import APIRouter, Depends, HTTPException
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import json
-from typing import List, Dict, Any, AsyncGenerator
+from typing import List, Dict, AsyncGenerator
 from contextlib import contextmanager
 
 from core.jwt_auth import get_current_user
-from models.common_model import BaseResponse
 from models.users_model import User
 from models.applications_model import Application
 

@@ -1,9 +1,8 @@
-from core.passwords import verify_password
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, Query, Security, WebSocket, Request
+from fastapi import HTTPException, Query, Security, WebSocket
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.exceptions import WebSocketException
 from starlette import status
@@ -11,7 +10,7 @@ from jwt import ExpiredSignatureError, PyJWTError
 
 from core.config import settings
 from core.exceptions import APIException
-from models import User, Application
+from models import User
 
 # JWT Configuration
 SECRET_KEY = settings.SECRET_KEY

@@ -4,8 +4,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from models.applications_model import (
     NotificationConfig,
-    EmailNotification,
-    WebhookNotification,
 )
 from loguru import logger
 

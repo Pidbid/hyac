@@ -1,6 +1,5 @@
 import httpx
 from loguru import logger
-from core.config import settings
 from models.applications_model import Application
 
 

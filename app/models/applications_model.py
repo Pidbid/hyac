@@ -1,6 +1,6 @@
 # models/applications_model.py
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Optional, List
 from enum import Enum
 
 from beanie import Document

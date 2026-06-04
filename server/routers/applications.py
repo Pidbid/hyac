@@ -3,7 +3,7 @@ import math
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from core.jwt_auth import get_current_user
@@ -16,10 +16,8 @@ from models.applications_model import (
     ApplicationStatus,
 )
 from models.common_model import BaseResponse
-from models.functions_model import Function, FunctionStatus
 from models.tasks_model import Task, TaskAction
 from loguru import logger
-from core.docker_manager import docker_manager, start_app_container, stop_app_container
 from typing import List
 
 router = APIRouter(

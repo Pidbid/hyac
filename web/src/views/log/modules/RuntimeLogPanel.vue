@@ -82,7 +82,12 @@ const lineCount = computed(() => {
 
 const latestLine = computed(() => {
   const latest = [...logEntries.value].reverse().find(entry => entry.trim());
-  if (latest) return formatLogEntry(latest).split('\n').find(line => line.trim()) || '';
+  if (latest)
+    return (
+      formatLogEntry(latest)
+        .split('\n')
+        .find(line => line.trim()) || ''
+    );
   if (loading.value) return t('page.log.runtimeConnecting');
   return t('page.log.runtimeEmpty');
 });
@@ -207,6 +212,8 @@ async function consumeStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
   let buffer = '';
 
   while (true) {
+    // Streaming readers are intentionally consumed sequentially.
+    // eslint-disable-next-line no-await-in-loop
     const { done, value } = await reader.read();
     if (done) break;
 
@@ -221,12 +228,7 @@ async function consumeStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
   }
 }
 
-async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boolean; tail?: number }) {
-  if (!props.appId) {
-    message.warning(t('page.log.selectAppFirst'));
-    return;
-  }
-
+function prepareStreamState(options?: { preserveLogs?: boolean; isReconnect?: boolean }) {
   const preserveLogs = options?.preserveLogs ?? false;
   const isReconnect = options?.isReconnect ?? false;
 
@@ -239,6 +241,33 @@ async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boo
     logEntries.value = [];
     reconnectAttempts.value = 0;
   }
+
+  return { isReconnect };
+}
+
+function handleStreamClosed(controller: AbortController) {
+  if (controller.signal.aborted) return;
+
+  connected.value = false;
+  errorText.value = t('page.log.runtimeDisconnected');
+  scheduleReconnect();
+}
+
+function handleStreamError(error: any) {
+  if (error?.name === 'AbortError') return;
+
+  connected.value = false;
+  errorText.value = error?.message || String(error);
+  scheduleReconnect();
+}
+
+async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boolean; tail?: number }) {
+  if (!props.appId) {
+    message.warning(t('page.log.selectAppFirst'));
+    return;
+  }
+
+  const { isReconnect } = prepareStreamState(options);
 
   const controller = new AbortController();
   abortController.value = controller;
@@ -261,17 +290,9 @@ async function startStream(options?: { preserveLogs?: boolean; isReconnect?: boo
       reconnectAttempts.value = 0;
     }
     await consumeStream(response.body.getReader());
-    if (!controller.signal.aborted) {
-      connected.value = false;
-      errorText.value = t('page.log.runtimeDisconnected');
-      scheduleReconnect();
-    }
+    handleStreamClosed(controller);
   } catch (error: any) {
-    if (error?.name !== 'AbortError') {
-      connected.value = false;
-      errorText.value = error?.message || String(error);
-      scheduleReconnect();
-    }
+    handleStreamError(error);
   } finally {
     if (abortController.value === controller) {
       abortController.value = null;

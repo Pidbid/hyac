@@ -4,7 +4,6 @@ from typing import Optional
 
 from beanie import Document
 from pydantic import Field
-from pymongo import IndexModel
 
 
 class User(Document):

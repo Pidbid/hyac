@@ -2,7 +2,6 @@
 import random
 import string
 
-from typing import Optional
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.errors import OperationFailure

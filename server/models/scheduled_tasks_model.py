@@ -1,6 +1,6 @@
 from beanie import Document
-from pydantic import Field, BaseModel
-from typing import Optional, List, Dict, Any
+from pydantic import Field
+from typing import Optional, Dict, Any
 from enum import Enum
 import uuid
 from datetime import datetime

@@ -5,7 +5,6 @@ from pymongo.errors import ConnectionFailure
 from loguru import logger
 
 from models.applications_model import Application
-from core.config import settings
 
 
 class DBConnectionManager:

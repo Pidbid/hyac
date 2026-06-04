@@ -2,7 +2,7 @@
 import json
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from docker import errors
 from models import (

@@ -1,6 +1,6 @@
 # routers/services/statistics.py
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from models.applications_model import Application
 from models.common_model import BaseResponse
@@ -11,7 +11,6 @@ from models.statistics_model import (
     StatisticsSummary,
     FunctionStats,
     RequestStats,
-    DatabaseStats,
     StorageStats,
     CollectionStats,
     FunctionRankingItem,

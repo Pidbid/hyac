@@ -1,9 +1,7 @@
 # services/initialization.py
 import json
 from loguru import logger
-from typing import List
 from core.config import settings
-from core.docker_manager import create_traefik_console_config
 from core.faas_code import faas_templates
 from core.s3_manager import s3_manager
 from core.app_storage import app_storage_service
@@ -18,9 +16,7 @@ from models.functions_model import Function, FunctionStatus
 from core.jwt_auth import create_refresh_token
 from models.users_model import User
 from models.function_template_model import FunctionTemplate, TemplateType, FunctionType
-from models.tasks_model import Task, TaskAction
 from core.passwords import hash_password
-from core.dependence_manager import dependence_manager
 from models.scheduled_tasks_model import ScheduledTask, TriggerType
 
 

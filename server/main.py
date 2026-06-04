@@ -2,7 +2,6 @@
 from contextlib import asynccontextmanager
 import logging
 
-import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +11,6 @@ from core.scheduler_manager import scheduler_manager
 
 from core.database import mongodb_manager
 from core.logger import configure_logging
-from core.config import settings
 from routers import (
     ai_router,
     applications_router,

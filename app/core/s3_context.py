@@ -1,5 +1,4 @@
 # app/core/s3_context.py
-import os
 import asyncio
 import io
 from typing import Any, List, Dict, Optional

@@ -3,7 +3,6 @@ import base64
 import io
 import random
 import re
-import uuid
 from string import ascii_lowercase, ascii_uppercase, digits
 from datetime import datetime, timedelta
 from typing import Any, Optional

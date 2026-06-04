@@ -948,7 +948,7 @@ async def delete_application_background(app: Application):
     logger.info(f"Starting background deletion for app '{app.app_name}' ({app.app_id})")
 
     # 1. Cancel any pending startup tasks for this app
-    from models.tasks_model import Task, TaskAction, TaskStatus
+    from models.tasks_model import Task, TaskAction
 
     try:
         pending_start_tasks = await Task.find(

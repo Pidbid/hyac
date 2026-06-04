@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 from bson import ObjectId
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -42,7 +42,7 @@ class ProxyRequest(BaseModel):
     body: Any = Field(None, description="Request body")
 
 
-from models.functions_model import Function, FunctionStatus, FunctionType
+from models.functions_model import FunctionType
 
 
 class CreateFunctionRequest(BaseModel):

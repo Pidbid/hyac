@@ -1,7 +1,6 @@
 # core/cache.py
 import time
 from typing import Any, Optional
-from models.functions_model import Function
 
 
 class CodeCache:
