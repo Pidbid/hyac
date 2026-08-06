@@ -5,25 +5,11 @@ This guide is designed for developers who want to set up, develop, and test Hyac
 ## Prerequisites
 
 -   A computer with Docker and Docker Compose installed.
--   A server with a public IP address (for domain resolution and traffic forwarding).
--   A domain name with Wildcard DNS set up.
 -   Git.
 
-### Domain and Network Setup
+### Local Network Boundary
 
-To access the service via a public domain name during local development (which is crucial for testing features like Webhooks), you need to perform the following setup:
-
-1.  **Domain Resolution**:
-    At your domain provider, point your development domain (e.g., `dev.your-domain.name`) and its wildcard record to your public server's IP address.
-    -   **Record Type**: `A`, **Host**: `dev`, **Value**: `YOUR_SERVER_PUBLIC_IP`
-    -   **Record Type**: `A`, **Host**: `*.dev`, **Value**: `YOUR_SERVER_PUBLIC_IP`
-
-2.  **Port Forwarding**:
-    You need to set up a reverse proxy or a tool like **frp** or **ngrok** on your public server to forward requests from the public network to the corresponding ports on your local development machine.
-    -   Forward traffic from port `80` on the public server to port `80` on your local machine.
-    -   Forward traffic from port `443` on the public server to port `443` on your local machine.
-
-    *This is a relatively advanced setup. Please refer to the official documentation of the tool you choose for specific configuration instructions.*
+The development Compose file binds Traefik and all debug ports to `127.0.0.1`. Use `localhost` subdomains for routine development. Exposing the development stack through a tunnel or public reverse proxy requires a deliberate port-binding change and a separate security review; it is not the default setup.
 
 ## 1. Clone the Repository
 
@@ -34,24 +20,40 @@ cd Hyac
 
 ## 2. Configure Environment Variables
 
-Copy the `.env.example` file to `.env`.
+Copy the `.env.example` file to a development-only environment file.
 
 ```bash
-cp .env.example .env
+cp .env.example .env.dev
 ```
 
-Then, open the `.env` file and modify the `DOMAIN_NAME` to your development domain:
+Set `DOMAIN_NAME=localhost`, give `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `SECRET_KEY`, and the admin credentials development-only values, and set the runtime source mount to the canonical host path:
 
--   `DOMAIN_NAME`: `dev.your-domain.name`
+```bash
+realpath app
+# Copy the printed absolute path to APP_CODE_PATH_ON_HOST in .env.dev.
+```
+
+`APP_CODE_PATH_ON_HOST` must be an absolute, normalized path and must not be a filesystem root. Do not reuse production secrets in `.env.dev`.
 
 For more details on environment variables, please refer to the [Development Environment](./dev-environment.md) documentation.
+
+Create the local TLS files referenced by the development Traefik configuration. Install `mkcert` for your platform first, then run:
+
+```bash
+mkcert -install
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost "*.localhost"
+```
+
+The first command installs a local development CA into your trust store. Never reuse these certificates in production.
 
 ## 3. Start the Development Environment
 
 On your **local development machine**, use the `docker-compose.dev.yml` file, which is optimized for the development environment, to start all services.
 
 ```bash
-docker-compose -f docker-compose.dev.yml up -d --build
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
 ```
 
 This command will build and start all required services in the background.
@@ -64,9 +66,9 @@ The frontend service is automatically deployed and started in the `hyac_web` Doc
 
 ## 5. Access the Local System
 
-After completing all the setups, you can access your local development environment via the public domain name:
+After completing the setup, access the local environment through the loopback-only endpoints:
 
--   **Frontend**: `http://console.dev.your-domain.name`
--   **Server API Docs**: `http://server.dev.your-domain.name/docs`
+-   **Frontend**: `https://console.localhost`
+-   **Server API Docs**: `https://server.localhost/docs`
 
 You have now successfully set up your local development environment and can start coding and debugging.

@@ -10,7 +10,7 @@ from .functions_model import Function
 from .function_template_model import FunctionTemplate
 from .functions_history_model import FunctionsHistory
 from .statistics_model import FunctionMetric
-from .users_model import User, Captcha
+from .users_model import User, UserPublic, Captcha
 from .settings_model import SettingModel
 from .tasks_model import Task, TaskStatus, TaskAction
 from .scheduled_tasks_model import ScheduledTask, TriggerType

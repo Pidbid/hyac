@@ -501,7 +501,19 @@ class S3Manager:
             "admin", "user", "info", self._mc_target(), access_key
         )
         if not ok:
-            return True, info_output
+            normalized_output = info_output.casefold()
+            explicitly_missing = any(
+                marker in normalized_output
+                for marker in (
+                    "specified user does not exist",
+                    "user does not exist",
+                    "user not found",
+                    "no such user",
+                )
+            )
+            if explicitly_missing:
+                return True, info_output
+            return False, info_output
 
         return await self._run_mc(
             "admin", "user", "remove", self._mc_target(), access_key

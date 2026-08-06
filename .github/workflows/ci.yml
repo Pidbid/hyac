@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      DEV_MODE: "true"
+      SECRET_KEY: test-secret-key-with-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --project server --frozen
+      - run: uv sync --project app --frozen
+      - run: PYTHONPATH=server server/.venv/bin/python -m unittest discover -s test -p 'test_*.py' -v
+      - run: PYTHONPATH=server server/.venv/bin/python -m unittest discover -s server/tests -p 'test_*.py' -v
+      - run: PYTHONPATH=app app/.venv/bin/pytest -q app/tests
+      - run: python3 -m compileall -q server app test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:password-contract
+      - run: pnpm typecheck
+      - run: pnpm exec eslint .
+      - run: pnpm build
+
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN_NAME: example.com
+      EMAIL_ADDRESS: ci@example.com
+      MONGODB_USERNAME: hyac-root
+      MONGODB_PASSWORD: ci-mongodb-password
+      S3_ACCESS_KEY: ci-s3-access-key
+      S3_SECRET_KEY: ci-s3-secret-key
+      SECRET_KEY: ci-secret-key-with-at-least-32-characters
+      DEFAULT_ADMIN_USER: admin
+      DEFAULT_ADMIN_PASSWORD: ci-admin-password
+      APP_IMAGE_TAG: ci-compose-release
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet

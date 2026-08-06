@@ -1,10 +1,8 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import json
-from typing import List, Dict, AsyncGenerator
-from contextlib import contextmanager
+from typing import List, AsyncGenerator
 
 from core.jwt_auth import get_current_user
 from models.users_model import User
@@ -34,23 +32,6 @@ class ChatCompletionRequest(BaseModel):
 
 import litellm
 from loguru import logger
-
-
-@contextmanager
-def temporary_env_vars(env_vars: Dict[str, str]):
-    """Context manager to temporarily set environment variables for a request."""
-    original_vars = {key: os.environ.get(key) for key in env_vars}
-    os.environ.update(env_vars)
-    try:
-        yield
-    finally:
-        for key, value in original_vars.items():
-            if value is None:
-                if key in os.environ:
-                    del os.environ[key]
-            else:
-                os.environ[key] = value
-
 
 @router.post("/chat_completions")
 async def chat_completions(
@@ -83,25 +64,6 @@ async def chat_completions(
     # Construct the final messages payload (RAG part is omitted for clarity, can be added back)
     final_messages = [msg.model_dump() for msg in user_messages]
 
-    # Prepare environment variables for LiteLLM based on the provider
-    # LiteLLM uses convention like OPENAI_API_KEY, ANTHROPIC_API_KEY etc.
-    provider_upper = ai_conf.provider.upper().replace("-", "_")
-    env_vars_to_set = {
-        f"{provider_upper}_API_KEY": ai_conf.api_key,
-    }
-    # Some providers might need a specific API base URL
-    if ai_conf.base_url:
-        # Standard LiteLLM convention for custom endpoints
-        env_vars_to_set[f"{provider_upper}_BASE_URL"] = ai_conf.base_url
-        # Fallback for OpenAI-compatible providers
-        env_vars_to_set["OPENAI_API_BASE"] = ai_conf.base_url
-
-    # Set proxy for LiteLLM if configured
-    if ai_conf.proxy:
-        litellm.proxy = ai_conf.proxy
-    else:
-        litellm.proxy = None  # Explicitly unset if not provided
-
     async def stream_generator() -> AsyncGenerator[str, None]:
         """
         Streams the response from LiteLLM within a temporary environment context.
@@ -109,27 +71,27 @@ async def chat_completions(
         """
         stream_ended = False
         try:
-            with temporary_env_vars(env_vars_to_set):
-                # model_identifier = f"{ai_conf.provider}/{ai_conf.model}"
-                model_identifier = f"{ai_conf.model}"
-                api_base = ai_conf.base_url if ai_conf.base_url else None
+            model_identifier = f"{ai_conf.model}"
+            api_base = ai_conf.base_url if ai_conf.base_url else None
 
-                logger.info(
-                    f"Initiating LiteLLM stream with model: {model_identifier}, "
-                    f"api_base: {api_base}, messages_count: {len(final_messages)}"
-                )
+            logger.info(
+                f"Initiating LiteLLM stream with model: {model_identifier}, "
+                f"api_base: {api_base}, messages_count: {len(final_messages)}"
+            )
 
-                response_stream = await litellm.acompletion(
-                    model=model_identifier,
-                    messages=final_messages,
-                    stream=True,
-                    api_base=api_base,
-                )
+            response_stream = await litellm.acompletion(
+                model=model_identifier,
+                messages=final_messages,
+                stream=True,
+                api_key=ai_conf.api_key,
+                api_base=api_base,
+                proxy=ai_conf.proxy or None,
+            )
 
-                async for chunk in response_stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        yield json.dumps({"content": content})
+            async for chunk in response_stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield json.dumps({"content": content})
 
         except Exception as e:
             logger.error(f"LiteLLM streaming error: {e}")

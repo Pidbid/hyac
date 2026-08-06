@@ -26,6 +26,7 @@ from routers import (
     runtime_router,
     proxy_router,
     scheduler_router,
+    runtime_control_router,
 )
 from core.initialization import InitializationService
 import asyncio
@@ -35,6 +36,7 @@ from core.docker_manager import (
     running_apps,
 )
 from core.task_worker import watch_for_tasks
+from core.migrations import run_pre_beanie_migrations, run_security_migrations
 
 
 # Filter for health check endpoint to prevent logging
@@ -58,25 +60,30 @@ async def lifespan(app: FastAPI):
     """
     Asynchronous context manager to handle application startup and shutdown events.
     """
+    # Identity normalization and the manual unique index must precede Beanie's
+    # model/index initialization so legacy duplicate usernames cannot abort it.
+    await run_pre_beanie_migrations()
+    logger.info("Pre-Beanie identity migrations completed.")
+
     # Initialize the database connection.
     await mongodb_manager.init_beanie()
     logger.info("Database initialized.")
+    await run_security_migrations()
+    logger.info("Security data migrations completed.")
 
     # Configure the logging system.
     configure_logging()
     logger.info("Application starting up...")
 
-    # Perform initialization checks.
-    try:
-        await InitializationService.check_and_initialize()
-    except Exception as e:
-        logger.error(f"Initialization failed: {e}")
+    # Initialization is a startup gate. Fail the lifespan instead of serving
+    # requests with incomplete users or resource ownership.
+    await InitializationService.check_and_initialize()
 
     # Build the app executor image on startup
     await build_app_image_if_not_exists()
 
     # Start the task worker to watch for new tasks
-    asyncio.create_task(watch_for_tasks())
+    task_worker = asyncio.create_task(watch_for_tasks())
     logger.info("Task worker started.")
 
     # Start the dynamic scheduler manager
@@ -84,6 +91,9 @@ async def lifespan(app: FastAPI):
     logger.info("Scheduler manager started.")
 
     yield
+
+    task_worker.cancel()
+    await asyncio.gather(task_worker, return_exceptions=True)
 
     # Shutdown the dynamic scheduler manager
     scheduler_manager.shutdown()
@@ -117,7 +127,7 @@ async def api_exception_handler(request: Request, exc: APIException):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -136,6 +146,7 @@ app.include_router(runtime_router)
 app.include_router(health_router)
 app.include_router(ai_router)
 app.include_router(scheduler_router)
+app.include_router(runtime_control_router)
 
 # The proxy router must be included last, as it's a catch-all.
 app.include_router(proxy_router)

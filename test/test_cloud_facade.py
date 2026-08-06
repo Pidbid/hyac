@@ -5,23 +5,48 @@ from types import SimpleNamespace
 from unittest import TestCase
 
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
+APP_PATH = str(Path(__file__).resolve().parents[1] / "app")
+sys.path.insert(0, APP_PATH)
+
+_MISSING = object()
+_TEMPORARY_MODULES = (
+    "loguru",
+    "core",
+    "models",
+    "cloud",
+    "context",
+    "pymongo",
+    "pymongo.asynchronous.database",
+    "pymongo.database",
+    "core.s3_context",
+    "code_loader",
+    "core.env_manager",
+    "core.notification_manager",
+    "models.applications_model",
+)
+_PREVIOUS_MODULES = {
+    name: sys.modules.get(name, _MISSING) for name in _TEMPORARY_MODULES
+}
 
 fake_loguru = types.ModuleType("loguru")
 fake_loguru.logger = object()
 sys.modules.setdefault("loguru", fake_loguru)
 
-fake_pymongo = types.ModuleType("pymongo")
-fake_pymongo.MongoClient = object
-sys.modules.setdefault("pymongo", fake_pymongo)
+try:
+    import pymongo  # noqa: F401
+except ImportError:
+    fake_pymongo = types.ModuleType("pymongo")
+    fake_pymongo.MongoClient = object
+    fake_pymongo.AsyncMongoClient = object
+    sys.modules["pymongo"] = fake_pymongo
 
-fake_async_database_module = types.ModuleType("pymongo.asynchronous.database")
-fake_async_database_module.AsyncDatabase = object
-sys.modules.setdefault("pymongo.asynchronous.database", fake_async_database_module)
+    fake_async_database_module = types.ModuleType("pymongo.asynchronous.database")
+    fake_async_database_module.AsyncDatabase = object
+    sys.modules["pymongo.asynchronous.database"] = fake_async_database_module
 
-fake_database_module = types.ModuleType("pymongo.database")
-fake_database_module.Database = object
-sys.modules.setdefault("pymongo.database", fake_database_module)
+    fake_database_module = types.ModuleType("pymongo.database")
+    fake_database_module.Database = object
+    sys.modules["pymongo.database"] = fake_database_module
 
 fake_s3_context = types.ModuleType("core.s3_context")
 
@@ -65,6 +90,13 @@ sys.modules.setdefault("models.applications_model", fake_applications_model)
 
 from cloud import CloudFacade  # noqa: E402
 from context import EnvContext, FunctionContext  # noqa: E402
+
+for module_name, previous_module in _PREVIOUS_MODULES.items():
+    if previous_module is _MISSING:
+        sys.modules.pop(module_name, None)
+    else:
+        sys.modules[module_name] = previous_module
+sys.path.remove(APP_PATH)
 
 
 class CloudFacadeTest(TestCase):

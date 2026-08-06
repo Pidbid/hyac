@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -25,8 +25,8 @@ services:
     restart: unless-stopped
     command: ["/data"]
     ports:
-    - 9000:9000
-    - 9001:9001
+    - 127.0.0.1:9000:9000
+    - 127.0.0.1:9001:9001
     environment:
       RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
@@ -69,9 +69,9 @@ services:
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
     ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik/dynamic-dev:/etc/traefik/dynamic"
@@ -99,6 +99,8 @@ services:
       S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-https://oss.${DOMAIN_NAME}}
       S3_REGION: ${S3_REGION:-us-east-1}
       SECRET_KEY: ${SECRET_KEY}
+      DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
       DEV_MODE: "true"
       APP_CODE_PATH_ON_HOST: ${APP_CODE_PATH_ON_HOST}
       DEMO_MODE: "false"
@@ -107,7 +109,7 @@ services:
       LSP_SIDECAR_TIMEOUT_SECONDS: ${LSP_SIDECAR_TIMEOUT_SECONDS:-10}
       LSP_SIDECAR_FALLBACK_LEGACY: ${LSP_SIDECAR_FALLBACK_LEGACY:-true}
     ports:
-      - 8000:8000
+      - 127.0.0.1:8000:8000
     depends_on:
       mongodb:
         condition: service_healthy
@@ -129,7 +131,7 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME}`) && !PathPrefix(`/internal`)"
       - "traefik.http.routers.hyac-server.entrypoints=websecure"
       - "traefik.http.routers.hyac-server.tls=true"
       - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
@@ -144,7 +146,7 @@ services:
       server:
         condition: service_healthy
     ports:
-      - "9527:9527"
+      - "127.0.0.1:9527:9527"
     volumes:
       - ./web:/app
       - /app/node_modules
@@ -178,7 +180,7 @@ services:
         condition: service_healthy
     command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002", "--reload"]
     ports:
-      - "9002:9002"
+      - "127.0.0.1:9002:9002"
     volumes:
       - ./app:/app
     networks:

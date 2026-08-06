@@ -31,3 +31,46 @@ class FaasTemplatesCloudFacadeTest(TestCase):
     def test_common_call_template_uses_cloud_facade_common_namespace(self):
         self.assertIn("common = ctx.cloud.common()", faas_code.endpoint_template_common_call)
         self.assertNotIn("ctx.common", faas_code.endpoint_template_common_call)
+
+    def test_post_template_documents_the_isolated_request_snapshot_contract(self):
+        template = faas_code.endpoint_template_post
+
+        self.assertNotIn("full control", template.lower())
+        self.assertIn(
+            "available: method, url/path, query_params, headers, client, server,",
+            template,
+        )
+        self.assertIn(
+            "path_params, and the bounded body via request.body() or request.json()",
+            template,
+        )
+        self.assertIn(
+            "unavailable: request.app, request.state, request.url_for()/router,",
+            template,
+        )
+        self.assertIn(
+            "request.session, request.auth, request.user, live request.stream(),",
+            template,
+        )
+        self.assertIn("real-time client-disconnect events", template)
+
+    def test_background_template_documents_isolated_completion_contract(self):
+        template = faas_code.endpoint_template_background
+
+        self.assertNotIn("returned to the client immediately", template)
+        self.assertNotIn("after the response has been sent", template)
+        self.assertIn(
+            "runs BackgroundTasks items in registration order before returning the result",
+            template,
+        )
+        self.assertIn("Task time counts against the function timeout", template)
+        self.assertIn(
+            "a timeout terminates the invocation\n    without returning the buffered result",
+            template,
+        )
+        self.assertIn("The first task failure is written to the", template)
+        self.assertIn("function logs, skips remaining items", template)
+        self.assertIn(
+            "does not replace a successful result\n    that has already been buffered",
+            template,
+        )

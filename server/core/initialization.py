@@ -13,7 +13,6 @@ from models.applications_model import (
     ApplicationStatus,
 )
 from models.functions_model import Function, FunctionStatus
-from core.jwt_auth import create_refresh_token
 from models.users_model import User
 from models.function_template_model import FunctionTemplate, TemplateType, FunctionType
 from core.passwords import hash_password
@@ -145,29 +144,56 @@ class InitializationService:
         default_password = settings.DEFAULT_ADMIN_PASSWORD
 
         if not default_username or not default_password:
-            logger.error(
-                "Default admin user or password is not set in the environment variables."
+            raise RuntimeError(
+                "Default admin user or password is not set in the environment variables"
             )
-            return
 
         hashed_password = hash_password(default_password)
 
         try:
-            if not await User.find_one(User.username == default_username):
-                token_data = {"sub": default_username}
-                refresh_token = create_refresh_token(data=token_data)
+            admin = await User.find_one(User.username == default_username)
+            if not admin:
                 new_user = User(
                     username=default_username,
                     password=hashed_password,
                     nickname="Admin",
                     avatar_url="https://example.com/default_avatar.png",
                     roles=["admin"],
-                    refresh_token=refresh_token,
+                    disabled=False,
+                    token_version=0,
                 )
                 await new_user.insert()
                 logger.info(f"Created default user: '{default_username}'")
+            else:
+                update_fields = {}
+                if admin.disabled:
+                    update_fields["disabled"] = False
+                if "admin" not in admin.roles:
+                    update_fields["roles"] = [*admin.roles, "admin"]
+                if update_fields:
+                    update_fields["refresh_token_hash"] = None
+                    await admin.update(
+                        {
+                            "$set": update_fields,
+                            "$inc": {"token_version": 1},
+                        }
+                    )
+
+            await User.find(
+                User.username != default_username,
+                User.disabled == False,
+            ).update(
+                {
+                    "$set": {"disabled": True, "refresh_token_hash": None},
+                    "$inc": {"token_version": 1},
+                }
+            )
+            await User.find(User.username != default_username).update(
+                {"$set": {"refresh_token_hash": None}}
+            )
         except Exception as e:
             logger.error(f"Failed to create default user: {e}")
+            raise
 
     @staticmethod
     async def initialize_demo_application():
@@ -176,17 +202,20 @@ class InitializationService:
         This includes creating a dedicated MongoDB user and an S3 bucket.
         """
         try:
+            default_username = settings.DEFAULT_ADMIN_USER
+            if not default_username:
+                raise RuntimeError("Default admin user is not configured")
             if not await Application.find_one(Application.app_name == "demo"):
                 demo_app = Application(
                     app_name="demo",
                     description="Default demo application for testing purposes.",
                     common_dependencies=[],
                     environment_variables=[],
-                    users=["admin"],
+                    users=[default_username],
                     db_password=generate_short_id(16),
                     cors=CORSConfig(
                         allow_origins=["*"],
-                        allow_credentials=True,
+                        allow_credentials=False,
                         allow_methods=["*"],
                         allow_headers=["*"],
                     ),
@@ -208,7 +237,7 @@ class InitializationService:
                         f"Created MongoDB user for demo application: {demo_app.app_id}"
                     )
                 else:
-                    logger.error(
+                    raise RuntimeError(
                         f"Failed to create MongoDB user for demo application: {demo_app.app_id}"
                     )
 
@@ -218,6 +247,7 @@ class InitializationService:
 
         except Exception as e:
             logger.error(f"Failed to create initial application: {e}")
+            raise
 
     @staticmethod
     async def initialize_demo_functions():
@@ -226,8 +256,10 @@ class InitializationService:
         """
         demo_app = await Application.find_one({"app_name": "demo"})
         if not demo_app:
-            logger.error("Application initialized failed")
-            return
+            raise RuntimeError("Demo application initialization failed")
+        default_username = settings.DEFAULT_ADMIN_USER
+        if not default_username:
+            raise RuntimeError("Default admin user is not configured")
         demo_function = Function(
             function_name="Hello",
             app_id=demo_app.app_id,
@@ -238,7 +270,7 @@ class InitializationService:
             memory_limit=128,
             timeout=5,
             tags=["demo"],
-            users=["admin"],  # Associate with the default user
+            users=[default_username],
             description="A simple demo function that returns a greeting.",
         )
 
@@ -253,6 +285,7 @@ class InitializationService:
                 )
         except Exception as e:
             logger.error(f"Failed to create initial function: {e}")
+            raise
 
     @classmethod
     async def initialize_functions_templates(cls):
@@ -261,8 +294,7 @@ class InitializationService:
         """
         demo_app = await Application.find_one({"app_name": "demo"})
         if not demo_app:
-            logger.error("Demo application not found, cannot initialize templates.")
-            return
+            raise RuntimeError("Demo application not found; cannot initialize templates")
         await create_function_templates_for_app(demo_app.app_id)
 
     @staticmethod
@@ -311,6 +343,7 @@ class InitializationService:
 
         except Exception as e:
             logger.error(f"Failed to initialize system task '{task_id}': {e}")
+            raise
 
     @staticmethod
     async def _is_database_empty() -> bool:
@@ -328,6 +361,17 @@ class InitializationService:
             and templates_count == 0
         )
 
+    @staticmethod
+    async def repair_default_admin_ownership():
+        """Idempotently grant the configured administrator access to all resources."""
+        default_username = settings.DEFAULT_ADMIN_USER
+        if not default_username:
+            raise RuntimeError("Default admin user is not configured")
+
+        membership_update = {"$addToSet": {"users": default_username}}
+        await Application.find_all().update(membership_update)
+        await Function.find_all().update(membership_update)
+
     @classmethod
     async def check_and_initialize(cls):
         """
@@ -337,14 +381,23 @@ class InitializationService:
         # Deprecated: Front-end is now served by Nginx, not S3.
         # create_traefik_console_config()
 
-        if await cls._is_database_empty():
+        database_was_empty = await cls._is_database_empty()
+
+        # The environment username is the authoritative identity on every
+        # startup, including upgrades of non-empty legacy databases.
+        await cls.initialize_default_user()
+
+        if database_was_empty:
             # Deprecated: Front-end is now served by Nginx, not S3.
             # await cls.initialize_console_bucket()
-            await cls.initialize_default_user()
             await cls.initialize_demo_application()
             # Dependencies will be installed by the app container on startup.
             await cls.initialize_demo_functions()
             await cls.initialize_functions_templates()
+
+        # This repair must run for non-empty databases as well. $addToSet keeps it
+        # safe across restarts and preserves every existing resource member.
+        await cls.repair_default_admin_ownership()
 
         # Always ensure system tasks are initialized
         await cls.initialize_system_tasks()

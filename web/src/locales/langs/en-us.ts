@@ -782,7 +782,7 @@ const local: App.I18n.Schema = {
         usernameHelp: '4-16 characters, supports Chinese, English, numbers, underscores, and hyphens',
         password: 'New Password',
         passwordPlaceholder: 'Enter new password (leave blank for no change)',
-        passwordHelp: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol",
+        passwordHelp: '8-128 non-whitespace characters',
         confirmPassword: 'Confirm New Password',
         confirmPasswordPlaceholder: 'Enter the new password again',
         passwordsDoNotMatch: 'The two passwords do not match',
@@ -833,7 +833,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: 'Please enter password',
-      invalid: "6-18 characters, supports letters, numbers, underscores, and {'@'} symbol"
+      invalid: 'Password must contain 8-128 non-whitespace characters'
     },
     confirmPwd: {
       required: 'Please enter password again',

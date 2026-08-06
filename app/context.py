@@ -1,6 +1,6 @@
 # app/context.py
 import os
-from typing import Any
+from typing import Any, Optional
 from types import SimpleNamespace
 from loguru import logger
 from pymongo.asynchronous.database import AsyncDatabase
@@ -51,8 +51,8 @@ class FunctionContext:
         self,
         app_id: str,
         func_id: str,
-        pymongo_db: Database,
-        async_db: AsyncDatabase,
+        pymongo_db: Optional[Database],
+        async_db: Optional[AsyncDatabase],
         code_loader: CodeLoader,
         env: EnvContext,
         common: SimpleNamespace,
@@ -87,14 +87,20 @@ class FunctionContext:
     @property
     def db(self) -> AsyncDatabase:
         """Provides convenient access to the asynchronous PyMongo database client."""
+        if self.async_db is None:
+            raise RuntimeError("Function database context is not initialized")
         return self.async_db
 
     @property
     def motor_db(self) -> AsyncDatabase:
         """Backward-compatible alias for async_db."""
+        if self.async_db is None:
+            raise RuntimeError("Function database context is not initialized")
         return self.async_db
 
     @property
     def sync_db(self) -> Database:
         """Provides convenient access to the synchronous PyMongo database client."""
+        if self.pymongo_db is None:
+            raise RuntimeError("Function database context is not initialized")
         return self.pymongo_db

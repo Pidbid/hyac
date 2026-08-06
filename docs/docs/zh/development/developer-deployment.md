@@ -5,25 +5,11 @@
 ## 先决条件
 
 -   一台安装了 Docker 和 Docker Compose 的电脑。
--   一个拥有公网 IP 的服务器（用于域名解析和流量转发）。
--   一个域名，并为其设置了泛解析（Wildcard DNS）。
 -   Git。
 
-### 域名与网络设置
+### 本地网络边界
 
-为了在本地开发时也能通过公网域名访问服务（这对于测试 Webhook 等功能至关重要），您需要进行以下设置：
-
-1.  **域名解析**:
-    在您的域名服务商处，将您的开发域名（例如 `dev.your-domain.name`）及其泛解析记录指向您公网服务器的 IP 地址。
-    -   **记录类型**: `A`, **主机记录**: `dev`, **记录值**: `YOUR_SERVER_PUBLIC_IP`
-    -   **记录类型**: `A`, **主机记录**: `*.dev`, **记录值**: `YOUR_SERVER_PUBLIC_IP`
-
-2.  **内网穿透 (Port Forwarding)**:
-    您需要在您的公网服务器上设置一个反向代理或内网穿透工具（如 **frp**、**ngrok** 等），将来自公网的请求转发到您本地开发机器的相应端口。
-    -   将公网服务器的 `80` 端口流量转发至本地开发机器的 `80` 端口。
-    -   将公网服务器的 `443` 端口流量转发至本地开发机器的 `443` 端口。
-
-    *这是一个相对高级的设置，具体配置取决于您选择的工具。请参考相关工具的官方文档完成设置。*
+开发 Compose 会把 Traefik 和所有调试端口绑定到 `127.0.0.1`，日常开发使用 `localhost` 子域名即可。若要通过隧道或公网反向代理暴露开发环境，必须显式修改端口绑定并单独进行安全审查；这不是默认部署方式。
 
 ## 1. 克隆仓库
 
@@ -34,24 +20,40 @@ cd Hyac
 
 ## 2. 配置环境变量
 
-将 `.env.example` 文件复制为 `.env`。
+将 `.env.example` 复制为开发环境专用文件。
 
 ```bash
-cp .env.example .env
+cp .env.example .env.dev
 ```
 
-然后，打开 `.env` 文件并修改 `DOMAIN_NAME` 为您设置的开发域名：
+设置 `DOMAIN_NAME=localhost`，为 `S3_ACCESS_KEY`、`S3_SECRET_KEY`、`SECRET_KEY` 和管理员凭据填写仅用于开发的值，并把运行时源码挂载设置为宿主机规范绝对路径：
 
--   `DOMAIN_NAME`: `dev.your-domain.name`
+```bash
+realpath app
+# 将输出的绝对路径写入 .env.dev 的 APP_CODE_PATH_ON_HOST。
+```
+
+`APP_CODE_PATH_ON_HOST` 必须是规范化的绝对路径，且不能是文件系统根目录。不要在 `.env.dev` 中复用生产密钥。
 
 有关环境变量的更多详细信息，请参阅[开发环境](./dev-environment.md)文档。
+
+生成开发环境 Traefik 配置所引用的本地 TLS 文件。先按操作系统安装 `mkcert`，然后执行：
+
+```bash
+mkcert -install
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost "*.localhost"
+```
+
+第一条命令会把本地开发 CA 安装到系统信任库。不要在生产环境复用这些证书。
 
 ## 3. 启动开发环境
 
 在您的**本地开发机器**上，使用为开发环境优化的 `docker-compose.dev.yml` 文件来启动所有服务。
 
 ```bash
-docker-compose -f docker-compose.dev.yml up -d --build
+docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
 ```
 
 此命令将在后台构建并启动所有必需的服务。
@@ -64,9 +66,9 @@ docker-compose -f docker-compose.dev.yml up -d --build
 
 ## 5. 访问本地系统
 
-完成上述所有设置后，您可以通过公网域名访问您的本地开发环境：
+完成上述设置后，通过仅限本机的地址访问开发环境：
 
--   **前端界面**: `http://console.dev.your-domain.name`
--   **服务端 API 文档**: `http://server.dev.your-domain.name/docs`
+-   **前端界面**: `https://console.localhost`
+-   **服务端 API 文档**: `https://server.localhost/docs`
 
 现在您已经成功搭建了本地开发环境，可以开始进行代码开发和调试了。

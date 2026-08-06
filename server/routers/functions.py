@@ -64,8 +64,8 @@ class UpdateFunctionRequest(BaseModel):
     method: Optional[str] = None
     status: Optional[FunctionStatus] = None
     dependencies: Optional[list[str]] = None
-    memory_limit: Optional[int] = None
-    timeout: Optional[int] = None
+    memory_limit: Optional[int] = Field(default=None, ge=128, le=4096)
+    timeout: Optional[int] = Field(default=None, ge=1, le=300)
     requires_auth: Optional[bool] = None
 
 
@@ -128,11 +128,12 @@ async def function_url(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
     func_result = await Function.find_one(
-        Function.id == ObjectId(data.id), Function.app_id == app.app_id
+        Function.function_id == data.id,
+        Function.app_id == app.app_id,
     )
     if not func_result:
         raise HTTPException(status_code=404, detail="Function not found")
-    function_url = f"{data.appId}.{settings.DOMAIN_NAME}/{data.id}"
+    function_url = f"{data.appId}.{settings.DOMAIN_NAME}/{func_result.function_id}"
     return BaseResponse(code=0, msg="Get function url success", data=function_url)
 
 

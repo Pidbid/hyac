@@ -33,6 +33,7 @@ fake_loguru.logger = fake_logger
 
 fake_config = types.ModuleType("core.config")
 fake_config.settings = types.SimpleNamespace(DEBUG=False)
+previous_config = sys.modules.get("core.config")
 sys.modules.setdefault("core.config", fake_config)
 
 spec = importlib.util.spec_from_file_location("hyac_app_core_logger", APP_LOGGER_PATH)
@@ -47,6 +48,10 @@ finally:
         sys.modules.pop("loguru", None)
     else:
         sys.modules["loguru"] = previous_loguru
+    if previous_config is None:
+        sys.modules.pop("core.config", None)
+    else:
+        sys.modules["core.config"] = previous_config
 
 function_runtime_log_context = app_logger.function_runtime_log_context
 prefix_runtime_lines = app_logger.prefix_runtime_lines

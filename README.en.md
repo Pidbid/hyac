@@ -114,21 +114,42 @@ graph TD
     cd hyac
     ```
 
-2.  Configure environment variables:
-    Copy the `.env.example` file and rename it to `.env`, then modify the configurations according to your environment.
+2.  Configure production environment variables:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Replace every placeholder in `.env` before startup. Required values are:
+
+    - `DOMAIN_NAME` and `EMAIL_ADDRESS`
+    - `MONGODB_USERNAME` and `MONGODB_PASSWORD`
+    - `S3_ACCESS_KEY` and `S3_SECRET_KEY`
+    - `SECRET_KEY` (at least 32 characters)
+    - `DEFAULT_ADMIN_USER` and `DEFAULT_ADMIN_PASSWORD`
+    - `APP_IMAGE_TAG` (an immutable release tag such as `v1.2.3`, never `latest`)
+
+    `openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` placeholder from `.env.example` in production.
+
+3.  Generate the MongoDB cluster authentication keyfile:
+
+    ```bash
+    ./scripts/01-create-mongo-keyfile.sh
+    ```
+
+    Continue only after the script confirms mode `0400` and ownership by the MongoDB container user.
 
 ### ▶️ Starting the Services
 
 Execute the following command to build and start all services:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 🌐 Access Points
 
-- **Frontend Application**: `http://localhost:80`
-- **RustFS Console**: `http://localhost:9001` (uses the configured S3/RustFS access key and secret)
+- **Frontend Application**: `https://console.<DOMAIN_NAME>`
 
 ## 📁 Major Project Structure
 

@@ -24,10 +24,16 @@ Copy the `.env.example` file to `.env`.
 cp .env.example .env
 ```
 
-Then, open the `.env` file and make the following changes:
+Before starting the stack, replace every placeholder in `.env`. Production requires all of the following values:
 
--   `DOMAIN_NAME`: Change this value to your own main domain name.
--   `EMAIL_ADDRESS`: Change this to your email address, which will be used for SSL certificate requests.
+-   `DOMAIN_NAME` and `EMAIL_ADDRESS`
+-   `MONGODB_USERNAME` and `MONGODB_PASSWORD`
+-   `S3_ACCESS_KEY` and `S3_SECRET_KEY`
+-   `SECRET_KEY` (at least 32 characters)
+-   `DEFAULT_ADMIN_USER` and `DEFAULT_ADMIN_PASSWORD`
+-   `APP_IMAGE_TAG` (an immutable release tag such as `v1.2.3`, never `latest`)
+
+`openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` values from `.env.example` in the production file.
 
 **Important:** To allow functions to be accessed via unique subdomains, you need to add a wildcard DNS record at your domain provider. Here are the details:
 
@@ -35,15 +41,25 @@ Then, open the `.env` file and make the following changes:
 -   **Host**: `*`
 -   **Value**: Point this to your server's IP address
 
-## 3. Start the Services
+## 3. Generate the MongoDB Keyfile
+
+Run the repository script before the first production start:
 
 ```bash
-docker-compose up -d
+./scripts/01-create-mongo-keyfile.sh
+```
+
+Continue only after the script confirms mode `0400` and ownership by the MongoDB container user. If it cannot set the required owner, run it with sufficient privileges instead of starting MongoDB with an unreadable keyfile.
+
+## 4. Start the Services
+
+```bash
+docker compose up -d
 ```
 
 This will start all the required services in the background.
 
-## 4. Access the System
+## 5. Access the System
 
 You can now access the Hyac console at:
 

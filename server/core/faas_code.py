@@ -85,8 +85,13 @@ async def handler(
     #         "raw_payload": body_content
     #     }
 
-    # 3. Advanced: Using the Request object for full control
-    # This allows you to handle different content types, headers, etc.
+    # 3. Advanced: Using the isolated Request snapshot
+    # The handler runs in an isolated worker and receives a bounded snapshot:
+    # - available: method, url/path, query_params, headers, client, server,
+    #   path_params, and the bounded body via request.body() or request.json()
+    # - unavailable: request.app, request.state, request.url_for()/router,
+    #   request.session, request.auth, request.user, live request.stream(),
+    #   and real-time client-disconnect events
     try:
         # Manually parse JSON from the request object
         json_payload = await request.json()
@@ -166,18 +171,23 @@ def send_notification_email(email: str, message: str):
 
 async def handler(ctx, background_tasks: BackgroundTasks, email_to: str, content: str):
     \"\"\"
-    An example of scheduling a background task.
-    The response is returned to the client immediately, while the task runs in the background.
+    Schedule additional work within this isolated function invocation.
+
+    HYAC runs BackgroundTasks items in registration order before returning the result.
+    Task time counts against the function timeout; a timeout terminates the invocation
+    without returning the buffered result. The first task failure is written to the
+    function logs, skips remaining items, and does not replace a successful result
+    that has already been buffered.
     \"\"\"
     logger.info("Handler received request, scheduling email task.")
     
-    # Add the task to be executed after the response has been sent.
+    # The isolated worker runs this task before the invocation result is returned.
     background_tasks.add_task(send_notification_email, email_to, content)
     
-    # Return a response to the client immediately.
+    # This value is buffered first, then released only after the task finishes.
     return {
-        "status": "accepted",
-        "message": f"Email to {email_to} has been scheduled and will be sent in the background."
+        "status": "processed",
+        "message": f"Email task for {email_to} was processed inside this invocation."
     }
 """
 

@@ -1,5 +1,6 @@
 # server/routers/settings.py
 import json
+from datetime import datetime
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,28 +16,25 @@ from models import (
     AIConfig,
 )
 from core.dependence_manager import dependence_manager
+from core.database import mongodb_manager
 from core.docker_manager import docker_manager
 from core.jwt_auth import get_current_user
 from core.config import settings
 from core.update_manager import update_manager
 from core.exceptions import APIException
+from core.environment_contract import (
+    RESERVED_ENV_KEYS,
+    filter_user_environment_variables,
+)
 
 
-RESERVED_ENV_KEYS = {
-    "APP_ID",
-    "MONGODB_USERNAME",
+SENSITIVE_ENV_KEYS = {
+    "APP_DB_PASSWORD",
+    "RUNTIME_TOKEN",
     "MONGODB_PASSWORD",
     "S3_ACCESS_KEY",
     "S3_SECRET_KEY",
-    "S3_INTERNAL_ENDPOINT",
-    "S3_SECURE_INTERNAL",
     "SECRET_KEY",
-    "DEV_MODE",
-    "DEBUG",
-    "LSP_MODE",
-    "LSP_SIDECAR_URL",
-    "LSP_SIDECAR_TIMEOUT_SECONDS",
-    "LSP_SIDECAR_FALLBACK_LEGACY",
 }
 
 
@@ -121,6 +119,90 @@ router = APIRouter(
 )
 
 
+async def _set_owned_application_fields(
+    app_id: str,
+    username: str,
+    fields: dict,
+    *,
+    revision_field: str,
+    expected_revision: int,
+) -> None:
+    """Persist one settings domain only when its snapshot is still current."""
+    result = await mongodb_manager.get_collection(Application).update_one(
+        {
+            "app_id": app_id,
+            "users": username,
+            revision_field: expected_revision,
+        },
+        {
+            "$set": {**fields, "updated_at": datetime.now()},
+            "$inc": {revision_field: 1},
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Application changed before settings update",
+        )
+
+
+async def _update_environment_variables(
+    app_id: str,
+    username: str,
+    *,
+    remove_keys: set[str],
+    append: EnvironmentVariable | None = None,
+) -> None:
+    """Atomically filter and append environment entries without stale snapshots."""
+    keys = sorted(remove_keys | RESERVED_ENV_KEYS)
+    filtered_environment = {
+        "$filter": {
+            "input": {"$ifNull": ["$environment_variables", []]},
+            "as": "environment",
+            "cond": {
+                "$not": [
+                    {
+                        "$in": [
+                            "$$environment.key",
+                            {"$literal": keys},
+                        ]
+                    }
+                ]
+            },
+        }
+    }
+    appended_environment = (
+        [append.model_dump(mode="python")] if append is not None else []
+    )
+    result = await mongodb_manager.get_collection(Application).update_one(
+        {"app_id": app_id, "users": username},
+        [
+            {
+                "$set": {
+                    "environment_variables": {
+                        "$concatArrays": [
+                            filtered_environment,
+                            {"$literal": appended_environment},
+                        ]
+                    },
+                    "environment_revision": {
+                        "$add": [
+                            {"$ifNull": ["$environment_revision", 0]},
+                            1,
+                        ]
+                    },
+                    "updated_at": datetime.now(),
+                }
+            }
+        ],
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Application changed before environment update",
+        )
+
+
 def get_app_system_dependencies(app: Application) -> list[dict]:
     system_deps = []
     container_name = f"hyac-app-runtime-{app.app_id.lower()}"
@@ -194,12 +276,12 @@ async def package_add(
     app = await Application.find_one(
         Application.app_id == data.appId, Application.users == current_user.username
     )
-    system_deps = get_app_system_dependencies(app)
     if not app:
         raise HTTPException(
             status_code=404, detail="Application not found or permission denied"
         )
-    elif data.name in [d["name"] for d in system_deps]:
+    system_deps = get_app_system_dependencies(app)
+    if data.name in [d["name"] for d in system_deps]:
         return BaseResponse(
             code=105, msg="Add failed, because system dependencies already exist"
         )
@@ -225,7 +307,7 @@ async def package_add(
         logger.info(
             f"Restarting container {container_name} to apply dependency changes."
         )
-        if not docker_manager.restart_container(container_name):
+        if not await docker_manager.restart_container(container_name):
             logger.warning(f"Could not restart container {container_name}.")
             return BaseResponse(
                 code=1, msg="Add package success, but failed to restart container."
@@ -259,7 +341,7 @@ async def package_remove(
         logger.info(
             f"Restarting container {container_name} to apply dependency changes."
         )
-        if not docker_manager.restart_container(container_name):
+        if not await docker_manager.restart_container(container_name):
             logger.warning(f"Could not restart container {container_name}.")
             return BaseResponse(
                 code=1, msg="Remove package success, but failed to restart container."
@@ -331,8 +413,11 @@ async def envs_data(
         )
 
     # 1. User variables are sourced directly from the database.
-    user_envs = [env.model_dump() for env in app.environment_variables]
-    user_env_keys = {env.key for env in app.environment_variables}
+    filtered_user_envs = filter_user_environment_variables(
+        app.environment_variables
+    )
+    user_envs = [env.model_dump() for env in filtered_user_envs]
+    user_env_keys = {env.key for env in filtered_user_envs}
 
     # 2. System variables are determined from the container's startup config,
     #    excluding any keys that are defined as user variables.
@@ -347,7 +432,12 @@ async def envs_data(
     for env_str in startup_envs:
         key, value = env_str.split("=", 1)
         if key not in user_env_keys:
-            system_envs.append({"key": key, "value": value})
+            system_envs.append(
+                {
+                    "key": key,
+                    "value": "<redacted>" if key in SENSITIVE_ENV_KEYS else value,
+                }
+            )
 
     response_data = {
         "user": user_envs,
@@ -373,18 +463,12 @@ async def env_add(
             status_code=404, detail="Application not found or permission denied"
         )
 
-    # Update database for persistence
-    env_found = False
-    for env in app.environment_variables:
-        if env.key == data.key:
-            env.value = data.value
-            env_found = True
-            break
-    if not env_found:
-        app.environment_variables.append(
-            EnvironmentVariable(key=data.key, value=data.value)
-        )
-    await app.save()
+    await _update_environment_variables(
+        app.app_id,
+        current_user.username,
+        remove_keys={data.key},
+        append=EnvironmentVariable(key=data.key, value=data.value),
+    )
 
     return BaseResponse(code=0, msg="Environment variable added successfully.")
 
@@ -402,11 +486,11 @@ async def env_remove(
             status_code=404, detail="Application not found or permission denied"
         )
 
-    # Update database for persistence
-    app.environment_variables = [
-        env for env in app.environment_variables if env.key != data.key
-    ]
-    await app.save()
+    await _update_environment_variables(
+        app.app_id,
+        current_user.username,
+        remove_keys={data.key},
+    )
 
     return BaseResponse(code=0, msg="Environment variable removed successfully.")
 
@@ -441,7 +525,13 @@ async def cors_update(
         )
 
     app.cors = data.config
-    await app.save()
+    await _set_owned_application_fields(
+        app.app_id,
+        current_user.username,
+        {"cors": app.cors.model_dump(mode="python")},
+        revision_field="cors_revision",
+        expected_revision=app.cors_revision,
+    )
 
     return BaseResponse(code=0, msg="CORS updated successfully.")
 
@@ -459,8 +549,10 @@ async def notification_data(
             status_code=404, detail="Application not found or permission denied"
         )
 
+    notification = app.notification.model_copy(deep=True)
+    notification.email.password = ""
     return BaseResponse(
-        code=0, msg="Get notification data success", data=app.notification
+        code=0, msg="Get notification data success", data=notification
     )
 
 
@@ -477,8 +569,17 @@ async def notification_update(
             status_code=404, detail="Application not found or permission denied"
         )
 
-    app.notification = data.config
-    await app.save()
+    notification = data.config.model_copy(deep=True)
+    if not notification.email.password:
+        notification.email.password = app.notification.email.password
+    app.notification = notification
+    await _set_owned_application_fields(
+        app.app_id,
+        current_user.username,
+        {"notification": app.notification.model_dump(mode="python")},
+        revision_field="notification_revision",
+        expected_revision=app.notification_revision,
+    )
 
     return BaseResponse(code=0, msg="Notification updated successfully.")
 
@@ -519,7 +620,9 @@ async def ai_config_data(
             status_code=404, detail="Application not found or permission denied"
         )
 
-    return BaseResponse(code=0, msg="Get AI config data success", data=app.ai_config)
+    ai_config = app.ai_config.model_copy(deep=True)
+    ai_config.api_key = ""
+    return BaseResponse(code=0, msg="Get AI config data success", data=ai_config)
 
 
 @router.post("/ai_config_update", response_model=BaseResponse)
@@ -546,8 +649,17 @@ async def ai_config_update(
             code=112, msg="Please fill in at least one configuration item."
         )
 
-    app.ai_config = data.config
-    await app.save()
+    ai_config = data.config.model_copy(deep=True)
+    if not ai_config.api_key:
+        ai_config.api_key = app.ai_config.api_key
+    app.ai_config = ai_config
+    await _set_owned_application_fields(
+        app.app_id,
+        current_user.username,
+        {"ai_config": app.ai_config.model_dump(mode="python")},
+        revision_field="ai_config_revision",
+        expected_revision=app.ai_config_revision,
+    )
 
     return BaseResponse(code=0, msg="AI config updated successfully.")
 

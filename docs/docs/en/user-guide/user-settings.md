@@ -15,19 +15,20 @@ DEFAULT_ADMIN_USER
 DEFAULT_ADMIN_PASSWORD
 ```
 
-The example environment uses:
+The example environment intentionally leaves the password blank:
 
 ```text
-admin / admin123
+DEFAULT_ADMIN_USER=admin
+DEFAULT_ADMIN_PASSWORD=
 ```
 
-Change the default password immediately after the first production login and store the new administrator credentials securely.
+Set a strong administrator password before the first startup and store the credentials securely. Production startup rejects an empty or weak password.
 
 ## Password and Security
 
 Recommendations:
 
-- Do not keep the default password in production.
+- Do not start production with an empty or weak administrator password.
 - Give administrator access only to people who maintain the platform.
 - Before rotating sensitive values such as `SECRET_KEY`, evaluate the impact on existing login sessions and tokens.
 - Do not commit `.env` files to public repositories.

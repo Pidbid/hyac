@@ -6,7 +6,6 @@ anyio==4.9.0
 argon2-cffi==25.1.0
 argon2-cffi-bindings==21.2.0
 attrs==25.3.0
-beanie==2.1.0
 certifi==2025.4.26
 cffi==1.17.1
 click==8.2.1
@@ -24,7 +23,6 @@ idna==3.10
 importlib-metadata==8.7.0
 itsdangerous==2.2.0
 jinja2==3.1.6
-lazy-model==0.4.0
 loguru==0.7.3
 markdown-it-py==3.0.0
 markupsafe==3.0.2

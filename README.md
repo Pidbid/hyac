@@ -114,20 +114,42 @@ graph TD
     cd hyac
     ```
 
-2.  配置环境变量:
-    复制 `.env.example` 文件并重命名为 `.env`，然后根据您的环境修改其中的配置。
+2.  配置生产环境变量：
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    启动前必须替换 `.env` 中的全部占位值。必填项包括：
+
+    - `DOMAIN_NAME`、`EMAIL_ADDRESS`
+    - `MONGODB_USERNAME`、`MONGODB_PASSWORD`
+    - `S3_ACCESS_KEY`、`S3_SECRET_KEY`
+    - `SECRET_KEY`（至少 32 个字符）
+    - `DEFAULT_ADMIN_USER`、`DEFAULT_ADMIN_PASSWORD`
+    - `APP_IMAGE_TAG`（不可变的发布标签，例如 `v1.2.3`，禁止使用 `latest`）
+
+    `openssl rand -hex 32` 会生成前后端管理员密码字段均支持的 64 位十六进制值。数据库密码、S3 密钥、JWT 密钥和管理员密码应分别生成不同的随机值。不要保留 `.env.example` 中的 `<...>` 占位符。
+
+3.  生成 MongoDB 集群认证 keyfile：
+
+    ```bash
+    ./scripts/01-create-mongo-keyfile.sh
+    ```
+
+    脚本必须成功确认文件权限为 `0400`、所有者为 MongoDB 容器用户后，才能继续启动。
 
 ### ▶️ 启动服务
 
 执行以下命令以构建和启动所有服务：
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 🌐 访问地址
 
-- **前端应用**: `http://console.[yourdomain]`
+- **前端应用**: `https://console.<DOMAIN_NAME>`
 
 ### 🔐 开发环境 HTTPS 调试（localhost + mkcert，无需 hosts）
 

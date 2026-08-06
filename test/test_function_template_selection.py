@@ -10,7 +10,30 @@ from unittest.mock import patch
 
 
 server_path = Path(__file__).resolve().parents[1] / "server"
-sys.path.insert(0, str(server_path))
+SERVER_PATH = str(server_path)
+sys.path.insert(0, SERVER_PATH)
+
+_MISSING = object()
+_TEMPORARY_MODULES = (
+    "httpx",
+    "bson",
+    "fastapi",
+    "loguru",
+    "pydantic",
+    "core.beanie_compat",
+    "core.config",
+    "core.jwt_auth",
+    "models.applications_model",
+    "models.common_model",
+    "models.functions_history_model",
+    "models.functions_model",
+    "models.function_template_model",
+    "models.statistics_model",
+    "models.users_model",
+)
+_PREVIOUS_MODULES = {
+    name: sys.modules.get(name, _MISSING) for name in _TEMPORARY_MODULES
+}
 
 fake_httpx = types.ModuleType("httpx")
 fake_httpx.AsyncClient = lambda *args, **kwargs: object()
@@ -125,6 +148,13 @@ spec = importlib.util.spec_from_file_location("hyac_functions_router_for_test", 
 functions_router = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
 spec.loader.exec_module(functions_router)
+
+for module_name, previous_module in _PREVIOUS_MODULES.items():
+    if previous_module is _MISSING:
+        sys.modules.pop(module_name, None)
+    else:
+        sys.modules[module_name] = previous_module
+sys.path.remove(SERVER_PATH)
 
 
 class FieldExpression:

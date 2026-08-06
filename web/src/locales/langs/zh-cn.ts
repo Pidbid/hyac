@@ -724,7 +724,7 @@ const local: App.I18n.Schema = {
         usernameHelp: '4-16位字符，支持中英文、数字、下划线和短横线',
         password: '新密码',
         passwordPlaceholder: '输入新的密码（留空则不修改）',
-        passwordHelp: "6-18位字符，支持字母、数字、下划线和{'@'}符号",
+        passwordHelp: '8-128 位非空白字符',
         confirmPassword: '确认新密码',
         confirmPasswordPlaceholder: '再次输入新密码',
         passwordsDoNotMatch: '两次输入的密码不一致',
@@ -824,7 +824,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: '请输入密码',
-      invalid: "密码格式不正确，6-18位字符，支持字母、数字、下划线和{'@'}符号"
+      invalid: '密码必须为 8-128 位非空白字符'
     },
     confirmPwd: {
       required: '请输入确认密码',

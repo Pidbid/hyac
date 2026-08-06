@@ -39,8 +39,8 @@ class Function(Document):
     code: str = Field(..., min_length=10)
     status: FunctionStatus = Field(default=FunctionStatus.UNPUBLISHED)
     function_type: FunctionType = Field(default=FunctionType.ENDPOINT)
-    memory_limit: int = 128  # Memory limit in MB
-    timeout: int = 5  # Timeout in seconds
+    memory_limit: int = Field(default=128, ge=128, le=4096)
+    timeout: int = Field(default=5, ge=1, le=300)
     requires_auth: bool = True  # Whether authentication is required
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)

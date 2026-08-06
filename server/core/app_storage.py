@@ -118,9 +118,17 @@ class AppStorageService:
         if storage:
             ok, output = await s3_manager.remove_user(storage.access_key)
             if not ok:
-                logger.warning(
-                    f"Failed to remove storage user '{storage.access_key}': {output}"
+                error = (
+                    f"failed to remove storage user '{storage.access_key}': "
+                    f"{output}"
                 )
+                logger.error(error)
+                storage.mark_error(error)
+                await storage.save()
+                for bucket in buckets:
+                    bucket.mark_error(error)
+                    await bucket.save()
+                raise RuntimeError(error)
             await storage.delete()
 
         for bucket in buckets:

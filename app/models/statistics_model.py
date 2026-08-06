@@ -1,7 +1,6 @@
 # models/statistics_model.py
 from datetime import datetime
 from enum import Enum
-from beanie import Document
 from pydantic import Field, BaseModel
 from typing import Optional, List, Any
 
@@ -14,7 +13,7 @@ class CallStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
-class FunctionMetric(Document):
+class FunctionMetric(BaseModel):
     """Represents a single call to a serverless function."""
 
     function_id: str = Field(...)
@@ -24,11 +23,6 @@ class FunctionMetric(Document):
     execution_time: float  # Execution time in seconds
     timestamp: datetime = Field(default_factory=datetime.now)
     extra: Optional[dict] = None
-
-    class Settings:
-        name = "function_metrics"
-        indexes = ["function_id", "app_name", "timestamp"]
-
 
 # --- New Models for Statistics Summary ---
 
