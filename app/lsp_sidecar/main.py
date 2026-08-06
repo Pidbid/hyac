@@ -11,6 +11,7 @@ from starlette.websockets import WebSocketState
 from lsp_sidecar.formatter import run_formatter
 from lsp_sidecar.lsp_process import LspProcess, read_lsp_payload, write_lsp_payload
 from lsp_sidecar.pool import LspProcessPool
+from lsp_sidecar.runtime_requirements import REQUIRED_COMMANDS
 
 
 @asynccontextmanager
@@ -27,7 +28,7 @@ app = FastAPI(lifespan=lifespan)
 async def health():
     missing = [
         command
-        for command in ("node", "pyright-langserver", "autopep8")
+        for command in REQUIRED_COMMANDS
         if which(command) is None
     ]
     if missing:

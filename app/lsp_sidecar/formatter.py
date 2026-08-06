@@ -8,6 +8,7 @@ import textwrap
 from typing import Callable
 
 from lsp.shim import USER_CODE_END_MARKER, USER_CODE_START_MARKER
+from lsp_sidecar.runtime_requirements import AUTOPEP8_COMMAND
 
 
 def run_formatter(source: str) -> str:
@@ -55,7 +56,7 @@ def run_autopep8(
         tmp_path = f.name
     try:
         completed = runner(
-            ["autopep8", "--in-place", "--aggressive", tmp_path],
+            [AUTOPEP8_COMMAND, "--in-place", "--aggressive", tmp_path],
             capture_output=True,
             text=True,
             timeout=10,

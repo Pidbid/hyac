@@ -13,6 +13,7 @@ os.environ.setdefault(
     "SECRET_KEY", "test-secret-key-with-at-least-32-characters"
 )
 
+from core import docker_manager as docker_manager_module
 from core import task_worker
 from models.applications_model import ApplicationStatus
 
@@ -172,6 +173,65 @@ class DockerReconcileObservationTests(IsolatedAsyncioTestCase):
 
         replace_missing.assert_awaited_once_with(app)
         replace_stale.assert_not_awaited()
+
+    async def test_stale_ingress_domain_replaces_healthy_runtime(self):
+        app = _running_application()
+        runtime_token = "runtime-token"
+        app.runtime_token_hash = hashlib.sha256(runtime_token.encode()).hexdigest()
+        _ApplicationQuery.values = [app]
+        container = {
+            "id": "container-7",
+            "name": "hyac-app-runtime-app12345",
+            "status": "running",
+            "health_status": "healthy",
+            "labels": {
+                "traefik.http.routers.hyac-app-runtime-app12345.rule": (
+                    "Host(`app12345.localhost`)"
+                )
+            },
+        }
+        replace_stale = AsyncMock()
+
+        with (
+            patch.object(task_worker, "Application", _ApplicationQuery),
+            patch.object(task_worker.asyncio, "to_thread", _inline_to_thread),
+            patch.object(
+                task_worker,
+                "_active_lifecycle_app_ids",
+                new=AsyncMock(return_value=set()),
+            ),
+            patch.object(
+                task_worker.docker_manager,
+                "list_containers",
+                return_value=[container],
+            ),
+            patch.object(
+                task_worker.docker_manager,
+                "get_container_environment",
+                return_value={
+                    "RUNTIME_TOKEN": runtime_token,
+                    "RUNTIME_GENERATION": str(app.runtime_generation),
+                },
+            ),
+            patch.object(
+                task_worker,
+                "_replace_reconciled_runtime",
+                new=replace_stale,
+            ),
+            patch.object(
+                task_worker,
+                "_replace_missing_runtime",
+                new=AsyncMock(),
+            ),
+            patch.object(
+                docker_manager_module.settings,
+                "DOMAIN_NAME",
+                "hyac.localhost",
+            ),
+        ):
+            await task_worker.reconcile_running_apps()
+
+        replace_stale.assert_awaited_once_with(app, container)
 
     async def test_reconcile_finishes_expired_pending_cleanup_then_recovers(self):
         app = _running_application()

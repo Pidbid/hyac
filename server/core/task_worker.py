@@ -19,6 +19,7 @@ from core.docker_manager import (
     delete_application_background,
     docker_manager,
     generic_runtime_owner_is_expired,
+    runtime_container_matches_ingress,
     running_apps,
     start_app_container,
     stop_app_container,
@@ -1113,6 +1114,7 @@ async def reconcile_running_apps() -> None:
         if (
             container.get("status") != "running"
             or container.get("health_status") != "healthy"
+            or not runtime_container_matches_ingress(container, app.app_id)
         ):
             await _replace_reconciled_runtime(app, container)
             continue

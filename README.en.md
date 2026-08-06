@@ -151,6 +151,37 @@ docker compose up -d
 
 - **Frontend Application**: `https://console.<DOMAIN_NAME>`
 
+### 🔐 Local development with trusted HTTPS
+
+Use a separate `.env.dev` with `DOMAIN_NAME=hyac.localhost` and set
+`APP_CODE_PATH_ON_HOST` to the canonical output of `realpath app`. Install
+`mkcert`, initialize its local CA, and create the certificate used by Traefik:
+
+```bash
+mkcert -install
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost traefik.localhost "*.hyac.localhost"
+```
+
+Run the preflight before starting the development stack:
+
+```bash
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
+```
+
+The preflight validates Docker, development settings, the canonical source
+path, and the certificate trust chain. `*.hyac.localhost` covers static and
+dynamic application subdomains; the Traefik dashboard retains the explicit
+`traefik.localhost` alias. The preflight never modifies the system trust store
+automatically. Local endpoints are:
+
+- `https://console.hyac.localhost`
+- `https://server.hyac.localhost/docs`
+- `https://oss.hyac.localhost`
+- `https://traefik.localhost`
+
 ## 📁 Major Project Structure
 
 ```

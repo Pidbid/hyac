@@ -1,8 +1,10 @@
 import json
 import os
 import re
+import runpy
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -17,6 +19,98 @@ def read(relative_path: str) -> str:
 
 
 class DeploymentReviewContractTests(unittest.TestCase):
+    def test_app_uses_one_authoritative_dependency_source_for_lsp_commands(self):
+        runtime_requirements_path = (
+            REPO_ROOT / "app/lsp_sidecar/runtime_requirements.py"
+        )
+        self.assertTrue(runtime_requirements_path.is_file())
+        runtime_requirements = runpy.run_path(str(runtime_requirements_path))
+        command_packages = runtime_requirements["PYTHON_COMMAND_PACKAGES"]
+
+        project = tomllib.loads(read("app/pyproject.toml"))
+        declared_packages = {
+            re.split(r"[<>=!~ ]", dependency, maxsplit=1)[0]
+            for dependency in project["project"]["dependencies"]
+        }
+
+        self.assertEqual(
+            {"pyright-langserver": "pyright", "autopep8": "autopep8"},
+            command_packages,
+        )
+        self.assertLessEqual(set(command_packages.values()), declared_packages)
+        self.assertFalse((REPO_ROOT / "app/requirements.txt").exists())
+        self.assertNotIn("app/requirements.txt", read("app/lsp_sidecar/lsp_process.py"))
+
+    def test_dev_compose_exposes_dashboard_without_a_dedicated_host_port(self):
+        compose = yaml.safe_load(read("docker-compose.dev.yml"))
+        services = compose["services"]
+        traefik = services["traefik"]
+
+        self.assertEqual("traefik:v3.7", traefik["image"])
+        self.assertEqual("mongo:8.2", services["mongodb"]["image"])
+        self.assertEqual(
+            {"127.0.0.1:80:80", "127.0.0.1:443:443"},
+            set(traefik["ports"]),
+        )
+        self.assertNotIn("--api.insecure=true", traefik["command"])
+        self.assertIn("--ping=true", traefik["command"])
+        self.assertIn("healthcheck", traefik)
+        self.assertIn(
+            "traefik.http.routers.hyac-dashboard.service=api@internal",
+            traefik["labels"],
+        )
+
+        lsp_sidecar = services["lsp-sidecar"]
+        self.assertIn("healthcheck", lsp_sidecar)
+        self.assertEqual(
+            "service_healthy",
+            services["web"]["depends_on"]["lsp-sidecar"]["condition"],
+        )
+
+    def test_dev_start_script_preflights_and_waits_for_healthy_services(self):
+        script_path = REPO_ROOT / "scripts/dev-up.sh"
+        self.assertTrue(script_path.is_file())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        script = script_path.read_text(encoding="utf-8")
+
+        for required_contract in (
+            "--check",
+            "mkcert -CAROOT",
+            "openssl verify",
+            "*.hyac.localhost",
+            "config --environment",
+            "APP_CODE_PATH_ON_HOST",
+            "--wait",
+            "--wait-timeout",
+            "Development endpoint did not become ready",
+            "https://console.hyac.localhost/",
+            "https://server.hyac.localhost/docs",
+            "https://traefik.localhost/api/overview",
+            "http://127.0.0.1:9002/health",
+            "--noproxy",
+        ):
+            with self.subTest(contract=required_contract):
+                self.assertIn(required_contract, script)
+        self.assertNotIn("curl -k", script)
+        self.assertNotIn("down -v", script)
+
+    def test_web_preserves_multilabel_localhost_base_domain(self):
+        common = read("web/src/utils/common.ts")
+        self.assertIn("host === 'server.localhost'", common)
+        self.assertNotIn("host.endsWith('.localhost')", common)
+
+    def test_developer_guides_use_the_preflighted_start_command(self):
+        for relative_path in (
+            "README.md",
+            "README.en.md",
+            "docs/docs/en/development/developer-deployment.md",
+            "docs/docs/zh/development/developer-deployment.md",
+        ):
+            with self.subTest(path=relative_path):
+                guide = read(relative_path)
+                self.assertIn("./scripts/dev-up.sh", guide)
+                self.assertIn("https://traefik.localhost", guide)
+
     def test_github_actions_only_runs_basic_fast_jobs(self):
         workflow_source = read(".github/workflows/ci.yml")
         workflow = yaml.safe_load(workflow_source)
@@ -376,7 +470,7 @@ class DeploymentReviewContractTests(unittest.TestCase):
         ):
             with self.subTest(path=relative_path):
                 guide = read(relative_path)
-                compose_position = guide.index("docker compose --env-file .env.dev")
+                compose_position = guide.index("./scripts/dev-up.sh")
                 certificate_position = guide.index("mkcert -cert-file")
                 self.assertLess(certificate_position, compose_position)
                 self.assertIn("traefik/certs/dev-cert.pem", guide)

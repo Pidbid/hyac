@@ -155,7 +155,7 @@ docker compose up -d
 
 在 `docker-compose.dev.yml` 中，Traefik 使用本地 TLS（不走 `certresolver`），用于避免调试时频繁触发 Let's Encrypt 限流。
 
-> 推荐开发域名固定为 `localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.localhost` 子域名时无需编辑 `hosts`。
+> 推荐开发域名固定为 `hyac.localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.hyac.localhost` 子域名时无需编辑 `hosts`，且通配符证书符合常见 TLS 客户端的主机名校验规则。
 
 建议流程：
 
@@ -163,7 +163,7 @@ docker compose up -d
 
 ```bash
 cp .env .env.dev
-# 将 .env.dev 中 DOMAIN_NAME 改为 localhost
+# 将 .env.dev 中 DOMAIN_NAME 改为 hyac.localhost
 ```
 
 2. 安装并初始化 `mkcert`（只需一次）：
@@ -177,19 +177,23 @@ mkcert -install
 ```bash
 mkdir -p traefik/certs
 mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
-  localhost "*.localhost"
+  localhost traefik.localhost "*.hyac.localhost"
 ```
 
-4. 启动开发环境（显式使用 `.env.dev`）：
+4. 运行预检并启动开发环境：
 
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
 ```
 
+预检会验证 Docker、开发环境变量、源码绝对路径，以及证书的域名、有效期和 mkcert 信任链。`*.hyac.localhost` 同时覆盖固定入口和动态应用子域；Traefik 面板保留 `traefik.localhost` 显式别名。预检不会自动修改系统信任库。
+
 5. 通过以下域名访问并调试：
-- `https://console.localhost`
-- `https://server.localhost`
-- `https://oss.localhost`
+- `https://console.hyac.localhost`
+- `https://server.hyac.localhost`
+- `https://oss.hyac.localhost`
+- `https://traefik.localhost`
 
 说明：
 - 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。

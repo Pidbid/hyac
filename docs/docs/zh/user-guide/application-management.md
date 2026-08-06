@@ -87,7 +87,7 @@ hyac-app-runtime-<app_id小写>
 - DNS 是否包含 `*.<DOMAIN_NAME>` 泛解析。
 - Traefik 是否正常监听 `80` 和 `443`。
 
-生产环境使用 `docker-compose.yml` 和 ACME 证书；开发环境建议使用 `.env.dev`、`docker-compose.dev.yml` 和 `*.localhost` 本地证书。
+生产环境使用 `docker-compose.yml` 和 ACME 证书；开发环境建议使用 `.env.dev`、`docker-compose.dev.yml` 和 `*.hyac.localhost` 本地证书。
 
 ### 函数首次调用返回 502
 

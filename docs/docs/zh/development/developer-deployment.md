@@ -26,7 +26,7 @@ cd Hyac
 cp .env.example .env.dev
 ```
 
-设置 `DOMAIN_NAME=localhost`，为 `S3_ACCESS_KEY`、`S3_SECRET_KEY`、`SECRET_KEY` 和管理员凭据填写仅用于开发的值，并把运行时源码挂载设置为宿主机规范绝对路径：
+设置 `DOMAIN_NAME=hyac.localhost`，为 `S3_ACCESS_KEY`、`S3_SECRET_KEY`、`SECRET_KEY` 和管理员凭据填写仅用于开发的值，并把运行时源码挂载设置为宿主机规范绝对路径：
 
 ```bash
 realpath app
@@ -43,20 +43,21 @@ realpath app
 mkcert -install
 mkdir -p traefik/certs
 mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
-  localhost "*.localhost"
+  localhost traefik.localhost "*.hyac.localhost"
 ```
 
-第一条命令会把本地开发 CA 安装到系统信任库。不要在生产环境复用这些证书。
+第一条命令会把本地开发 CA 安装到系统信任库。`*.hyac.localhost` 可覆盖固定入口和动态应用子域，Traefik 面板另保留 `traefik.localhost` 显式 SAN。不要在生产环境复用这些证书。
 
 ## 3. 启动开发环境
 
 在您的**本地开发机器**上，使用为开发环境优化的 `docker-compose.dev.yml` 文件来启动所有服务。
 
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
 ```
 
-此命令将在后台构建并启动所有必需的服务。
+第一条命令只检查 Docker 权限、开发环境变量、规范源码路径和证书信任链，不修改宿主机。第二条命令构建所需镜像、启动服务、等待健康检查，并验证本地入口。
 
 ## 4. 前端开发
 
@@ -68,7 +69,9 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
 
 完成上述设置后，通过仅限本机的地址访问开发环境：
 
--   **前端界面**: `https://console.localhost`
--   **服务端 API 文档**: `https://server.localhost/docs`
+-   **前端界面**: `https://console.hyac.localhost`
+-   **服务端 API 文档**: `https://server.hyac.localhost/docs`
+-   **对象存储**: `https://oss.hyac.localhost`
+-   **Traefik 面板**: `https://traefik.localhost`
 
 现在您已经成功搭建了本地开发环境，可以开始进行代码开发和调试了。

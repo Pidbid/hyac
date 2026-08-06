@@ -87,7 +87,7 @@ Check:
 - DNS includes wildcard resolution for `*.<DOMAIN_NAME>`.
 - Traefik is listening on `80` and `443`.
 
-Production uses `docker-compose.yml` and ACME certificates. Development should use `.env.dev`, `docker-compose.dev.yml`, and local certificates for `*.localhost`.
+Production uses `docker-compose.yml` and ACME certificates. Development should use `.env.dev`, `docker-compose.dev.yml`, and local certificates for `*.hyac.localhost`.
 
 ### The first function call returns 502
 

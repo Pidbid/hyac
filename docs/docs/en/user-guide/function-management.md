@@ -73,9 +73,9 @@ curl -X POST "https://<app_id>.<DOMAIN_NAME>/<function_id>"
 In development, common addresses are:
 
 ```text
-https://console.localhost
-https://server.localhost
-https://<app_id>.localhost/<function_id>
+https://console.hyac.localhost
+https://server.hyac.localhost
+https://<app_id>.hyac.localhost/<function_id>
 ```
 
 ## Logs

@@ -73,9 +73,9 @@ curl -X POST "https://<app_id>.<DOMAIN_NAME>/<function_id>"
 如果使用开发环境，默认访问地址通常是：
 
 ```text
-https://console.localhost
-https://server.localhost
-https://<app_id>.localhost/<function_id>
+https://console.hyac.localhost
+https://server.hyac.localhost
+https://<app_id>.hyac.localhost/<function_id>
 ```
 
 ## 日志

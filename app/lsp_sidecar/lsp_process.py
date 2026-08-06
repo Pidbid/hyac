@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
 
+from lsp_sidecar.runtime_requirements import PYRIGHT_LANGSERVER_COMMAND
 
 CONTENT_LENGTH_PATTERN = re.compile(rb"Content-Length: (\d+)\r\n")
-PYRIGHT_LANGSERVER_COMMAND = "pyright-langserver"
 
 
 @dataclass
@@ -30,7 +30,7 @@ async def spawn_pyright(workspace: str) -> LspProcess:
     if which(PYRIGHT_LANGSERVER_COMMAND) is None:
         raise FileNotFoundError(
             f"{PYRIGHT_LANGSERVER_COMMAND} is not installed in the LSP sidecar image. "
-            "Rebuild the lsp-sidecar service so app/requirements.txt is installed."
+            "Rebuild the lsp-sidecar service from app/pyproject.toml and app/uv.lock."
         )
 
     workspace_path = Path(workspace).resolve()

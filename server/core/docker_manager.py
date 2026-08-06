@@ -31,6 +31,20 @@ from core.environment_contract import LEGACY_PLATFORM_ENV_KEYS, RESERVED_ENV_KEY
 GENERIC_RUNTIME_OWNER_LEASE_SECONDS = 120
 
 
+def runtime_container_matches_ingress(container: Dict[str, Any], app_id: str) -> bool:
+    """Return whether an observed runtime still targets the configured domain."""
+    container_name = f"hyac-app-runtime-{app_id.lower()}"
+    rule_key = f"traefik.http.routers.{container_name}.rule"
+    labels = container.get("labels") or {}
+    observed_rule = labels.get(rule_key)
+    if observed_rule is None:
+        # Some test doubles and legacy inventories do not expose labels. Other
+        # runtime checks remain authoritative for those observations.
+        return True
+    domain_name = settings.DOMAIN_NAME or "localhost"
+    return observed_rule == f"Host(`{app_id.lower()}.{domain_name}`)"
+
+
 def _runtime_owner_deadline() -> datetime:
     return datetime.now(timezone.utc) + timedelta(
         seconds=GENERIC_RUNTIME_OWNER_LEASE_SECONDS
@@ -1375,6 +1389,7 @@ async def start_app_container(
                 and existing_container.get("status") == "running"
                 and existing_container.get("health_status") == "healthy"
                 and credentials_match
+                and runtime_container_matches_ingress(existing_container, app_id)
                 and not LEGACY_PLATFORM_ENV_KEYS.intersection(
                     existing_environment
                 )

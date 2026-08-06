@@ -26,7 +26,7 @@ Copy the `.env.example` file to a development-only environment file.
 cp .env.example .env.dev
 ```
 
-Set `DOMAIN_NAME=localhost`, give `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `SECRET_KEY`, and the admin credentials development-only values, and set the runtime source mount to the canonical host path:
+Set `DOMAIN_NAME=hyac.localhost`, give `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `SECRET_KEY`, and the admin credentials development-only values, and set the runtime source mount to the canonical host path:
 
 ```bash
 realpath app
@@ -43,20 +43,21 @@ Create the local TLS files referenced by the development Traefik configuration. 
 mkcert -install
 mkdir -p traefik/certs
 mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
-  localhost "*.localhost"
+  localhost traefik.localhost "*.hyac.localhost"
 ```
 
-The first command installs a local development CA into your trust store. Never reuse these certificates in production.
+The first command installs a local development CA into your trust store. `*.hyac.localhost` covers both static endpoints and dynamic application subdomains, while the Traefik dashboard keeps an explicit `traefik.localhost` SAN. Never reuse these certificates in production.
 
 ## 3. Start the Development Environment
 
 On your **local development machine**, use the `docker-compose.dev.yml` file, which is optimized for the development environment, to start all services.
 
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
 ```
 
-This command will build and start all required services in the background.
+The first command validates Docker access, the development environment, the canonical source path, and the certificate trust chain without changing the host. The second command builds the required images, starts the services, waits for their health checks, and verifies the local endpoints.
 
 ## 4. Frontend Development
 
@@ -68,7 +69,9 @@ The frontend service is automatically deployed and started in the `hyac_web` Doc
 
 After completing the setup, access the local environment through the loopback-only endpoints:
 
--   **Frontend**: `https://console.localhost`
--   **Server API Docs**: `https://server.localhost/docs`
+-   **Frontend**: `https://console.hyac.localhost`
+-   **Server API Docs**: `https://server.hyac.localhost/docs`
+-   **Object Storage**: `https://oss.hyac.localhost`
+-   **Traefik Dashboard**: `https://traefik.localhost`
 
 You have now successfully set up your local development environment and can start coding and debugging.
