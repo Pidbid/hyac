@@ -22,7 +22,7 @@ class TaskAction(str, Enum):
 
 
 class Task(Document):
-    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()), unique=True)
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     app_id: Optional[str] = None
     action: TaskAction
     status: TaskStatus = TaskStatus.PENDING

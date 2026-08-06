@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -26,13 +26,7 @@ class Settings(BaseSettings):
     LSP_SIDECAR_TIMEOUT_SECONDS: int = 10
     LSP_SIDECAR_FALLBACK_LEGACY: bool = True
 
-    class Config:
-        """
-        Pydantic model configuration.
-        """
-
-        env_file = None
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=None, case_sensitive=True)
 
     @property
     def object_storage_access_key(self) -> Optional[str]:

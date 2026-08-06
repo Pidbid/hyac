@@ -14,6 +14,17 @@ GENERATED_PASSWORD = "0123456789abcdef" * 4
 
 
 class PasswordContractTests(TestCase):
+    def test_update_username_preserves_format_contract(self):
+        for username in ("user", "renamed_operator", "中文用户"):
+            with self.subTest(username=username):
+                self.assertEqual(UpdateMeRequest(username=username).username, username)
+
+        for username in ("abc", "a" * 17, "bad name", "bad!"):
+            with self.subTest(username=username), self.assertRaisesRegex(
+                ValidationError, "Username format is incorrect"
+            ):
+                UpdateMeRequest(username=username)
+
     def test_update_password_accepts_generated_and_boundary_lengths(self):
         for password in ("a" * 8, GENERATED_PASSWORD, "z" * 128):
             with self.subTest(length=len(password)):

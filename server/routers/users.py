@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from pymongo.errors import DuplicateKeyError
 
 from core.database import mongodb_manager
@@ -39,13 +39,15 @@ class UpdateMeRequest(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
 
-    @validator("username")
+    @field_validator("username")
+    @classmethod
     def validate_username(cls, v):
         if v and not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9_-]{4,16}$", v):
             raise ValueError("Username format is incorrect")
         return v
 
-    @validator("password")
+    @field_validator("password")
+    @classmethod
     def validate_password(cls, v):
         if v is not None and not re.fullmatch(r"\S{8,128}", v):
             raise ValueError("Password format is incorrect")

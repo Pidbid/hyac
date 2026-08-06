@@ -1,9 +1,11 @@
-from beanie import Document
-from pydantic import Field
-from typing import Optional, Dict, Any
-from enum import Enum
 import uuid
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Optional
+
+from beanie import Document
+from pydantic import ConfigDict, Field
+from pymongo import IndexModel
 
 
 class TriggerType(str, Enum):
@@ -16,18 +18,14 @@ class ScheduledTask(Document):
     Represents a scheduled task in the database.
     """
 
-    task_id: str = Field(
-        default_factory=lambda: f"task_{uuid.uuid4().hex[:8]}", unique=True
-    )
+    task_id: str = Field(default_factory=lambda: f"task_{uuid.uuid4().hex[:8]}")
     app_id: Optional[str] = Field(
         default=None,
         description="The ID of the application this task belongs to. Required for non-system tasks.",
-        index=True,
     )
     function_id: Optional[str] = Field(
         default=None,
         description="The ID of the function to be executed. Required for non-system tasks.",
-        index=True,
     )
     name: str = Field(..., max_length=100)
     trigger: TriggerType = Field(..., description="The type of trigger for the task.")
@@ -60,9 +58,14 @@ class ScheduledTask(Document):
 
     class Settings:
         name = "scheduled_tasks"
+        indexes = [
+            IndexModel("task_id", unique=True),
+            IndexModel("app_id"),
+            IndexModel("function_id"),
+        ]
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "function_id": "func_12345678",
                 "name": "Example Cron Job",
@@ -74,3 +77,4 @@ class ScheduledTask(Document):
                 "description": "This is an example cron job that runs every minute.",
             }
         }
+    )

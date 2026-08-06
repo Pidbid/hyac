@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 _DOMAIN_LABEL_PATTERN = re.compile(
@@ -186,14 +186,7 @@ class Settings(BaseSettings):
             raise ValueError("APP_CODE_PATH_ON_HOST cannot mount a filesystem root")
         self.APP_CODE_PATH_ON_HOST = str(path)
 
-    class Config:
-        """
-        Pydantic model configuration.
-        """
-
-        # env_file = "../.env"
-        env_file = None
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=None, case_sensitive=True)
 
     @property
     def object_storage_access_key(self) -> Optional[str]:

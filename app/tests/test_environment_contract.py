@@ -1,6 +1,49 @@
+import os
+import subprocess
+import sys
 from unittest.mock import AsyncMock
 
 import pytest
+
+
+def test_app_config_imports_without_pydantic_v2_deprecation_warnings():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import warnings; "
+                "from pydantic.warnings import PydanticDeprecatedSince20; "
+                "warnings.simplefilter('error', PydanticDeprecatedSince20); "
+                "import core.config"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_app_settings_ignore_dotenv_and_keep_case_sensitive_environment(
+    monkeypatch, tmp_path
+):
+    from core.config import Settings
+
+    (tmp_path / ".env").write_text(
+        "DEV_MODE=false\nAPP_ID=dotenv-app\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("APP_ID", raising=False)
+    monkeypatch.setenv("DEV_MODE", "true")
+    monkeypatch.setenv("app_id", "lowercase-app")
+
+    settings = Settings()
+
+    assert settings.DEV_MODE is True
+    assert settings.APP_ID is None
 
 
 @pytest.mark.asyncio
