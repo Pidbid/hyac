@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed editor drafts, layout persistence, Python formatting, and Monaco localization asset loading.
 - Fixed application runtime lifecycle, task recovery, container observation, and deletion retry reliability.
 - Fixed local HTTPS development login, database index listing, and LSP dependency health checks.
+- Fixed the release gate misclassifying annotated tags after GitHub Actions checks out a tag.
 - Hardened user sessions, function authorization, runtime credential isolation, dynamic CORS, and object-storage permission boundaries.
 
 ### Refactored

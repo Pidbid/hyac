@@ -84,9 +84,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          test "$(git cat-file -t "${GITHUB_REF}")" = tag
+          verification_ref="refs/tags/release-verification/${GITHUB_REF_NAME}"
+          git fetch origin "+refs/tags/${GITHUB_REF_NAME}:${verification_ref}" --no-tags
+          test "$(git cat-file -t "${verification_ref}")" = tag
           git fetch origin main --no-tags
-          tagged_commit="$(git rev-list -n 1 "${GITHUB_REF}")"
+          tagged_commit="$(git rev-list -n 1 "${verification_ref}")"
           git merge-base --is-ancestor "${tagged_commit}" origin/main
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             echo "GitHub Release ${GITHUB_REF_NAME} already exists; refusing to republish." >&2

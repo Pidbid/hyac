@@ -146,6 +146,11 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertEqual(set(gate["needs"]), {"python", "frontend", "compose"})
         gate_source = json.dumps(gate)
         self.assertIn("git cat-file -t", gate_source)
+        self.assertIn("refs/tags/release-verification/", gate_source)
+        self.assertIn(
+            "+refs/tags/${GITHUB_REF_NAME}:${verification_ref}", gate_source
+        )
+        self.assertNotIn('git cat-file -t "${GITHUB_REF}"', gate_source)
         self.assertIn("git merge-base --is-ancestor", gate_source)
         self.assertIn("origin/main", gate_source)
         self.assertIn("gh release view", gate_source)
