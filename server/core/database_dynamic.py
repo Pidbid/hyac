@@ -204,7 +204,7 @@ class DynamicDB:
             list[dict]: Index definitions from MongoDB.
         """
         indexes = []
-        cursor = self.app_db(app_id)[col_name].list_indexes()
+        cursor = await self.app_db(app_id)[col_name].list_indexes()
         async for index in cursor:
             indexes.append(index)
         return indexes

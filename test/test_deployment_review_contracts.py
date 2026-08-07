@@ -99,6 +99,19 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertIn("host === 'server.localhost'", common)
         self.assertNotIn("host.endsWith('.localhost')", common)
 
+    def test_web_test_environment_targets_preflighted_backend(self):
+        environment = {}
+        for line in read("web/.env.test").splitlines():
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            environment[key] = value.strip()
+
+        self.assertEqual(
+            "https://server.hyac.localhost/",
+            environment["VITE_SERVICE_BASE_URL"],
+        )
+
     def test_developer_guides_use_the_preflighted_start_command(self):
         for relative_path in (
             "README.md",
