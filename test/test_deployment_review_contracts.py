@@ -324,6 +324,14 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertNotIn("--reload", server_entrypoint)
         self.assertIn("exec uvicorn", server_entrypoint)
 
+        web_dockerfile = read("web/Dockerfile")
+        self.assertIn(
+            "pnpm --config.registry=https://registry.npmjs.org/ install "
+            "--frozen-lockfile",
+            web_dockerfile,
+        )
+        self.assertNotIn("RUN pnpm install --frozen-lockfile", web_dockerfile)
+
     def test_frontend_ci_runs_the_password_contract(self):
         workflow = read(".github/workflows/ci.yml")
         frontend_job = workflow.split("  frontend:\n", 1)[1].split(

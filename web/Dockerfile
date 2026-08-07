@@ -13,8 +13,10 @@ COPY . .
 # Install git, as some dependencies may require it
 RUN apk add --no-cache git
 
-# Install all dependencies
-RUN pnpm install --frozen-lockfile
+# Install all dependencies from the official registry. The project-level .npmrc
+# remains available for local development, but release builds must not depend on
+# the availability of a third-party registry mirror.
+RUN pnpm --config.registry=https://registry.npmjs.org/ install --frozen-lockfile
 
 # Increase memory limit for the build process
 ENV NODE_OPTIONS=--max-old-space-size=4096
