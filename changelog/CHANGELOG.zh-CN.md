@@ -19,6 +19,7 @@
 - 修复本地 HTTPS 开发环境登录、数据库索引读取和 LSP 依赖健康检查问题。
 - 修复 GitHub Actions 在 tag checkout 后误判 annotated tag 的发布门禁问题。
 - 修复生产冒烟测试创建匿名 Playwright 页面时误用 owner context 的问题。
+- 修复生产 Web 镜像构建依赖不稳定 npm 镜像源导致的发布失败问题。
 - 加固用户会话、函数鉴权、运行时凭据隔离、动态 CORS 和对象存储权限边界。
 
 ### 重构
