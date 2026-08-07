@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.0.12] - 2026-05-10
+
+### Added
+- Added RustFS-compatible S3 storage support and related context handling.
+- Added a sidecar-based runtime LSP pipeline with Pyright-backed editor intelligence.
+- Added Monaco Editor support for the cloud function editor and LSP smoke test helpers.
+
+### Fixed
+- Fixed frontend and runtime LSP initialization, formatting, and fallback behavior.
+- Fixed database page refresh/delete/edit responses and improved S3 error handling.
+- Fixed password hashing security and several frontend field issues.
+
+### Refactored
+- Replaced MinIO integration with RustFS-compatible storage across server and app modules.
+- Refactored frontend function editing and application pages, including login/home/apps UI refreshes.
+
+### Chore
+- Synced changelog history from `dev-0.0.8` through `dev-0.0.11`.
+- Cleaned lint issues, updated ignore rules, and aligned related project configuration.
+
 ## [dev-0.0.11] - 2025-08-12
 
 ### Added
