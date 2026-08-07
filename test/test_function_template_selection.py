@@ -63,6 +63,7 @@ class FakeHTTPException(Exception):
 
 fake_fastapi.APIRouter = FakeAPIRouter
 fake_fastapi.Depends = lambda dependency=None: dependency
+fake_fastapi.Header = lambda default=None: default
 fake_fastapi.HTTPException = FakeHTTPException
 fake_fastapi.Response = object
 sys.modules.setdefault("fastapi", fake_fastapi)
@@ -222,13 +223,16 @@ class FunctionTemplateSelectionTest(TestCase):
         )
         FakeFunctionTemplate.calls = []
 
-    def run_create(self, template_id=None):
-        data = functions_router.CreateFunctionRequest(
+    def run_create(self, template_id=None, requires_auth=None):
+        request_data = dict(
             appId="app-a",
             name="hello",
             type="endpoint",
             template_id=template_id,
         )
+        if requires_auth is not None:
+            request_data["requires_auth"] = requires_auth
+        data = functions_router.CreateFunctionRequest(**request_data)
         current_user = SimpleNamespace(username="alice")
 
         with (
@@ -270,3 +274,15 @@ class FunctionTemplateSelectionTest(TestCase):
         response = self.run_create(template_id="507f1f77bcf86cd799439011")
 
         self.assertEqual(response.code, 0)
+
+    def test_new_endpoint_is_public_by_default(self):
+        response = self.run_create()
+
+        self.assertEqual(response.code, 0)
+        self.assertFalse(FakeFunction.inserted.requires_auth)
+
+    def test_new_endpoint_can_require_authentication(self):
+        response = self.run_create(requires_auth=True)
+
+        self.assertEqual(response.code, 0)
+        self.assertTrue(FakeFunction.inserted.requires_auth)

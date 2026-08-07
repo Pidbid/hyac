@@ -238,6 +238,8 @@ declare namespace Api {
       tags: FunctionRecord['tags'];
       /** function status */
       status: FunctionRecord['status'];
+      /** requires authentication */
+      requires_auth: FunctionRecord['requires_auth'];
     }
 
     interface GetFunctionData {

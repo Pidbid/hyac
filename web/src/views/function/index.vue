@@ -122,7 +122,8 @@ const selectedFunction = ref<Api.Function.FunctionInfo>({
   status: 'unpublished',
   description: '',
   tags: [],
-  code: ''
+  code: '',
+  requires_auth: false
 });
 const originalCode = ref('');
 const codeChanged = ref(false);
@@ -285,7 +286,8 @@ const getFunctionData = async () => {
       status: func.status,
       description: func.description,
       tags: func.tags,
-      code: func.code
+      code: func.code,
+      requires_auth: func.requires_auth
     }));
     if (functions.value.length > 0) {
       const selectedId = selectedFunction.value.id || functionStore.funcInfo?.id;
@@ -299,7 +301,8 @@ const getFunctionData = async () => {
         status: 'unpublished',
         description: '',
         tags: [],
-        code: ''
+        code: '',
+        requires_auth: false
       };
       originalCode.value = '';
       codeChanged.value = false;
@@ -331,6 +334,7 @@ const handleCreateFunction = () => {
     name: '',
     description: '',
     type: 'endpoint',
+    requiresAuth: false,
     template_id: '',
     tags: [] as string[],
     templateOptions: [] as SelectOption[]
@@ -396,6 +400,7 @@ const handleCreateFunction = () => {
                       value: localCreateData.type,
                       onUpdateValue: value => {
                         localCreateData.type = value;
+                        if (value !== 'endpoint') localCreateData.requiresAuth = false;
                         localCreateData.template_id = '';
                         fetchLocalTemplates(value);
                       }
@@ -409,6 +414,30 @@ const handleCreateFunction = () => {
                   )
               }
             ),
+            ...(localCreateData.type === 'endpoint'
+              ? [
+                  h(
+                    NFormItem,
+                    { label: $t('page.function.requiresAuth') },
+                    {
+                      default: () =>
+                        h(
+                          NSpace,
+                          { align: 'center' },
+                          {
+                            default: () => [
+                              h(NSwitch, {
+                                value: localCreateData.requiresAuth,
+                                onUpdateValue: value => (localCreateData.requiresAuth = value)
+                              }),
+                              h('span', { class: 'auth-policy-hint' }, $t('page.function.requiresAuthHelp'))
+                            ]
+                          }
+                        )
+                    }
+                  )
+                ]
+              : []),
             h(
               NFormItem,
               { label: $t('page.function.functionTemplate'), path: 'template_id' },
@@ -456,21 +485,23 @@ const handleCreateFunction = () => {
       localCreateData.name = '';
       localCreateData.description = '';
       localCreateData.type = 'endpoint';
+      localCreateData.requiresAuth = false;
       localCreateData.template_id = '';
       localCreateData.tags = [];
     },
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
-          const { error } = await CreateFunction(
-            applicationStore.appId,
-            localCreateData.name,
-            localCreateData.type,
-            localCreateData.description,
-            localCreateData.tags,
-            appStore.locale,
-            localCreateData.template_id
-          );
+          const { error } = await CreateFunction({
+            appId: applicationStore.appId,
+            name: localCreateData.name,
+            type: localCreateData.type,
+            description: localCreateData.description,
+            tags: localCreateData.tags,
+            language: appStore.locale,
+            templateId: localCreateData.template_id,
+            requiresAuth: localCreateData.requiresAuth
+          });
           if (!error) {
             message.success($t('page.function.createSuccess'));
             await getFunctionData();
@@ -478,6 +509,7 @@ const handleCreateFunction = () => {
             localCreateData.name = '';
             localCreateData.description = '';
             localCreateData.type = 'endpoint';
+            localCreateData.requiresAuth = false;
             localCreateData.template_id = '';
             localCreateData.tags = [];
             if (newFunc) {
@@ -514,7 +546,8 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
               status: 'published',
               description: '',
               tags: [],
-              code: ''
+              code: '',
+              requires_auth: false
             };
             originalCode.value = '';
             codeChanged.value = false;
@@ -706,7 +739,8 @@ const handleEditMeta = () => {
   const localEditData = reactive({
     name: selectedFunction.value.name,
     description: selectedFunction.value.description,
-    tags: selectedFunction.value.tags
+    tags: selectedFunction.value.tags,
+    requiresAuth: selectedFunction.value.requires_auth
   });
 
   const rules = {
@@ -745,6 +779,30 @@ const handleEditMeta = () => {
                   })
               }
             ),
+            ...(selectedFunction.value.type === 'endpoint'
+              ? [
+                  h(
+                    NFormItem,
+                    { label: $t('page.function.requiresAuth') },
+                    {
+                      default: () =>
+                        h(
+                          NSpace,
+                          { align: 'center' },
+                          {
+                            default: () => [
+                              h(NSwitch, {
+                                value: localEditData.requiresAuth,
+                                onUpdateValue: value => (localEditData.requiresAuth = value)
+                              }),
+                              h('span', { class: 'auth-policy-hint' }, $t('page.function.requiresAuthHelp'))
+                            ]
+                          }
+                        )
+                    }
+                  )
+                ]
+              : []),
             h(
               NFormItem,
               { label: $t('page.function.functionDescription') },
@@ -778,23 +836,26 @@ const handleEditMeta = () => {
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
-          const { error } = await UpdateFunctionMeta(
-            applicationStore.appId,
-            selectedFunction.value.id,
-            localEditData.name,
-            localEditData.description,
-            localEditData.tags
-          );
+          const { error } = await UpdateFunctionMeta({
+            appId: applicationStore.appId,
+            id: selectedFunction.value.id,
+            name: localEditData.name,
+            description: localEditData.description,
+            tags: localEditData.tags,
+            requiresAuth: localEditData.requiresAuth
+          });
           if (!error) {
             message.success($t('page.function.updateSuccess'));
             selectedFunction.value.name = localEditData.name;
             selectedFunction.value.description = localEditData.description;
             selectedFunction.value.tags = localEditData.tags;
+            selectedFunction.value.requires_auth = localEditData.requiresAuth;
             const index = functions.value.findIndex(f => f.id === selectedFunction.value.id);
             if (index !== -1) {
               functions.value[index].name = localEditData.name;
               functions.value[index].description = localEditData.description;
               functions.value[index].tags = localEditData.tags;
+              functions.value[index].requires_auth = localEditData.requiresAuth;
             }
             await fetchTags();
           } else {
@@ -1904,6 +1965,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.auth-policy-hint {
+  max-width: 320px;
+  color: #6e6e73;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .empty-state {

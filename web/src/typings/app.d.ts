@@ -621,6 +621,8 @@ declare namespace App {
           functionType: string;
           apiFunction: string;
           commonFunction: string;
+          requiresAuth: string;
+          requiresAuthHelp: string;
           functionTemplate: string;
           functionTemplatePlaceholder: string;
           functionDescription: string;

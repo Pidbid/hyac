@@ -375,6 +375,8 @@ const local: App.I18n.Schema = {
       functionType: '函数类型',
       apiFunction: 'API 函数',
       commonFunction: '公共函数',
+      requiresAuth: '需要认证',
+      requiresAuthHelp: '开启后，仅应用成员携带有效登录令牌才能调用',
       functionTemplate: '函数模板',
       functionTemplatePlaceholder: '请选择函数模板',
       functionDescription: '函数描述',

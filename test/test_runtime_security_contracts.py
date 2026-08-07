@@ -68,6 +68,14 @@ class FunctionAuthorizationContractTests(unittest.TestCase):
             self.assertIn("memory_limit: int = Field(default=128, ge=128, le=4096)", source)
             self.assertIn("timeout: int = Field(default=5, ge=1, le=300)", source)
 
+    def test_new_functions_are_public_by_default_on_control_and_runtime_models(self):
+        for relative_path in (
+            "server/models/functions_model.py",
+            "app/models/functions_model.py",
+        ):
+            source = read(relative_path)
+            self.assertIn("requires_auth: bool = False", source)
+
     def test_dynamic_handler_authorizes_before_execution(self):
         module = parse("app/router.py")
         handler = async_function(module, "dynamic_handler")

@@ -40,7 +40,7 @@ class Function(BaseModel):
     function_type: FunctionType = Field(default=FunctionType.ENDPOINT)
     memory_limit: int = Field(default=128, ge=128, le=4096)
     timeout: int = Field(default=5, ge=1, le=300)
-    requires_auth: bool = True  # Whether authentication is required
+    requires_auth: bool = False  # Whether authentication is required
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     users: list[str] = Field(default_factory=list)  # List of associated users

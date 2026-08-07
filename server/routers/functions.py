@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 from bson import ObjectId
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -55,6 +55,7 @@ class CreateFunctionRequest(BaseModel):
     tags: list[str] = []
     language: str = "zh-CN"
     template_id: Optional[str] = None
+    requires_auth: bool = False
 
 
 class UpdateFunctionRequest(BaseModel):
@@ -95,6 +96,7 @@ class UpdateFunctionMetaRequest(BaseModel):
     name: str
     description: str
     tags: list[str]
+    requires_auth: Optional[bool] = None
 
 
 class DeleteFunctionRequest(BaseModel):
@@ -210,6 +212,9 @@ async def create_function(
         users=[current_user.username],  # Associate the current user
         status=FunctionStatus.PUBLISHED,  # Default status is published
         code=code,
+        requires_auth=(
+            data.requires_auth if FunctionType(data.type) == FunctionType.ENDPOINT else False
+        ),
     )
     await new_func.insert()
 
@@ -346,6 +351,12 @@ async def update_function_meta(
     func.function_name = data.name
     func.description = data.description
     func.tags = data.tags
+    if data.requires_auth is not None:
+        func.requires_auth = (
+            data.requires_auth
+            if func.function_type == FunctionType.ENDPOINT
+            else False
+        )
     func.update_timestamp()
     await func.save()
 
@@ -464,7 +475,9 @@ async def get_tags(data: TagsRequestModel, current_user=Depends(get_current_user
 
 @router.post("/proxy_test")
 async def test_function(
-    proxy_request: ProxyRequest, current_user: User = Depends(get_current_user)
+    proxy_request: ProxyRequest,
+    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(default=None),
 ):
     """
     A secure proxy for testing functions from the console.
@@ -491,6 +504,20 @@ async def test_function(
             msg=f"Application '{app_id}' not found or you do not have permission to access it.",
         )
 
+    function_id = parsed_url.path.strip("/")
+    target_function = await Function.find_one(
+        Function.app_id == app_id,
+        Function.function_id == function_id,
+    )
+    forwarded_headers = httpx.Headers(proxy_request.headers)
+    if (
+        target_function
+        and target_function.requires_auth
+        and "authorization" not in forwarded_headers
+        and authorization
+    ):
+        forwarded_headers["Authorization"] = authorization
+
     try:
         logger.info(
             f"User '{current_user.username}' is testing function at {target_url}"
@@ -504,7 +531,7 @@ async def test_function(
         proxied_response = await http_client.request(
             method=proxy_request.method,
             url=local_url,
-            headers=proxy_request.headers,
+            headers=forwarded_headers,
             params=proxy_request.query_params,
             json=proxy_request.body,
             timeout=60.0,

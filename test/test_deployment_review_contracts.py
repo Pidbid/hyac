@@ -397,8 +397,10 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertIn(".monaco-editor textarea", browser_smoke)
         self.assertIn(".send-btn", browser_smoke)
         self.assertIn(".delete-btn", browser_smoke)
-        self.assertIn("Authorization", browser_smoke)
-        self.assertIn("Bearer ${accessToken}", browser_smoke)
+        self.assertIn("requires_auth", browser_smoke)
+        self.assertIn("public_function_anonymous_access=passed", browser_smoke)
+        self.assertIn("protected_function_console_access=passed", browser_smoke)
+        self.assertIn("Access token required", browser_smoke)
         self.assertIn("finally", browser_smoke)
 
     def test_local_browser_smoke_exercises_storage_and_database_lifecycles(self):

@@ -45,13 +45,26 @@ export function UpdateFunctionCode(appId: string, id: string, code: string) {
 /**
  * UpdateFunctionMeta
  *
- * @param appId
- * @param id
- * @param name
- * @param description
- * @param tags
+ * @param params
+ * @param params.appId
+ * @param params.id
+ * @param params.name
+ * @param params.description
+ * @param params.tags
+ * @param params.requiresAuth
  */
-export function UpdateFunctionMeta(appId: string, id: string, name: string, description: string, tags: string[]) {
+interface UpdateFunctionMetaParams {
+  appId: string;
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  requiresAuth?: boolean;
+}
+
+export function UpdateFunctionMeta(params: UpdateFunctionMetaParams) {
+  const { appId, id, name, description, tags, requiresAuth } = params;
+
   return request<Api.Function.GetFunctionData>({
     url: '/function/update_meta',
     method: 'post',
@@ -60,7 +73,8 @@ export function UpdateFunctionMeta(appId: string, id: string, name: string, desc
       id,
       name,
       description,
-      tags
+      tags,
+      requires_auth: requiresAuth
     }
   });
 }
@@ -68,20 +82,30 @@ export function UpdateFunctionMeta(appId: string, id: string, name: string, desc
 /**
  * CreateFunction
  *
- * @param appId
- * @param functionName
- * @param description
- * @param tags
+ * @param params
+ * @param params.appId
+ * @param params.name
+ * @param params.type
+ * @param params.description
+ * @param params.tags
+ * @param params.language
+ * @param params.templateId
+ * @param params.requiresAuth
  */
-export function CreateFunction(
-  appId: string,
-  name: string,
-  type: string,
-  description: string,
-  tags: string[],
-  language: string,
-  template_id?: string
-) {
+interface CreateFunctionParams {
+  appId: string;
+  name: string;
+  type: string;
+  description: string;
+  tags: string[];
+  language: string;
+  templateId?: string;
+  requiresAuth?: boolean;
+}
+
+export function CreateFunction(params: CreateFunctionParams) {
+  const { appId, name, type, description, tags, language, templateId, requiresAuth = false } = params;
+
   return request<Api.Function.GetFunctionData>({
     url: '/function/create',
     method: 'post',
@@ -92,7 +116,8 @@ export function CreateFunction(
       description,
       tags,
       language,
-      template_id
+      template_id: templateId,
+      requires_auth: requiresAuth
     }
   });
 }

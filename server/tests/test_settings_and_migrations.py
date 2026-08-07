@@ -762,10 +762,14 @@ class SecurityMigrationTests(IsolatedAsyncioTestCase):
             await migrations.run_security_migrations()
 
         function_calls = collections["functions"].update_many.await_args_list
-        self.assertEqual(len(function_calls), 1)
+        self.assertEqual(len(function_calls), 2)
         function_filter, function_update = function_calls[0].args
         self.assertEqual(function_filter, {})
         limit_set = function_update[0]["$set"]
+
+        auth_filter, auth_update = function_calls[1].args
+        self.assertEqual(auth_filter, {"requires_auth": {"$exists": False}})
+        self.assertEqual(auth_update, {"$set": {"requires_auth": True}})
 
         samples = [
             ({"memory_limit": 64, "timeout": 0}, (128, 1)),

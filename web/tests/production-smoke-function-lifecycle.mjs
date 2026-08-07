@@ -229,7 +229,7 @@ const browser = await chromium.launch({
     '--ignore-certificate-errors',
     '--allow-insecure-localhost',
     '--no-proxy-server',
-    '--host-resolver-rules=MAP console.ci.example.com 127.0.0.1,MAP server.ci.example.com 127.0.0.1,MAP oss.ci.example.com 127.0.0.1'
+    '--host-resolver-rules=MAP *.ci.example.com 127.0.0.1,MAP console.ci.example.com 127.0.0.1,MAP server.ci.example.com 127.0.0.1,MAP oss.ci.example.com 127.0.0.1'
   ]
 });
 
@@ -279,13 +279,16 @@ try {
   const createDialog = page.locator('.n-dialog:visible').last();
   await createDialog.waitFor({ state: 'visible' });
   await createDialog.locator('input:visible').first().fill(functionName);
+  assert.equal(await createDialog.locator('[role="switch"]').getAttribute('aria-checked'), 'false');
   await createDialog.locator('.n-base-selection').click();
   await page.locator('.n-base-select-option:visible').first().click();
 
   const createResponsePromise = waitForApiResponse(page, '/function/create');
   functionCreateAttempted = true;
   await createDialog.locator('.n-dialog__action button').last().click();
-  const createBody = await readSuccessfulApiResponse(await createResponsePromise, 'create function');
+  const createResponse = await createResponsePromise;
+  assert.equal(createResponse.request().postDataJSON().requires_auth, false);
+  const createBody = await readSuccessfulApiResponse(createResponse, 'create function');
   createdFunctionId = createBody.data?.function_id || '';
   assert.ok(createdFunctionId, JSON.stringify(createBody));
   const functionItem = page.locator('.function-item').filter({ hasText: functionName });
@@ -312,11 +315,6 @@ try {
   await page.locator('.action-btn.saved-btn').waitFor({ state: 'visible' });
   console.log('function_published=passed');
 
-  await page.locator('.config-tabs .tab-btn').filter({ hasText: 'Headers' }).click();
-  await page.locator('.headers-section .header-select .n-base-selection').click();
-  await page.locator('.n-base-select-option:visible').filter({ hasText: 'Authorization' }).click();
-  await page.locator('.headers-section .header-row .param-input.value').fill(`Bearer ${accessToken}`);
-
   let invoked = false;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const proxyResponsePromise = waitForApiResponse(page, '/function/proxy_test');
@@ -337,7 +335,53 @@ try {
   }
   assert.equal(invoked, true, `published function never returned ${expectedResult}`);
   await page.locator('.response-content').filter({ hasText: expectedResult }).waitFor({ state: 'visible' });
-  console.log(`function_invoked=${expectedResult}`);
+  console.log(`public_function_invoked=${expectedResult}`);
+
+  const functionUrl = (await page.locator('.address-text').textContent())?.trim();
+  assert.ok(functionUrl, 'function URL was not rendered');
+  const directFunctionUrl = new URL(functionUrl);
+  directFunctionUrl.port = new URL(baseUrl).port;
+  const publicPage = await page.context().newPage();
+  const publicResponse = await publicPage.goto(directFunctionUrl.href, { waitUntil: 'domcontentloaded' });
+  assert.equal(publicResponse?.status(), 200, `public function returned ${publicResponse?.status()}`);
+  assert.equal((await publicPage.textContent('body'))?.includes(expectedResult), true);
+  await publicPage.close();
+  console.log('public_function_anonymous_access=passed');
+
+  await page.locator('.edit-btn').click();
+  const editDialog = page.locator('.n-dialog:visible').last();
+  await editDialog.waitFor({ state: 'visible' });
+  const authSwitch = editDialog.locator('[role="switch"]');
+  await authSwitch.waitFor({ state: 'visible' });
+  assert.equal(await authSwitch.getAttribute('aria-checked'), 'false');
+  await authSwitch.click();
+  const updateMetaResponsePromise = waitForApiResponse(page, '/function/update_meta');
+  await editDialog.locator('.n-dialog__action button').last().click();
+  const updateMetaResponse = await updateMetaResponsePromise;
+  assert.equal(updateMetaResponse.request().postDataJSON().requires_auth, true);
+  await readSuccessfulApiResponse(updateMetaResponse, 'enable function authentication');
+  await editDialog.waitFor({ state: 'hidden' });
+
+  const protectedProxyResponsePromise = waitForApiResponse(page, '/function/proxy_test');
+  await page.locator('.send-btn').click();
+  const protectedProxyBody = await readSuccessfulApiResponse(
+    await protectedProxyResponsePromise,
+    'invoke protected function through console'
+  );
+  assert.equal(protectedProxyBody.data?.status_code, 200, JSON.stringify(protectedProxyBody));
+  assert.equal(JSON.parse(protectedProxyBody.data?.content || '{}').data, expectedResult);
+  console.log('protected_function_console_access=passed');
+
+  const anonymousPage = await page.context().newPage();
+  const anonymousResponse = await anonymousPage.goto(directFunctionUrl.href, { waitUntil: 'domcontentloaded' });
+  assert.equal(anonymousResponse?.status(), 401, `protected function returned ${anonymousResponse?.status()}`);
+  assert.deepEqual(JSON.parse((await anonymousPage.textContent('body')) || '{}'), {
+    code: 401,
+    msg: 'Access token required',
+    data: null
+  });
+  await anonymousPage.close();
+  console.log('protected_function_anonymous_access=denied');
 
   const deletedFunctionId = createdFunctionId;
   deleted = await deleteFunctionThroughUi(page, functionName);

@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Response, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -106,7 +106,17 @@ async def api_exception_handler(request: Request, exc: APIException):
     """
     return JSONResponse(
         status_code=200,
-        content={"code": exc.code, "msg": exc.msg},
+        content={"code": exc.code, "msg": exc.msg, "data": None},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Return runtime HTTP failures using the public API response contract."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.status_code, "msg": str(exc.detail), "data": None},
+        headers=exc.headers,
     )
 
 

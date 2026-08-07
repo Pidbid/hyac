@@ -378,6 +378,8 @@ const local: App.I18n.Schema = {
       functionType: 'Function Type',
       apiFunction: 'API Function',
       commonFunction: 'Common Function',
+      requiresAuth: 'Require authentication',
+      requiresAuthHelp: 'When enabled, only application members with a valid access token can invoke this function',
       functionTemplate: 'Function Template',
       functionTemplatePlaceholder: 'Please select function template',
       functionDescription: 'Function Description',

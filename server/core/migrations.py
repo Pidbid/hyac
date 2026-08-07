@@ -17,6 +17,7 @@ RUNTIME_AUTHORITY_MIGRATION = "runtime-authority-v4"
 SETTINGS_REVISION_MIGRATION = "settings-revisions-v5"
 TASK_PUBLICATION_MIGRATION = "task-publication-v6"
 RUNTIME_CLEANUP_OWNERSHIP_MIGRATION = "runtime-cleanup-ownership-v7"
+FUNCTION_AUTH_DEFAULT_MIGRATION = "function-auth-default-v8"
 
 
 def _username_index_keys(index: dict) -> list[tuple[str, int]]:
@@ -336,6 +337,23 @@ async def run_security_migrations() -> None:
         await settings_collection.insert_one(
             {
                 "name": RUNTIME_CLEANUP_OWNERSHIP_MIGRATION,
+                "data": {"completed": True},
+                "create_at": now,
+                "update_at": now,
+            }
+        )
+
+    if not await settings_collection.find_one(
+        {"name": FUNCTION_AUTH_DEFAULT_MIGRATION}
+    ):
+        now = datetime.now(timezone.utc)
+        await mongodb_manager.db["functions"].update_many(
+            {"requires_auth": {"$exists": False}},
+            {"$set": {"requires_auth": True}},
+        )
+        await settings_collection.insert_one(
+            {
+                "name": FUNCTION_AUTH_DEFAULT_MIGRATION,
                 "data": {"completed": True},
                 "create_at": now,
                 "update_at": now,
