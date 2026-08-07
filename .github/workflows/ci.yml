@@ -68,15 +68,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
       - run: docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet
-      - name: Validate Docker Hub credentials (temporary)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
-        with:
-          username: wicos
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Log out from Docker Hub (temporary)
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/dev'
-        run: docker logout
 
   release-gate:
     if: startsWith(github.ref, 'refs/tags/')
