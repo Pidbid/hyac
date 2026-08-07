@@ -341,7 +341,7 @@ try {
   assert.ok(functionUrl, 'function URL was not rendered');
   const directFunctionUrl = new URL(functionUrl);
   directFunctionUrl.port = new URL(baseUrl).port;
-  const publicPage = await page.context().newPage();
+  const publicPage = await browser.newPage({ ignoreHTTPSErrors: true });
   const publicResponse = await publicPage.goto(directFunctionUrl.href, { waitUntil: 'domcontentloaded' });
   assert.equal(publicResponse?.status(), 200, `public function returned ${publicResponse?.status()}`);
   assert.equal((await publicPage.textContent('body'))?.includes(expectedResult), true);
@@ -372,7 +372,7 @@ try {
   assert.equal(JSON.parse(protectedProxyBody.data?.content || '{}').data, expectedResult);
   console.log('protected_function_console_access=passed');
 
-  const anonymousPage = await page.context().newPage();
+  const anonymousPage = await browser.newPage({ ignoreHTTPSErrors: true });
   const anonymousResponse = await anonymousPage.goto(directFunctionUrl.href, { waitUntil: 'domcontentloaded' });
   assert.equal(anonymousResponse?.status(), 401, `protected function returned ${anonymousResponse?.status()}`);
   assert.deepEqual(JSON.parse((await anonymousPage.textContent('body')) || '{}'), {

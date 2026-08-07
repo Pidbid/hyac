@@ -435,6 +435,8 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertIn("public_function_anonymous_access=passed", browser_smoke)
         self.assertIn("protected_function_console_access=passed", browser_smoke)
         self.assertIn("Access token required", browser_smoke)
+        self.assertNotIn("page.context().newPage()", browser_smoke)
+        self.assertGreaterEqual(browser_smoke.count("await browser.newPage"), 3)
         self.assertIn("finally", browser_smoke)
 
     def test_local_browser_smoke_exercises_storage_and_database_lifecycles(self):
