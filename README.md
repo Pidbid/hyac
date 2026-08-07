@@ -127,7 +127,7 @@ graph TD
     - `S3_ACCESS_KEY`、`S3_SECRET_KEY`
     - `SECRET_KEY`（至少 32 个字符）
     - `DEFAULT_ADMIN_USER`、`DEFAULT_ADMIN_PASSWORD`
-    - `APP_IMAGE_TAG`（不可变的发布标签，例如 `v1.2.3`，禁止使用 `latest`）
+    - `GLOBAL_TAG`（稳定发布标签，例如 `v1.2.3`，禁止使用 `latest`；该标签同时用于 server、web、app 和 LSP sidecar）
 
     `openssl rand -hex 32` 会生成前后端管理员密码字段均支持的 64 位十六进制值。数据库密码、S3 密钥、JWT 密钥和管理员密码应分别生成不同的随机值。不要保留 `.env.example` 中的 `<...>` 占位符。
 
@@ -141,11 +141,29 @@ graph TD
 
 ### ▶️ 启动服务
 
-执行以下命令以构建和启动所有服务：
+拉取该版本的三个多架构镜像并启动所有服务：
 
 ```bash
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
+
+发布由推送带注释的稳定标签 `vX.Y.Z` 触发。发布流程会推送 `wicos/hyac_server`、`wicos/hyac_web` 和 `wicos/hyac_app`；`lsp-sidecar` 与 App Runtime 使用同一个 `hyac_app` 镜像，只是启动命令不同。
+
+### 📦 创建发布版本
+
+Docker Hub 用户名已在工作流中固定为 `wicos`。只需在 GitHub 仓库的 Actions secrets 中配置：
+
+- `DOCKERHUB_TOKEN`：具有 Docker Hub 推送权限的访问令牌。
+
+为允许失败后对同一 tag 重新运行工作流，请勿启用 Docker Hub immutable tags。发布前，在 `changelog/CHANGELOG.zh-CN.md` 和 `changelog/CHANGELOG.md` 中分别添加完全相同版本号的非空章节，并确保待发布提交已合并到 `main`。然后手动创建并推送带注释的稳定 tag：
+
+```bash
+git tag -a v1.2.3 -m "Hyac v1.2.3"
+git push origin v1.2.3
+```
+
+工作流会依次完成基础 CI、三镜像 `linux/amd64` + `linux/arm64` 构建与推送、生产 Compose/Chrome 冒烟和双语 GitHub Release。任何冒烟失败都不会创建 Release。
 
 ### 🌐 访问地址
 

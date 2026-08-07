@@ -124,71 +124,72 @@ class DeploymentReviewContractTests(unittest.TestCase):
                 self.assertIn("./scripts/dev-up.sh", guide)
                 self.assertIn("https://traefik.localhost", guide)
 
-    def test_github_actions_only_runs_basic_fast_jobs(self):
+    def test_github_actions_releases_only_after_ci_images_and_smoke(self):
         workflow_source = read(".github/workflows/ci.yml")
         workflow = yaml.safe_load(workflow_source)
 
-        self.assertEqual(set(workflow["jobs"]), {"python", "frontend", "compose"})
-        allowed_docker_commands = {
-            "docker compose config --quiet",
-            "docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet",
-        }
-        browser_markers = (
-            "playwright",
-            "chromium",
-            "chrome",
-            "production-smoke-function-lifecycle.mjs",
+        self.assertEqual(
+            set(workflow["jobs"]),
+            {
+                "python",
+                "frontend",
+                "compose",
+                "release-gate",
+                "publish-images",
+                "release-smoke",
+                "create-release",
+            },
         )
-        container_tool_markers = ("buildah", "nerdctl", "podman")
-        container_action_markers = ("docker", *container_tool_markers)
+        self.assertRegex(workflow_source, r"(?m)^\s+tags:\s*\[?['\"]?v\*['\"]?\]?")
 
-        for job_name, job in workflow["jobs"].items():
-            with self.subTest(job=job_name, boundary="job-container"):
-                self.assertNotIn("container", job)
-                self.assertNotIn("services", job)
+        gate = workflow["jobs"]["release-gate"]
+        self.assertEqual(set(gate["needs"]), {"python", "frontend", "compose"})
+        gate_source = json.dumps(gate)
+        self.assertIn("git cat-file -t", gate_source)
+        self.assertIn("git merge-base --is-ancestor", gate_source)
+        self.assertIn("origin/main", gate_source)
+        self.assertIn("gh release view", gate_source)
+        self.assertIn("extract-release-notes.py", gate_source)
 
-            for step_index, step in enumerate(job.get("steps", [])):
-                run_command = step.get("run", "")
-                uses_action = step.get("uses", "")
-                step_source = f"{run_command}\n{uses_action}".lower()
-                for marker in browser_markers:
-                    with self.subTest(
-                        job=job_name,
-                        step=step_index,
-                        boundary="browser",
-                        marker=marker,
-                    ):
-                        self.assertNotIn(marker, step_source)
+        publish = workflow["jobs"]["publish-images"]
+        self.assertEqual(publish["needs"], "release-gate")
+        matrix = publish["strategy"]["matrix"]["include"]
+        self.assertEqual(
+            {(item["name"], item["image"], item["context"]) for item in matrix},
+            {
+                ("server", "wicos/hyac_server", "./server"),
+                ("web", "wicos/hyac_web", "./web"),
+                ("app", "wicos/hyac_app", "./app"),
+            },
+        )
+        publish_source = json.dumps(publish)
+        self.assertIn("linux/amd64,linux/arm64", publish_source)
+        self.assertNotIn("hyac_lsp_sidecar", publish_source)
+        self.assertNotIn(":latest", publish_source)
+        self.assertNotIn("jq", publish_source)
+        self.assertIn('"username": "wicos"', publish_source)
+        self.assertNotIn("DOCKERHUB_USERNAME", publish_source)
+        for action in (
+            "docker/setup-qemu-action@",
+            "docker/setup-buildx-action@",
+            "docker/login-action@",
+            "docker/build-push-action@",
+        ):
+            self.assertRegex(publish_source, re.escape(action) + r"[0-9a-f]{40}")
 
-                normalized_run = " ".join(run_command.split())
-                if re.search(r"\bdocker\b", normalized_run, re.IGNORECASE):
-                    with self.subTest(
-                        job=job_name,
-                        step=step_index,
-                        boundary="docker-command",
-                    ):
-                        self.assertIn(normalized_run, allowed_docker_commands)
-                for marker in container_tool_markers:
-                    with self.subTest(
-                        job=job_name,
-                        step=step_index,
-                        boundary="container-command",
-                        marker=marker,
-                    ):
-                        self.assertNotIn(marker, normalized_run.lower())
+        smoke = workflow["jobs"]["release-smoke"]
+        self.assertEqual(smoke["needs"], "publish-images")
+        self.assertIn("scripts/release-smoke.sh", json.dumps(smoke))
 
-                normalized_action = uses_action.lower()
-                for marker in container_action_markers:
-                    with self.subTest(
-                        job=job_name,
-                        step=step_index,
-                        boundary="container-action",
-                        marker=marker,
-                    ):
-                        self.assertNotIn(marker, normalized_action)
+        release = workflow["jobs"]["create-release"]
+        self.assertEqual(release["needs"], "release-smoke")
+        release_source = json.dumps(release)
+        self.assertIn("gh release create", release_source)
+        self.assertIn("Hyac ${GITHUB_REF_NAME}", release_source)
+        self.assertIn("prerelease=false", release_source)
 
     def test_production_compose_resolves_one_non_latest_runtime_image_tag(self):
-        release_tag = "release-2026-08-05"
+        release_tag = "v1.2.3"
         environment = {
             **os.environ,
             "DOMAIN_NAME": "example.com",
@@ -200,6 +201,8 @@ class DeploymentReviewContractTests(unittest.TestCase):
             "SECRET_KEY": "production-secret-key-with-at-least-32-characters",
             "DEFAULT_ADMIN_USER": "admin",
             "DEFAULT_ADMIN_PASSWORD": "production-admin-password",
+            "SERVER_IMAGE_TAG": release_tag,
+            "WEB_IMAGE_TAG": release_tag,
             "APP_IMAGE_TAG": release_tag,
             "DEMO_MODE": "false",
         }
@@ -222,11 +225,18 @@ class DeploymentReviewContractTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         compose = json.loads(result.stdout)
-        server_tag = compose["services"]["server"]["environment"]["APP_IMAGE_TAG"]
-        app_image = compose["services"]["app"]["image"]
-        self.assertEqual(server_tag, release_tag)
-        self.assertEqual(app_image, f"wicos/hyac_app:{server_tag}")
-        self.assertNotEqual(server_tag, "latest")
+        services = compose["services"]
+        for service in ("server", "web", "app", "lsp-sidecar"):
+            self.assertNotIn("build", services[service])
+        self.assertEqual(services["server"]["image"], f"wicos/hyac_server:{release_tag}")
+        self.assertEqual(services["web"]["image"], f"wicos/hyac_web:{release_tag}")
+        self.assertEqual(services["app"]["image"], f"wicos/hyac_app:{release_tag}")
+        self.assertEqual(services["lsp-sidecar"]["image"], services["app"]["image"])
+        self.assertEqual(services["server"]["environment"]["SERVER_IMAGE_TAG"], release_tag)
+        self.assertEqual(services["server"]["environment"]["WEB_IMAGE_TAG"], release_tag)
+        self.assertEqual(services["server"]["environment"]["APP_IMAGE_TAG"], release_tag)
+        self.assertEqual(services["server"]["environment"]["LSP_MODE"], "sidecar")
+        self.assertIn("healthcheck", services["lsp-sidecar"])
 
     def test_mongo_keyfile_generator_refuses_symlinks_without_touching_target(self):
         script = REPO_ROOT / "scripts/01-create-mongo-keyfile.sh"
@@ -332,17 +342,23 @@ class DeploymentReviewContractTests(unittest.TestCase):
 
         self.assertTrue(smoke_compose.is_file())
         smoke_source = smoke_compose.read_text(encoding="utf-8") if smoke_compose.exists() else ""
-        self.assertIn("image: hyac-server-ci", smoke_source)
-        self.assertIn("image: hyac-web-ci", smoke_source)
+        self.assertIn("image: wicos/hyac_server:${CI_SMOKE_IMAGE_TAG", smoke_source)
+        self.assertIn("image: wicos/hyac_web:${CI_SMOKE_IMAGE_TAG", smoke_source)
+        self.assertIn("image: wicos/hyac_app:${CI_SMOKE_IMAGE_TAG", smoke_source)
         self.assertIn("/var/run/docker.sock:/var/run/docker.sock", smoke_source)
 
     def test_local_smoke_uses_production_config_and_authenticated_replica_set(self):
         smoke_source = read(".github/compose-smoke.yml")
 
         self.assertIn('DEV_MODE: "false"', smoke_source)
-        self.assertIn("APP_IMAGE_TAG: ${CI_SMOKE_APP_IMAGE_TAG", smoke_source)
-        self.assertIn("image: wicos/hyac_app:${CI_SMOKE_APP_IMAGE_TAG", smoke_source)
+        self.assertIn("SERVER_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG", smoke_source)
+        self.assertIn("WEB_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG", smoke_source)
+        self.assertIn("APP_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG", smoke_source)
+        self.assertIn("image: wicos/hyac_app:${CI_SMOKE_IMAGE_TAG", smoke_source)
         self.assertNotIn("APP_IMAGE_TAG: ci-smoke", smoke_source)
+        self.assertIn("LSP_MODE: sidecar", smoke_source)
+        self.assertIn("LSP_SIDECAR_URL: ws://hyac_lsp_sidecar:9002/lsp", smoke_source)
+        self.assertIn("lsp-sidecar:", smoke_source)
         self.assertIn("MONGO_INITDB_ROOT_USERNAME", smoke_source)
         self.assertIn("MONGO_INITDB_ROOT_PASSWORD", smoke_source)
         self.assertIn("--keyFile", smoke_source)
@@ -464,7 +480,30 @@ class DeploymentReviewContractTests(unittest.TestCase):
                 command_position = guide.index("openssl rand -hex 32")
                 explanation = guide[command_position : command_position + 320]
                 self.assertIn("64", explanation)
-                self.assertIn("APP_IMAGE_TAG", guide[: guide.index("docker compose up -d")])
+                startup = guide.index("docker compose up -d --no-build")
+                self.assertIn("GLOBAL_TAG", guide[:startup])
+                self.assertIn("docker compose pull", guide[:startup])
+
+    def test_server_image_downloads_minio_client_for_the_target_architecture(self):
+        dockerfile = read("server/Dockerfile")
+        self.assertIn("ARG TARGETARCH", dockerfile)
+        self.assertIn("linux-${TARGETARCH}/mc", dockerfile)
+        self.assertIn("amd64|arm64", dockerfile)
+
+    def test_readmes_document_the_manual_release_contract(self):
+        for relative_path in ("README.md", "README.en.md"):
+            with self.subTest(path=relative_path):
+                guide = read(relative_path)
+                for contract in (
+                    "DOCKERHUB_TOKEN",
+                    "changelog/CHANGELOG.zh-CN.md",
+                    "changelog/CHANGELOG.md",
+                    "git tag -a v1.2.3",
+                    "git push origin v1.2.3",
+                    "Docker Hub immutable tags",
+                ):
+                    self.assertIn(contract, guide)
+                self.assertNotIn("DOCKERHUB_USERNAME", guide)
 
     def test_user_settings_do_not_publish_a_default_password(self):
         for relative_path, first_start_phrase in (

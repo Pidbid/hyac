@@ -127,7 +127,7 @@ graph TD
     - `S3_ACCESS_KEY` and `S3_SECRET_KEY`
     - `SECRET_KEY` (at least 32 characters)
     - `DEFAULT_ADMIN_USER` and `DEFAULT_ADMIN_PASSWORD`
-    - `APP_IMAGE_TAG` (an immutable release tag such as `v1.2.3`, never `latest`)
+    - `GLOBAL_TAG` (a stable release tag such as `v1.2.3`, never `latest`; it is shared by server, web, app, and the LSP sidecar)
 
     `openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` placeholder from `.env.example` in production.
 
@@ -141,11 +141,29 @@ graph TD
 
 ### ▶️ Starting the Services
 
-Execute the following command to build and start all services:
+Pull the three multi-architecture images for the selected release and start all services:
 
 ```bash
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
+
+Pushing an annotated stable `vX.Y.Z` tag starts the release workflow. It publishes `wicos/hyac_server`, `wicos/hyac_web`, and `wicos/hyac_app`. The LSP sidecar deliberately reuses the `hyac_app` image with a different startup command.
+
+### 📦 Creating a Release
+
+The workflow fixes the Docker Hub username to `wicos`. Configure only this GitHub Actions secret in the repository:
+
+- `DOCKERHUB_TOKEN`: a Docker Hub access token with push permission.
+
+Do not enable Docker Hub immutable tags, because a failed workflow must be rerunnable for the same tag. Before release, add a non-empty section for the exact same version to both `changelog/CHANGELOG.zh-CN.md` and `changelog/CHANGELOG.md`, and make sure the release commit is already on `main`. Then create and push an annotated stable tag manually:
+
+```bash
+git tag -a v1.2.3 -m "Hyac v1.2.3"
+git push origin v1.2.3
+```
+
+The workflow runs the base CI, builds and pushes all three images for `linux/amd64` and `linux/arm64`, runs the production Compose/Chrome smoke test, and finally creates the bilingual GitHub Release. A smoke failure never creates the Release.
 
 ### 🌐 Access Points
 

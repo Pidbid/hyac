@@ -31,7 +31,7 @@ cp .env.example .env
 -   `S3_ACCESS_KEY`、`S3_SECRET_KEY`
 -   `SECRET_KEY`（至少 32 个字符）
 -   `DEFAULT_ADMIN_USER`、`DEFAULT_ADMIN_PASSWORD`
--   `APP_IMAGE_TAG`（不可变的发布标签，例如 `v1.2.3`，禁止使用 `latest`）
+-   `GLOBAL_TAG`（稳定发布标签，例如 `v1.2.3`，禁止使用 `latest`；server、web、app 和 LSP sidecar 共用该版本）
 
 `openssl rand -hex 32` 会生成前后端管理员密码字段均支持的 64 位十六进制值。请为每个密码或密钥分别生成不同的随机值。生产配置中不得保留 `.env.example` 的任何 `<...>` 占位符。
 
@@ -54,10 +54,11 @@ cp .env.example .env
 ## 4. 启动服务
 
 ```bash
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
 
-这将在后台启动所有必需的服务。
+这会拉取 `wicos/hyac_server`、`wicos/hyac_web` 和 `wicos/hyac_app` 后在后台启动所有必需的服务。LSP sidecar 与 App Runtime 内容相同，因此复用 `hyac_app` 镜像，仅启动命令不同。
 
 ## 5. 访问系统
 

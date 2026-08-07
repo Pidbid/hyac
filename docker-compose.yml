@@ -99,9 +99,7 @@ services:
     networks:
       - hyac_network
   server:
-    build:
-      context: ./server
-    image: wicos/hyac_server:${SERVER_IMAGE_TAG:-latest}
+    image: wicos/hyac_server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG to an immutable release tag}
     container_name: hyac_server
     restart: unless-stopped
     environment:
@@ -120,10 +118,12 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
       DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:?set DEFAULT_ADMIN_USER}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?set DEFAULT_ADMIN_PASSWORD}
+      SERVER_IMAGE_TAG: ${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG to an immutable release tag}
+      WEB_IMAGE_TAG: ${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to an immutable release tag}
       APP_IMAGE_TAG: ${APP_IMAGE_TAG:?set APP_IMAGE_TAG to an immutable release tag}
       DEV_MODE: "false"
       DEMO_MODE: ${DEMO_MODE}
-      LSP_MODE: ${LSP_MODE:-legacy}
+      LSP_MODE: ${LSP_MODE:-sidecar}
       LSP_SIDECAR_URL: ${LSP_SIDECAR_URL:-ws://hyac_lsp_sidecar:9002/lsp}
       LSP_SIDECAR_TIMEOUT_SECONDS: ${LSP_SIDECAR_TIMEOUT_SECONDS:-10}
       LSP_SIDECAR_FALLBACK_LEGACY: ${LSP_SIDECAR_FALLBACK_LEGACY:-true}
@@ -131,6 +131,8 @@ services:
       mongodb:
         condition: service_healthy
       rustfs:
+        condition: service_healthy
+      lsp-sidecar:
         condition: service_healthy
     volumes:
     - /etc/localtime:/etc/localtime:ro
@@ -151,10 +153,7 @@ services:
       - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
       - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    image: wicos/hyac_web:${WEB_IMAGE_TAG:-latest}
+    image: wicos/hyac_web:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to an immutable release tag}
     container_name: hyac_web
     restart: unless-stopped
     environment:
@@ -169,20 +168,22 @@ services:
       - "traefik.http.services.hyac-web.loadbalancer.server.port=80"
       - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
   app:
-    build:
-      context: ./app
     image: wicos/hyac_app:${APP_IMAGE_TAG:?set APP_IMAGE_TAG to an immutable release tag}
     command: ["echo", "Hyac App image built. This container does not need to run."]
     restart: "no"
     networks:
       - hyac_network
   lsp-sidecar:
-    build:
-      context: ./app
-    image: wicos/hyac_lsp_sidecar:${APP_IMAGE_TAG:?set APP_IMAGE_TAG to an immutable release tag}
+    image: wicos/hyac_app:${APP_IMAGE_TAG:?set APP_IMAGE_TAG to an immutable release tag}
     container_name: hyac_lsp_sidecar
     command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9002/health', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
     networks:
       - hyac_network
 

@@ -136,7 +136,7 @@ services:
       start_period: 5s
 
   server:
-    image: hyac-server-ci
+    image: wicos/hyac_server:${CI_SMOKE_IMAGE_TAG:?set released image tag}
     container_name: hyac_server
     environment:
       DOMAIN_NAME: ci.example.com
@@ -153,17 +153,22 @@ services:
       SECRET_KEY: ci-secret-key-used-only-for-production-smoke
       DEFAULT_ADMIN_USER: operator
       DEFAULT_ADMIN_PASSWORD: ${CI_SMOKE_ADMIN_PASSWORD:?set CI-only admin password}
-      APP_IMAGE_TAG: ${CI_SMOKE_APP_IMAGE_TAG:?set CI-only app image tag}
+      SERVER_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG:?set released image tag}
+      WEB_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG:?set released image tag}
+      APP_IMAGE_TAG: ${CI_SMOKE_IMAGE_TAG:?set released image tag}
       DEV_MODE: "false"
       CI_SMOKE_MODE: "true"
       RUNTIME_INGRESS_ENTRYPOINT: ci
       RUNTIME_INGRESS_TLS: "true"
       DEMO_MODE: "false"
-      LSP_MODE: legacy
+      LSP_MODE: sidecar
+      LSP_SIDECAR_URL: ws://hyac_lsp_sidecar:9002/lsp
     depends_on:
       mongo-init:
         condition: service_completed_successfully
       rustfs:
+        condition: service_healthy
+      lsp-sidecar:
         condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -182,12 +187,23 @@ services:
       - "traefik.http.services.hyac-ci-server.loadbalancer.server.port=8000"
 
   app:
-    image: wicos/hyac_app:${CI_SMOKE_APP_IMAGE_TAG:?set CI-only app image tag}
+    image: wicos/hyac_app:${CI_SMOKE_IMAGE_TAG:?set released image tag}
     command: ["python", "-c", "import time; time.sleep(3600)"]
     restart: "no"
 
+  lsp-sidecar:
+    image: wicos/hyac_app:${CI_SMOKE_IMAGE_TAG:?set released image tag}
+    container_name: hyac_lsp_sidecar
+    command: ["uvicorn", "lsp_sidecar.main:app", "--host", "0.0.0.0", "--port", "9002"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9002/health', timeout=5)"]
+      interval: 3s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
   web:
-    image: hyac-web-ci
+    image: wicos/hyac_web:${CI_SMOKE_IMAGE_TAG:?set released image tag}
     environment:
       VITE_SERVICE_BASE_URL: https://server.ci.example.com:18443
     depends_on:

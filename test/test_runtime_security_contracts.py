@@ -212,11 +212,13 @@ class DeploymentAssetContractTests(unittest.TestCase):
 
     def test_production_images_are_kept_out_of_basic_ci(self):
         workflow = read(".github/workflows/ci.yml")
-        self.assertNotIn("docker build", workflow)
-        self.assertNotIn("docker run", workflow)
-        self.assertNotIn("hyac-server-ci", workflow)
-        self.assertNotIn("hyac-app-ci", workflow)
-        self.assertIn("compileall", workflow)
+        basic_ci = workflow.split("\n  release-gate:", 1)[0]
+        self.assertNotIn("docker build", basic_ci)
+        self.assertNotIn("docker run", basic_ci)
+        self.assertNotIn("hyac-server-ci", basic_ci)
+        self.assertNotIn("hyac-app-ci", basic_ci)
+        self.assertIn("compileall", basic_ci)
+        self.assertIn("if: startsWith(github.ref, 'refs/tags/')", workflow)
 
         for service in ("server", "app"):
             with self.subTest(service=service):

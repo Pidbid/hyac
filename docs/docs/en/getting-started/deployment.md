@@ -31,7 +31,7 @@ Before starting the stack, replace every placeholder in `.env`. Production requi
 -   `S3_ACCESS_KEY` and `S3_SECRET_KEY`
 -   `SECRET_KEY` (at least 32 characters)
 -   `DEFAULT_ADMIN_USER` and `DEFAULT_ADMIN_PASSWORD`
--   `APP_IMAGE_TAG` (an immutable release tag such as `v1.2.3`, never `latest`)
+-   `GLOBAL_TAG` (a stable release tag such as `v1.2.3`, never `latest`; server, web, app, and the LSP sidecar share it)
 
 `openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` values from `.env.example` in the production file.
 
@@ -54,10 +54,11 @@ Continue only after the script confirms mode `0400` and ownership by the MongoDB
 ## 4. Start the Services
 
 ```bash
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
 
-This will start all the required services in the background.
+This pulls `wicos/hyac_server`, `wicos/hyac_web`, and `wicos/hyac_app`, then starts the required services in the background. The LSP sidecar reuses the app image because its contents are identical; only its startup command differs.
 
 ## 5. Access the System
 
