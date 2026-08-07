@@ -1,4 +1,4 @@
-# models/logger_model.py
+# models/settings_model.py
 from datetime import datetime
 from typing import Any
 
@@ -18,7 +18,7 @@ class SettingModel(Document):
 
     class Settings:
         """
-        Pydantic and Beanie settings for the LogEntry model.
+        Pydantic and Beanie settings for the SettingModel.
         """
 
         name = "settings"

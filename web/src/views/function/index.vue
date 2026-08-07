@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define, no-underscore-dangle */
 import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useStorage } from '@vueuse/core';
 import {
   NButton,
   NButtonGroup,
@@ -30,7 +31,16 @@ import {
   useMessage
 } from 'naive-ui';
 import dayjs from 'dayjs';
-import { AddOutline, BrushOutline, CloseOutline, LinkOutline, SearchOutline, SparklesOutline } from '@vicons/ionicons5';
+import {
+  AddOutline,
+  BeakerOutline,
+  BrushOutline,
+  CloseOutline,
+  LinkOutline,
+  SearchOutline,
+  SparklesOutline,
+  TimerOutline
+} from '@vicons/ionicons5';
 import {
   CreateFunction,
   DeleteFunction,
@@ -53,7 +63,6 @@ import {
 } from '@/service/api';
 import { useApplicationStore } from '@/store/modules/application';
 import { useFunctionStore } from '@/store/modules/function';
-import { useLogStore } from '@/store/modules/log';
 import { useAppStore } from '@/store/modules/app';
 import { $t } from '@/locales';
 import FunctionList from './modules/FunctionList.vue';
@@ -69,7 +78,6 @@ const dialog = useDialog();
 const applicationStore = useApplicationStore();
 const functionStore = useFunctionStore();
 const appStore = useAppStore();
-const logStore = useLogStore();
 const router = useRouter();
 
 const isDependenceLoading = ref(false);
@@ -114,18 +122,86 @@ const selectedFunction = ref<Api.Function.FunctionInfo>({
   status: 'unpublished',
   description: '',
   tags: [],
-  code: ''
+  code: '',
+  requires_auth: false
 });
 const originalCode = ref('');
 const codeChanged = ref(false);
+const codeDrafts = reactive<Record<string, { code: string; originalCode: string }>>({});
 const isSaving = ref(false);
 const functionRequestData = ref({ page: 1, length: 50 });
 const tags = ref<string[]>([]);
 const selectedTag = ref('all');
+const sidebarCollapsed = ref(false);
 
 const showHistoryModel = ref(false);
 const historyData = ref<Api.Function.FunctionHistoryInfo[]>([]);
 const showAiWindow = ref(false);
+const pageSplitSize = useStorage('function-page-split-size', 0.12);
+const workspaceSplitSize = useStorage('function-workspace-split-size', 0.82);
+const editorLogSplitSize = useStorage('function-editor-log-split-size', 0.7);
+const activePanel = useStorage<'test' | 'cron'>('function-active-panel', 'test');
+const logCollapsed = useStorage('function-log-collapsed', false);
+const logAnimState = ref<'idle' | 'collapsing' | 'expanding'>('idle');
+let logAnimTimer: number | null = null;
+let editorLayoutTimer: number | null = null;
+const editorPanelRef = ref<InstanceType<typeof FunctionEditorPanel> | null>(null);
+
+function scheduleEditorLayout(delay: number) {
+  if (editorLayoutTimer !== null) {
+    window.clearTimeout(editorLayoutTimer);
+  }
+  editorLayoutTimer = window.setTimeout(() => {
+    nextTick(() => {
+      editorPanelRef.value?.layoutEditor();
+      window.requestAnimationFrame(() => {
+        editorPanelRef.value?.layoutEditor();
+      });
+    });
+    editorLayoutTimer = null;
+  }, delay);
+}
+
+function clearLogAnimTimer() {
+  if (logAnimTimer !== null) {
+    window.clearTimeout(logAnimTimer);
+    logAnimTimer = null;
+  }
+  if (editorLayoutTimer !== null) {
+    window.clearTimeout(editorLayoutTimer);
+    editorLayoutTimer = null;
+  }
+}
+
+function handleCollapseLog() {
+  clearLogAnimTimer();
+  logAnimState.value = 'collapsing';
+  logAnimTimer = window.setTimeout(() => {
+    logCollapsed.value = true;
+    logAnimState.value = 'idle';
+    logAnimTimer = null;
+    scheduleEditorLayout(50);
+  }, 300);
+}
+
+function handleExpandLog() {
+  clearLogAnimTimer();
+  logCollapsed.value = false;
+  logAnimState.value = 'expanding';
+  scheduleEditorLayout(50);
+  logAnimTimer = window.setTimeout(() => {
+    logAnimState.value = 'idle';
+    logAnimTimer = null;
+  }, 350);
+}
+
+function handleSplitDragMove() {
+  scheduleEditorLayout(0);
+}
+
+function handleSplitDragEnd() {
+  scheduleEditorLayout(80);
+}
 
 // Computed
 const functionAddress = computed(() => {
@@ -135,23 +211,48 @@ const functionAddress = computed(() => {
   }
   return '';
 });
+const hasSelectedFunction = computed(() => Boolean(selectedFunction.value.id));
+const functionWorkspaceDescription = computed(() =>
+  functions.value.length > 0 ? $t('page.function.selectFunctionToEdit') : $t('page.function.emptyDescription')
+);
+
+function cloneFunctionInfo(func: Api.Function.FunctionInfo): Api.Function.FunctionInfo {
+  return {
+    ...func,
+    tags: [...func.tags]
+  };
+}
+
+function cacheCurrentCodeDraft() {
+  const { id, code } = selectedFunction.value;
+  if (!id) return;
+
+  if (code !== originalCode.value) {
+    codeDrafts[id] = { code, originalCode: originalCode.value };
+  } else {
+    Reflect.deleteProperty(codeDrafts, id);
+  }
+}
+
+function setSelectedFunction(func: Api.Function.FunctionInfo) {
+  const draft = codeDrafts[func.id];
+  const nextFunction = cloneFunctionInfo(func);
+
+  if (draft) {
+    nextFunction.code = draft.code;
+  }
+
+  selectedFunction.value = nextFunction;
+  originalCode.value = draft?.originalCode ?? func.code;
+  codeChanged.value = selectedFunction.value.code !== originalCode.value;
+  functionStore.setFuncInfo(cloneFunctionInfo(selectedFunction.value));
+}
 
 // Watchers
 watch(
   () => selectedFunction.value.code,
   newCode => {
     codeChanged.value = newCode !== originalCode.value;
-  }
-);
-
-watch(
-  () => selectedFunction.value.id,
-  (newId, oldId) => {
-    if (newId && newId !== oldId) {
-      originalCode.value = selectedFunction.value.code;
-      codeChanged.value = false;
-      logStore.subscribe(newId);
-    }
   }
 );
 
@@ -177,6 +278,7 @@ const getFunctionData = async () => {
   );
 
   if (!error) {
+    cacheCurrentCodeDraft();
     functions.value = data.data.map((func: Api.Function.FunctionRecord) => ({
       id: func.function_id,
       name: func.function_name,
@@ -184,14 +286,13 @@ const getFunctionData = async () => {
       status: func.status,
       description: func.description,
       tags: func.tags,
-      code: func.code
+      code: func.code,
+      requires_auth: func.requires_auth
     }));
     if (functions.value.length > 0) {
-      const funcToSelect =
-        functionStore.funcInfo && functions.value.some(f => f.id === functionStore.funcInfo?.id)
-          ? functionStore.funcInfo
-          : functions.value[0];
-      functionSelect(funcToSelect);
+      const selectedId = selectedFunction.value.id || functionStore.funcInfo?.id;
+      const funcToSelect = functions.value.find(f => f.id === selectedId) ?? functions.value[0];
+      setSelectedFunction(funcToSelect);
     } else {
       selectedFunction.value = {
         id: '',
@@ -200,8 +301,12 @@ const getFunctionData = async () => {
         status: 'unpublished',
         description: '',
         tags: [],
-        code: ''
+        code: '',
+        requires_auth: false
       };
+      originalCode.value = '';
+      codeChanged.value = false;
+      functionStore.setFuncInfo(null);
     }
   }
 };
@@ -219,10 +324,8 @@ const handleTagSelect = (tag: string) => {
 };
 
 const functionSelect = (func: Api.Function.FunctionInfo) => {
-  selectedFunction.value = func;
-  originalCode.value = func.code;
-  codeChanged.value = false;
-  functionStore.setFuncInfo(func);
+  cacheCurrentCodeDraft();
+  setSelectedFunction(func);
 };
 
 const handleCreateFunction = () => {
@@ -231,6 +334,7 @@ const handleCreateFunction = () => {
     name: '',
     description: '',
     type: 'endpoint',
+    requiresAuth: false,
     template_id: '',
     tags: [] as string[],
     templateOptions: [] as SelectOption[]
@@ -296,6 +400,7 @@ const handleCreateFunction = () => {
                       value: localCreateData.type,
                       onUpdateValue: value => {
                         localCreateData.type = value;
+                        if (value !== 'endpoint') localCreateData.requiresAuth = false;
                         localCreateData.template_id = '';
                         fetchLocalTemplates(value);
                       }
@@ -309,6 +414,30 @@ const handleCreateFunction = () => {
                   )
               }
             ),
+            ...(localCreateData.type === 'endpoint'
+              ? [
+                  h(
+                    NFormItem,
+                    { label: $t('page.function.requiresAuth') },
+                    {
+                      default: () =>
+                        h(
+                          NSpace,
+                          { align: 'center' },
+                          {
+                            default: () => [
+                              h(NSwitch, {
+                                value: localCreateData.requiresAuth,
+                                onUpdateValue: value => (localCreateData.requiresAuth = value)
+                              }),
+                              h('span', { class: 'auth-policy-hint' }, $t('page.function.requiresAuthHelp'))
+                            ]
+                          }
+                        )
+                    }
+                  )
+                ]
+              : []),
             h(
               NFormItem,
               { label: $t('page.function.functionTemplate'), path: 'template_id' },
@@ -353,33 +482,34 @@ const handleCreateFunction = () => {
     positiveText: $t('common.confirm'),
     negativeText: $t('common.cancel'),
     onNegativeClick: () => {
-      // Reset form data on cancellation
       localCreateData.name = '';
       localCreateData.description = '';
       localCreateData.type = 'endpoint';
+      localCreateData.requiresAuth = false;
       localCreateData.template_id = '';
       localCreateData.tags = [];
     },
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
-          const { error } = await CreateFunction(
-            applicationStore.appId,
-            localCreateData.name,
-            localCreateData.type,
-            localCreateData.description,
-            localCreateData.tags,
-            appStore.locale,
-            localCreateData.template_id
-          );
+          const { error } = await CreateFunction({
+            appId: applicationStore.appId,
+            name: localCreateData.name,
+            type: localCreateData.type,
+            description: localCreateData.description,
+            tags: localCreateData.tags,
+            language: appStore.locale,
+            templateId: localCreateData.template_id,
+            requiresAuth: localCreateData.requiresAuth
+          });
           if (!error) {
             message.success($t('page.function.createSuccess'));
             await getFunctionData();
             const newFunc = functions.value.find(func => func.name === localCreateData.name);
-            // Reset form data after successful creation
             localCreateData.name = '';
             localCreateData.description = '';
             localCreateData.type = 'endpoint';
+            localCreateData.requiresAuth = false;
             localCreateData.template_id = '';
             localCreateData.tags = [];
             if (newFunc) {
@@ -416,13 +546,13 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
               status: 'published',
               description: '',
               tags: [],
-              code: ''
+              code: '',
+              requires_auth: false
             };
             originalCode.value = '';
             codeChanged.value = false;
           }
         }
-        logStore.unsubscribe();
       }
     }
   });
@@ -430,23 +560,31 @@ const handleDeleteFunction = (func: Api.Function.FunctionInfo) => {
 
 const handleSaveCode = async () => {
   if (!codeChanged.value || isSaving.value) return;
+  const savingFunctionId = selectedFunction.value.id;
+  const savedCode = selectedFunction.value.code;
+
   isSaving.value = true;
   try {
-    const { error } = await UpdateFunctionCode(
-      applicationStore.appId,
-      selectedFunction.value.id,
-      selectedFunction.value.code
-    );
+    const { error } = await UpdateFunctionCode(applicationStore.appId, savingFunctionId, savedCode);
     if (!error) {
-      const currentEditFunctionId = selectedFunction.value.id;
       message.success($t('page.function.saveSuccess'));
-      originalCode.value = selectedFunction.value.code;
-      codeChanged.value = false;
-      await getFunctionData();
-      const updatedFunc = functions.value.find(f => f.id === currentEditFunctionId);
-      if (updatedFunc) {
-        selectedFunction.value = updatedFunc;
+
+      if (selectedFunction.value.id === savingFunctionId) {
+        originalCode.value = savedCode;
+        codeChanged.value = selectedFunction.value.code !== savedCode;
+        if (codeChanged.value) {
+          codeDrafts[savingFunctionId] = { code: selectedFunction.value.code, originalCode: savedCode };
+        } else {
+          Reflect.deleteProperty(codeDrafts, savingFunctionId);
+        }
+        functionStore.setFuncInfo(cloneFunctionInfo(selectedFunction.value));
+      } else if (codeDrafts[savingFunctionId]?.code === savedCode) {
+        Reflect.deleteProperty(codeDrafts, savingFunctionId);
+      } else if (codeDrafts[savingFunctionId]) {
+        codeDrafts[savingFunctionId].originalCode = savedCode;
       }
+
+      await getFunctionData();
     } else {
       message.error($t('page.function.saveFailed'));
     }
@@ -601,7 +739,8 @@ const handleEditMeta = () => {
   const localEditData = reactive({
     name: selectedFunction.value.name,
     description: selectedFunction.value.description,
-    tags: selectedFunction.value.tags
+    tags: selectedFunction.value.tags,
+    requiresAuth: selectedFunction.value.requires_auth
   });
 
   const rules = {
@@ -640,6 +779,30 @@ const handleEditMeta = () => {
                   })
               }
             ),
+            ...(selectedFunction.value.type === 'endpoint'
+              ? [
+                  h(
+                    NFormItem,
+                    { label: $t('page.function.requiresAuth') },
+                    {
+                      default: () =>
+                        h(
+                          NSpace,
+                          { align: 'center' },
+                          {
+                            default: () => [
+                              h(NSwitch, {
+                                value: localEditData.requiresAuth,
+                                onUpdateValue: value => (localEditData.requiresAuth = value)
+                              }),
+                              h('span', { class: 'auth-policy-hint' }, $t('page.function.requiresAuthHelp'))
+                            ]
+                          }
+                        )
+                    }
+                  )
+                ]
+              : []),
             h(
               NFormItem,
               { label: $t('page.function.functionDescription') },
@@ -673,23 +836,26 @@ const handleEditMeta = () => {
     onPositiveClick: () => {
       formRef.value?.validate(async (errors: any) => {
         if (!errors) {
-          const { error } = await UpdateFunctionMeta(
-            applicationStore.appId,
-            selectedFunction.value.id,
-            localEditData.name,
-            localEditData.description,
-            localEditData.tags
-          );
+          const { error } = await UpdateFunctionMeta({
+            appId: applicationStore.appId,
+            id: selectedFunction.value.id,
+            name: localEditData.name,
+            description: localEditData.description,
+            tags: localEditData.tags,
+            requiresAuth: localEditData.requiresAuth
+          });
           if (!error) {
             message.success($t('page.function.updateSuccess'));
             selectedFunction.value.name = localEditData.name;
             selectedFunction.value.description = localEditData.description;
             selectedFunction.value.tags = localEditData.tags;
+            selectedFunction.value.requires_auth = localEditData.requiresAuth;
             const index = functions.value.findIndex(f => f.id === selectedFunction.value.id);
             if (index !== -1) {
               functions.value[index].name = localEditData.name;
               functions.value[index].description = localEditData.description;
               functions.value[index].tags = localEditData.tags;
+              functions.value[index].requires_auth = localEditData.requiresAuth;
             }
             await fetchTags();
           } else {
@@ -796,7 +962,7 @@ const handleDeleteDependence = (dep: Api.Settings.Dependency) => {
                   const { error } = await packageRemove(applicationStore.appId, dep.name, false);
                   if (!error) {
                     message.success($t('page.function.dependenceDeleted'));
-                    await handleDependence(false); // Refresh list without closing dialog
+                    await handleDependence(false);
                   } else {
                     message.error($t('page.function.deleteFailed'));
                   }
@@ -856,7 +1022,7 @@ const handlePackageAdd = async (restart: boolean = false) => {
       return;
     }
     message.success($t('page.function.addDependenceSuccess'));
-    await handleDependence(false); // Refresh list without closing dialog
+    await handleDependence(false);
   } else {
     message.error($t('page.function.addDependenceFailed'));
   }
@@ -882,7 +1048,7 @@ const handlePackageSearch = (query: string) => {
       packageResult.value = data || [];
     }
     isDependenceLoading.value = false;
-  }, 500); // 500ms debounce
+  }, 500);
 };
 
 const handleAddDependence = async (row: { name: string }) => {
@@ -976,11 +1142,7 @@ const handleAddDependence = async (row: { name: string }) => {
         }
       ),
     onPositiveClick: async () => {
-      // const { error } = await AddDependence(applicationStore.appId, packageSelectInput.value.name.value);
-      // if (!error) {
-      //   message.success('添加依赖成功');
-      //   await handleDependence();
-      // }
+      // placeholder
     }
   });
 };
@@ -1477,114 +1639,414 @@ onMounted(async () => {
   }
   await fetchTags();
   await getFunctionData();
-  logStore.connect();
 });
 
 onBeforeUnmount(() => {
-  logStore.disconnect();
+  clearLogAnimTimer();
 });
 </script>
 
 <template>
-  <div class="h-full w-full flex">
-    <NSplit class="h-full" :size="0.1" :min="0.1" :max="0.6">
+  <div class="function-page">
+    <NSplit
+      v-model:size="pageSplitSize"
+      class="page-split"
+      :min="0.12"
+      :max="0.34"
+      @drag-move="handleSplitDragMove"
+      @drag-end="handleSplitDragEnd"
+    >
       <template #1>
-        <FunctionList
-          :functions="functions"
-          :selected-function-id="selectedFunction.id"
-          :tags="tags"
-          :selected-tag="selectedTag"
-          @create-function="handleCreateFunction"
-          @select-function="functionSelect"
-          @delete-function="handleDeleteFunction"
-          @open-env-settings="handleEnvSetting(true)"
-          @open-dependency-manager="handleDependence(true)"
-          @select-tag="handleTagSelect"
-        />
+        <aside class="sidebar-container" :class="{ collapsed: sidebarCollapsed }">
+          <FunctionList
+            :functions="functions"
+            :selected-function-id="selectedFunction.id"
+            :tags="tags"
+            :selected-tag="selectedTag"
+            @create-function="handleCreateFunction"
+            @select-function="functionSelect"
+            @delete-function="handleDeleteFunction"
+            @open-env-settings="handleEnvSetting(true)"
+            @open-dependency-manager="handleDependence(true)"
+            @select-tag="handleTagSelect"
+          />
+        </aside>
       </template>
+
       <template #2>
-        <div v-if="functions.length > 0" class="h-full w-full">
-          <NSplit :default-size="0.85" :min="0.1" :max="0.85">
-            <template #1>
-              <NSplit :default-size="0.85" :min="0.1" :max="0.85" direction="vertical">
-                <template #1>
-                  <FunctionEditorPanel
-                    :func="selectedFunction"
-                    :code-changed="codeChanged"
-                    :is-saving="isSaving"
-                    :editor-config="editorConfig"
-                    @save-code="handleSaveCode"
-                    @open-history="handleOpenHistory"
-                    @update:code="selectedFunction.code = $event"
-                    @open-editor-settings="handleFunctionEditorSetting"
-                    @edit-meta="handleEditMeta"
-                  />
-                </template>
-                <template #2>
-                  <FunctionLogPanel :logs="logStore.logs" />
-                </template>
-              </NSplit>
-            </template>
-            <template #2>
-              <NTabs type="line" animated class="h-full" style="padding-left: 16px">
-                <NTabPane name="test" :tab="$t('page.function.functionTest')">
-                  <FunctionTestPanel
-                    v-if="selectedFunction.type === 'endpoint'"
-                    :key="selectedFunction.id"
-                    :function-address="functionAddress"
-                  />
-                  <div v-else class="h-full w-full flex items-center justify-center">
-                    <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
+        <main class="main-container">
+          <template v-if="hasSelectedFunction">
+            <NSplit
+              v-model:size="workspaceSplitSize"
+              class="workspace-split"
+              :min="0.42"
+              :max="0.86"
+              @drag-move="handleSplitDragMove"
+              @drag-end="handleSplitDragEnd"
+            >
+              <template #1>
+                <section class="primary-column">
+                  <NSplit
+                    v-model:size="editorLogSplitSize"
+                    class="editor-log-split"
+                    :class="{ 'log-collapsed': logCollapsed }"
+                    direction="vertical"
+                    :min="0.35"
+                    :max="0.86"
+                    @drag-move="handleSplitDragMove"
+                    @drag-end="handleSplitDragEnd"
+                  >
+                    <template #1>
+                      <div class="editor-section">
+                        <FunctionEditorPanel
+                          ref="editorPanelRef"
+                          :func="selectedFunction"
+                          :code-changed="codeChanged"
+                          :is-saving="isSaving"
+                          :editor-config="editorConfig"
+                          @save-code="handleSaveCode"
+                          @open-history="handleOpenHistory"
+                          @update:code="selectedFunction.code = $event"
+                          @open-editor-settings="handleFunctionEditorSetting"
+                          @edit-meta="handleEditMeta"
+                        />
+                      </div>
+                    </template>
+                    <template #2>
+                      <div
+                        class="log-container"
+                        :class="{
+                          compact: logCollapsed,
+                          'log-anim-collapsing': logAnimState === 'collapsing',
+                          'log-anim-expanding': logAnimState === 'expanding'
+                        }"
+                      >
+                        <FunctionLogPanel
+                          :app-id="applicationStore.appId"
+                          :func-id="selectedFunction.id"
+                          :compact="logCollapsed"
+                          @collapse="handleCollapseLog"
+                          @expand="handleExpandLog"
+                        />
+                      </div>
+                    </template>
+                  </NSplit>
+                </section>
+              </template>
+
+              <template #2>
+                <aside class="panel-container">
+                  <div class="panel-tabs">
+                    <button class="panel-tab" :class="{ active: activePanel === 'test' }" @click="activePanel = 'test'">
+                      <NIcon :component="BeakerOutline" :size="15" />
+                      <span>{{ $t('page.function.functionTest') }}</span>
+                    </button>
+                    <button class="panel-tab" :class="{ active: activePanel === 'cron' }" @click="activePanel = 'cron'">
+                      <NIcon :component="TimerOutline" :size="15" />
+                      <span>{{ $t('page.function.cronJobs') }}</span>
+                    </button>
                   </div>
-                </NTabPane>
-                <NTabPane name="cron" :tab="$t('page.function.cronJobs')">
-                  <div v-if="selectedFunction.type === 'endpoint'">
-                    <FunctionCronPanel :func="selectedFunction" />
+                  <div class="panel-content">
+                    <FunctionTestPanel
+                      v-if="activePanel === 'test' && selectedFunction.type === 'endpoint'"
+                      :key="selectedFunction.id"
+                      :function-address="functionAddress"
+                    />
+                    <FunctionCronPanel
+                      v-else-if="activePanel === 'cron' && selectedFunction.type === 'endpoint'"
+                      :func="selectedFunction"
+                    />
+                    <div v-else class="empty-panel">
+                      <NEmpty :description="$t('page.function.commonFunctionTestHint')" />
+                    </div>
                   </div>
-                  <div v-else class="h-full w-full flex items-center justify-center">
-                    <NEmpty :description="$t('page.function.commonFunctionCronHint')"></NEmpty>
-                  </div>
-                </NTabPane>
-              </NTabs>
-              <div v-if="selectedFunction.type !== 'endpoint'" class="h-full w-full flex items-center justify-center">
-                <NEmpty :description="$t('page.function.commonFunctionTestHint')"></NEmpty>
-              </div>
-            </template>
-          </NSplit>
-        </div>
-        <div v-else class="h-full w-full flex items-center justify-center">
-          <NEmpty :description="$t('page.function.emptyDescription')">
-            <template #extra>
-              <NButton type="primary" @click="handleCreateFunction">
-                {{ $t('page.function.createFunction') }}
-              </NButton>
-            </template>
-          </NEmpty>
-        </div>
+                </aside>
+              </template>
+            </NSplit>
+          </template>
+
+          <div v-else class="empty-state">
+            <div class="empty-content">
+              <div class="empty-icon-large">ƒ</div>
+              <h2>{{ functionWorkspaceDescription }}</h2>
+              <button class="create-btn" @click="handleCreateFunction">
+                <NIcon :component="AddOutline" :size="18" />
+                <span>{{ $t('page.function.createFunction') }}</span>
+              </button>
+            </div>
+          </div>
+        </main>
       </template>
     </NSplit>
 
     <FunctionHistoryModal v-model:show="showHistoryModel" :history-data="historyData" @rollback="handleRollback" />
     <AiAssistantWindow :show="showAiWindow" @close="handleCloseAiWindow" />
-    <NButton
-      circle
-      type="primary"
-      style="position: fixed; right: 20px; bottom: 20px; z-index: 1000"
-      @click="toggleAiWindow"
-    >
-      <template #icon>
-        <NIcon :component="SparklesOutline" />
-      </template>
-    </NButton>
+
+    <button class="ai-fab" @click="toggleAiWindow">
+      <NIcon :component="SparklesOutline" :size="22" />
+    </button>
   </div>
 </template>
 
 <style scoped>
-.bg-primary_hover {
-  background-color: var(--primary-color-hover);
+.function-page {
+  --function-panel-gap: 6px;
+
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  background: #f5f5f7;
+  overflow: hidden;
+  padding: 8px;
 }
 
-.n-card__content {
-  height: 100% !important;
+.page-split,
+.workspace-split,
+.editor-log-split {
+  height: 100%;
+  min-height: 0;
+}
+
+.page-split :deep(.n-split-pane),
+.workspace-split :deep(.n-split-pane),
+.editor-log-split :deep(.n-split-pane) {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-container {
+  height: 100%;
+  flex-shrink: 0;
+  padding-right: var(--function-panel-gap);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-container.collapsed {
+  width: 0;
+}
+
+.main-container {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-left: var(--function-panel-gap);
+}
+
+.primary-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-right: var(--function-panel-gap);
+}
+
+.editor-section {
+  height: 100%;
+  min-height: 0;
+}
+
+.log-container {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-log-split.log-collapsed :deep(.n-split-pane-1) {
+  flex-basis: calc(100% - 48px) !important;
+  max-height: calc(100% - 48px) !important;
+}
+
+.editor-log-split.log-collapsed :deep(.n-split-pane-2) {
+  flex-basis: 48px !important;
+  max-height: 48px !important;
+}
+
+.log-container.compact {
+  height: 48px;
+  max-height: 48px;
+}
+
+.log-container.log-anim-collapsing {
+  animation: log-collapse 300ms cubic-bezier(0.6, 0, 0.4, 1) forwards;
+}
+
+.log-container.log-anim-expanding {
+  animation: log-expand 350ms cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+}
+
+@keyframes log-collapse {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes log-expand {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-container.log-anim-collapsing,
+  .log-container.log-anim-expanding {
+    animation: none;
+  }
+}
+
+.panel-container {
+  height: 100%;
+  min-width: 0;
+  margin-left: var(--function-panel-gap);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.panel-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  background: transparent;
+  color: #6e6e73;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel-tab:hover {
+  color: #1d1d1f;
+}
+
+.panel-tab.active {
+  background: #ffffff;
+  color: #007aff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.empty-panel {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-policy-hint {
+  max-width: 320px;
+  color: #6e6e73;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-content {
+  text-align: center;
+}
+
+.empty-icon-large {
+  font-size: 64px;
+  font-weight: 700;
+  color: #c7c7cc;
+  margin-bottom: 16px;
+}
+
+.empty-content h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 24px;
+}
+
+.create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: #007aff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-btn:hover {
+  background: #0066d6;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
+}
+
+.ai-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007aff, #5856d6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.ai-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+}
+
+@media (max-width: 1100px) {
+  .panel-container {
+    margin-left: 4px;
+  }
 }
 </style>

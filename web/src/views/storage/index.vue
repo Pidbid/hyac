@@ -518,52 +518,53 @@ onBeforeUnmount(() => {});
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-gray-100 p-4 dark:bg-gray-800">
-    <!-- 头部操作栏 -->
-    <header class="mb-4 flex items-center justify-between">
-      <NBreadcrumb class="path-breadcrumb">
-        <NBreadcrumbItem @click="handleBakToRootPath">
-          <NIcon :component="FolderOutline" class="mr-1" />
-          <span>{{ t('page.storage.root') }}</span>
-        </NBreadcrumbItem>
-        <NBreadcrumbItem
-          v-for="(path, index) in breadcrumbPath"
-          :key="path.key"
-          @click="handleBreadcrumbClick(path, index)"
-        >
-          <NIcon :component="FolderOutline" class="mr-1" />
-          {{ path.name }}
-        </NBreadcrumbItem>
-      </NBreadcrumb>
-      <NSpace>
-        <NButton v-if="checkedRowKeys.length > 0" size="small" type="error" @click="handleDeleteSelected">
-          <template #icon>
-            <NIcon :component="TrashOutline" />
-          </template>
-          {{ t('common.delete') }} ({{ checkedRowKeys.length }})
-        </NButton>
-        <NButton size="small" @click="handleCreateFolder">
-          <template #icon>
-            <NIcon :component="FolderOpenOutline" />
-          </template>
-          {{ t('page.storage.newFolder') }}
-        </NButton>
-        <NButton size="small" type="primary" @click="handleUploadFile">
-          <template #icon>
-            <NIcon :component="CloudUploadOutline" />
-          </template>
-          {{ t('page.storage.uploadFile') }}
-        </NButton>
-      </NSpace>
+  <div class="storage-page">
+    <header class="storage-toolbar">
+      <div class="toolbar-actions">
+        <div class="path-nav">
+          <NBreadcrumb class="path-breadcrumb">
+            <NBreadcrumbItem @click="handleBakToRootPath">
+              <NIcon :component="FolderOutline" class="mr-1" />
+              <span>{{ t('page.storage.root') }}</span>
+            </NBreadcrumbItem>
+            <NBreadcrumbItem
+              v-for="(path, index) in breadcrumbPath"
+              :key="path.key"
+              @click="handleBreadcrumbClick(path, index)"
+            >
+              <NIcon :component="FolderOutline" class="mr-1" />
+              {{ path.name }}
+            </NBreadcrumbItem>
+          </NBreadcrumb>
+        </div>
+        <NSpace class="storage-actions">
+          <NButton v-if="checkedRowKeys.length > 0" size="small" type="error" @click="handleDeleteSelected">
+            <template #icon>
+              <NIcon :component="TrashOutline" />
+            </template>
+            {{ t('common.delete') }} ({{ checkedRowKeys.length }})
+          </NButton>
+          <NButton size="small" @click="handleCreateFolder">
+            <template #icon>
+              <NIcon :component="FolderOpenOutline" />
+            </template>
+            {{ t('page.storage.newFolder') }}
+          </NButton>
+          <NButton size="small" type="primary" @click="handleUploadFile">
+            <template #icon>
+              <NIcon :component="CloudUploadOutline" />
+            </template>
+            {{ t('page.storage.uploadFile') }}
+          </NButton>
+        </NSpace>
+      </div>
     </header>
 
-    <!-- 主内容区: 左侧列表 + 右侧详情 -->
-    <NSplit class="min-h-0 flex-1" :default-size="0.85" resizable>
+    <NSplit class="storage-split" :default-size="0.82" :min="0.45" :max="0.9" resizable>
       <template #1>
-        <!-- 左侧: 文件列表 -->
         <NCard
           ref="tableContainerRef"
-          class="h-full rounded-lg shadow-md"
+          class="apple-panel"
           :bordered="false"
           :content-style="{ padding: '0px', height: '100%', 'overflow-y': 'auto' }"
         >
@@ -580,13 +581,17 @@ onBeforeUnmount(() => {});
         </NCard>
       </template>
       <template #2>
-        <!-- 右侧: 详情区域 -->
         <NCard
-          :title="t('page.storage.detail')"
-          class="h-full rounded-lg shadow-md"
+          class="apple-panel detail-panel"
           :bordered="false"
           :content-style="{ padding: '10px', height: '100%', 'overflow-y': 'auto' }"
         >
+          <template #header>
+            <div class="panel-title">
+              <NIcon :component="DocumentTextOutline" :size="16" />
+              <span>{{ t('page.storage.detail') }}</span>
+            </div>
+          </template>
           <div v-if="selectedFile" class="h-full flex flex-col gap-4">
             <!-- Preview Area -->
             <div class="preview-area flex-shrink-0">
@@ -660,11 +665,96 @@ onBeforeUnmount(() => {});
 </template>
 
 <style scoped>
-.path-breadcrumb {
-  background-color: var(--n-card-color);
+.storage-page {
+  --storage-gap: 6px;
+
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f5f5f7;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.storage-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-width: 0;
   padding: 8px 12px;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d1d1f;
+  white-space: nowrap;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.path-nav {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.storage-actions {
+  flex: 0 0 auto;
+}
+
+.storage-split {
+  flex: 1;
+  min-height: 0;
+}
+
+.storage-split :deep(.n-split-pane) {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.storage-split :deep(.n-split-pane-1) {
+  padding-right: var(--storage-gap);
+}
+
+.storage-split :deep(.n-split-pane-2) {
+  padding-left: var(--storage-gap);
+}
+
+.apple-panel {
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+}
+
+.path-breadcrumb {
+  min-width: 0;
+  max-width: 100%;
+  background-color: #f5f5f7;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -684,6 +774,40 @@ onBeforeUnmount(() => {});
 }
 
 .selected-row {
-  background-color: var(--n-action-color);
+  background-color: rgba(0, 122, 255, 0.08);
+}
+
+:deep(.n-card-header) {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f9f9fb;
+}
+
+:deep(.n-data-table) {
+  --n-td-color-hover: #f5f5f7;
+  --n-merged-border-color: rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 768px) {
+  .storage-toolbar {
+    align-items: stretch;
+  }
+
+  .toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .path-nav {
+    width: 100%;
+  }
+
+  .path-breadcrumb {
+    width: 100%;
+  }
+
+  .storage-actions {
+    justify-content: flex-start;
+  }
 }
 </style>

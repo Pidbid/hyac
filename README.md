@@ -94,7 +94,7 @@ graph TD
 
 ## 🛠️ 技术栈
 
-- **后端**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
+- **后端**: Python 3.10+, FastAPI, Beanie, PyMongo Async, Loguru
 - **前端**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **数据库与存储**: MongoDB, RustFS(S3 兼容)
 - **容器化**: Docker, Docker Compose
@@ -114,26 +114,66 @@ graph TD
     cd hyac
     ```
 
-2.  配置环境变量:
-    复制 `.env.example` 文件并重命名为 `.env`，然后根据您的环境修改其中的配置。
+2.  配置生产环境变量：
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    启动前必须替换 `.env` 中的全部占位值。必填项包括：
+
+    - `DOMAIN_NAME`、`EMAIL_ADDRESS`
+    - `MONGODB_USERNAME`、`MONGODB_PASSWORD`
+    - `S3_ACCESS_KEY`、`S3_SECRET_KEY`
+    - `SECRET_KEY`（至少 32 个字符）
+    - `DEFAULT_ADMIN_USER`、`DEFAULT_ADMIN_PASSWORD`
+    - `GLOBAL_TAG`（稳定发布标签，例如 `v1.2.3`，禁止使用 `latest`；该标签同时用于 server、web、app 和 LSP sidecar）
+
+    `openssl rand -hex 32` 会生成前后端管理员密码字段均支持的 64 位十六进制值。数据库密码、S3 密钥、JWT 密钥和管理员密码应分别生成不同的随机值。不要保留 `.env.example` 中的 `<...>` 占位符。
+
+3.  生成 MongoDB 集群认证 keyfile：
+
+    ```bash
+    ./scripts/01-create-mongo-keyfile.sh
+    ```
+
+    脚本必须成功确认文件权限为 `0400`、所有者为 MongoDB 容器用户后，才能继续启动。
 
 ### ▶️ 启动服务
 
-执行以下命令以构建和启动所有服务：
+拉取该版本的三个多架构镜像并启动所有服务：
 
 ```bash
-docker-compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
+
+发布由推送带注释的稳定标签 `vX.Y.Z` 触发。发布流程会推送 `wicos/hyac_server`、`wicos/hyac_web` 和 `wicos/hyac_app`；`lsp-sidecar` 与 App Runtime 使用同一个 `hyac_app` 镜像，只是启动命令不同。
+
+### 📦 创建发布版本
+
+Docker Hub 用户名已在工作流中固定为 `wicos`。只需在 GitHub 仓库的 Actions secrets 中配置：
+
+- `DOCKERHUB_TOKEN`：具有 Docker Hub 推送权限的访问令牌。
+
+为允许失败后对同一 tag 重新运行工作流，请勿启用 Docker Hub immutable tags。发布前，在 `changelog/CHANGELOG.zh-CN.md` 和 `changelog/CHANGELOG.md` 中分别添加完全相同版本号的非空章节，并确保待发布提交已合并到 `main`。然后手动创建并推送带注释的稳定 tag：
+
+```bash
+git tag -a v1.2.3 -m "Hyac v1.2.3"
+git push origin v1.2.3
+```
+
+工作流会依次完成基础 CI、三镜像 `linux/amd64` + `linux/arm64` 构建与推送、生产 Compose/Chrome 冒烟和双语 GitHub Release。任何冒烟失败都不会创建 Release。
 
 ### 🌐 访问地址
 
-- **前端应用**: `http://console.[yourdomain]`
+- **前端应用**: `https://console.<DOMAIN_NAME>`
 
 ### 🔐 开发环境 HTTPS 调试（localhost + mkcert，无需 hosts）
 
 在 `docker-compose.dev.yml` 中，Traefik 使用本地 TLS（不走 `certresolver`），用于避免调试时频繁触发 Let's Encrypt 限流。
 
-> 推荐开发域名固定为 `localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.localhost` 子域名时无需编辑 `hosts`。
+> 推荐开发域名固定为 `hyac.localhost`，并使用 `mkcert` 本地受信任证书，这样新增 `xxx.hyac.localhost` 子域名时无需编辑 `hosts`，且通配符证书符合常见 TLS 客户端的主机名校验规则。
 
 建议流程：
 
@@ -141,7 +181,7 @@ docker-compose up -d
 
 ```bash
 cp .env .env.dev
-# 将 .env.dev 中 DOMAIN_NAME 改为 localhost
+# 将 .env.dev 中 DOMAIN_NAME 改为 hyac.localhost
 ```
 
 2. 安装并初始化 `mkcert`（只需一次）：
@@ -155,23 +195,53 @@ mkcert -install
 ```bash
 mkdir -p traefik/certs
 mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
-  localhost "*.localhost"
+  localhost traefik.localhost "*.hyac.localhost"
 ```
 
-4. 启动开发环境（显式使用 `.env.dev`）：
+4. 运行预检并启动开发环境：
 
 ```bash
-docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
 ```
 
+预检会验证 Docker、开发环境变量、源码绝对路径，以及证书的域名、有效期和 mkcert 信任链。`*.hyac.localhost` 同时覆盖固定入口和动态应用子域；Traefik 面板保留 `traefik.localhost` 显式别名。预检不会自动修改系统信任库。
+
 5. 通过以下域名访问并调试：
-- `https://console.localhost`
-- `https://server.localhost`
-- `https://oss.localhost`
+- `https://console.hyac.localhost`
+- `https://server.hyac.localhost`
+- `https://oss.hyac.localhost`
+- `https://traefik.localhost`
 
 说明：
 - 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。
 - 生产环境 (`docker-compose.yml`) 继续使用 `.env` 中真实域名与 ACME 自动证书签发策略，不应设置为 `localhost`。
+
+### 🧪 测试环境调试方式
+
+测试环境建议始终显式指定 `.env.dev` 与 `docker-compose.dev.yml`，避免误用生产 `.env` 或生产编排文件。
+
+查看服务状态：
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml ps
+```
+
+查看核心服务日志：
+
+```bash
+docker logs -f hyac_server
+docker logs -f hyac_web
+docker logs -f hyac_app
+docker logs -f hyac_lsp_sidecar
+```
+
+调试具体应用运行时容器时，容器名格式为 `hyac-app-runtime-<app_id小写>`。例如 `appId=iEmSSuBk` 对应：
+
+```bash
+docker logs -f hyac-app-runtime-iemssubk
+docker inspect hyac-app-runtime-iemssubk
+```
 
 ## 📁 主要项目结构
 

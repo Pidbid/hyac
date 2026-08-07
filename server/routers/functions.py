@@ -7,10 +7,11 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 from bson import ObjectId
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from core.beanie_compat import aggregate_to_list
 from core.config import settings
 from core.jwt_auth import get_current_user
 from models.applications_model import Application
@@ -41,7 +42,7 @@ class ProxyRequest(BaseModel):
     body: Any = Field(None, description="Request body")
 
 
-from models.functions_model import Function, FunctionStatus, FunctionType
+from models.functions_model import FunctionType
 
 
 class CreateFunctionRequest(BaseModel):
@@ -54,6 +55,7 @@ class CreateFunctionRequest(BaseModel):
     tags: list[str] = []
     language: str = "zh-CN"
     template_id: Optional[str] = None
+    requires_auth: bool = False
 
 
 class UpdateFunctionRequest(BaseModel):
@@ -63,8 +65,8 @@ class UpdateFunctionRequest(BaseModel):
     method: Optional[str] = None
     status: Optional[FunctionStatus] = None
     dependencies: Optional[list[str]] = None
-    memory_limit: Optional[int] = None
-    timeout: Optional[int] = None
+    memory_limit: Optional[int] = Field(default=None, ge=128, le=4096)
+    timeout: Optional[int] = Field(default=None, ge=1, le=300)
     requires_auth: Optional[bool] = None
 
 
@@ -94,6 +96,7 @@ class UpdateFunctionMetaRequest(BaseModel):
     name: str
     description: str
     tags: list[str]
+    requires_auth: Optional[bool] = None
 
 
 class DeleteFunctionRequest(BaseModel):
@@ -127,11 +130,12 @@ async def function_url(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
     func_result = await Function.find_one(
-        Function.id == ObjectId(data.id), Function.app_id == app.app_id
+        Function.function_id == data.id,
+        Function.app_id == app.app_id,
     )
     if not func_result:
         raise HTTPException(status_code=404, detail="Function not found")
-    function_url = f"{data.appId}.{settings.DOMAIN_NAME}/{data.id}"
+    function_url = f"{data.appId}.{settings.DOMAIN_NAME}/{func_result.function_id}"
     return BaseResponse(code=0, msg="Get function url success", data=function_url)
 
 
@@ -170,6 +174,12 @@ async def create_function(
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
 
+        if template.app_id != app.app_id and not template.shared:
+            raise HTTPException(
+                status_code=403,
+                detail="Template not found or you don't have permission",
+            )
+
         # Check if the template's function type is compatible.
         if FunctionType(data.type) != template.function_type:
             raise HTTPException(
@@ -182,6 +192,7 @@ async def create_function(
         default_template = await FunctionTemplate.find_one(
             FunctionTemplate.type == "system",
             FunctionTemplate.function_type == FunctionType(data.type),
+            FunctionTemplate.app_id == app.app_id,
         )
         if default_template:
             code = default_template.code
@@ -201,6 +212,9 @@ async def create_function(
         users=[current_user.username],  # Associate the current user
         status=FunctionStatus.PUBLISHED,  # Default status is published
         code=code,
+        requires_auth=(
+            data.requires_auth if FunctionType(data.type) == FunctionType.ENDPOINT else False
+        ),
     )
     await new_func.insert()
 
@@ -337,6 +351,12 @@ async def update_function_meta(
     func.function_name = data.name
     func.description = data.description
     func.tags = data.tags
+    if data.requires_auth is not None:
+        func.requires_auth = (
+            data.requires_auth
+            if func.function_type == FunctionType.ENDPOINT
+            else False
+        )
     func.update_timestamp()
     await func.save()
 
@@ -447,15 +467,17 @@ async def get_tags(data: TagsRequestModel, current_user=Depends(get_current_user
         {"$project": {"tag": "$_id", "_id": 0}},
     ]
 
-    tags_cursor = Function.aggregate(pipeline)
-    tags = [doc["tag"] for doc in await tags_cursor.to_list(length=None)]
+    tags_result = await aggregate_to_list(Function, pipeline)
+    tags = [doc["tag"] for doc in tags_result]
 
     return BaseResponse(code=0, msg="success", data=tags)
 
 
 @router.post("/proxy_test")
 async def test_function(
-    proxy_request: ProxyRequest, current_user: User = Depends(get_current_user)
+    proxy_request: ProxyRequest,
+    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(default=None),
 ):
     """
     A secure proxy for testing functions from the console.
@@ -482,6 +504,20 @@ async def test_function(
             msg=f"Application '{app_id}' not found or you do not have permission to access it.",
         )
 
+    function_id = parsed_url.path.strip("/")
+    target_function = await Function.find_one(
+        Function.app_id == app_id,
+        Function.function_id == function_id,
+    )
+    forwarded_headers = httpx.Headers(proxy_request.headers)
+    if (
+        target_function
+        and target_function.requires_auth
+        and "authorization" not in forwarded_headers
+        and authorization
+    ):
+        forwarded_headers["Authorization"] = authorization
+
     try:
         logger.info(
             f"User '{current_user.username}' is testing function at {target_url}"
@@ -495,7 +531,7 @@ async def test_function(
         proxied_response = await http_client.request(
             method=proxy_request.method,
             url=local_url,
-            headers=proxy_request.headers,
+            headers=forwarded_headers,
             params=proxy_request.query_params,
             json=proxy_request.body,
             timeout=60.0,
@@ -506,7 +542,7 @@ async def test_function(
             msg="function test success",
             data={
                 "status_code": proxied_response.status_code,
-                "content": proxied_response.content,
+                "content": proxied_response.text,
                 "headers": dict(proxied_response.headers),
             },
         )

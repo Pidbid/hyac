@@ -1,6 +1,6 @@
 # routers/services/statistics.py
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from models.applications_model import Application
 from models.common_model import BaseResponse
@@ -11,14 +11,15 @@ from models.statistics_model import (
     StatisticsSummary,
     FunctionStats,
     RequestStats,
-    DatabaseStats,
     StorageStats,
     CollectionStats,
     FunctionRankingItem,
 )
 from core.jwt_auth import get_current_user
+from core.beanie_compat import aggregate_to_list
 from core.database_dynamic import dynamic_db
 from core.s3_manager import s3_manager
+from core.app_storage import app_storage_service
 
 router = APIRouter(
     prefix="/statistics",
@@ -57,7 +58,7 @@ async def get_statistics_summary(
             }
         },
     ]
-    requests_result = await FunctionMetric.aggregate(requests_pipeline).to_list()
+    requests_result = await aggregate_to_list(FunctionMetric, requests_pipeline)
 
     success_calls = 0
     error_calls = 0
@@ -81,9 +82,9 @@ async def get_statistics_summary(
         {"$match": {"function_info": []}},
         {"$count": "count"},
     ]
-    unknown_requests_result = await FunctionMetric.aggregate(
-        unknown_requests_pipeline
-    ).to_list()
+    unknown_requests_result = await aggregate_to_list(
+        FunctionMetric, unknown_requests_pipeline
+    )
     unknown_calls = (
         unknown_requests_result[0]["count"] if unknown_requests_result else 0
     )
@@ -100,9 +101,9 @@ async def get_statistics_summary(
             }
         },
     ]
-    overall_avg_time_result = await FunctionMetric.aggregate(
-        overall_avg_time_pipeline
-    ).to_list()
+    overall_avg_time_result = await aggregate_to_list(
+        FunctionMetric, overall_avg_time_pipeline
+    )
     overall_average_execution_time = (
         (overall_avg_time_result[0]["avg_time"] * 1000)
         if overall_avg_time_result and overall_avg_time_result[0]["avg_time"]
@@ -150,18 +151,18 @@ async def get_statistics_summary(
         {"$sort": {"count": -1}},
         {"$limit": 5},
     ]
-    ranking_by_count_result = await FunctionMetric.aggregate(
-        ranking_by_count_pipeline
-    ).to_list()
+    ranking_by_count_result = await aggregate_to_list(
+        FunctionMetric, ranking_by_count_pipeline
+    )
 
     # Ranking by time
     ranking_by_time_pipeline = ranking_pipeline_base + [
         {"$sort": {"average_execution_time": -1}},
         {"$limit": 5},
     ]
-    ranking_by_time_result = await FunctionMetric.aggregate(
-        ranking_by_time_pipeline
-    ).to_list()
+    ranking_by_time_result = await aggregate_to_list(
+        FunctionMetric, ranking_by_time_pipeline
+    )
 
     function_stats = FunctionStats(
         count=function_count,
@@ -203,8 +204,7 @@ async def get_statistics_summary(
     # --- Storage Statistics ---
     total_usage_bytes = 0
     try:
-        # S3 bucket names must be lowercase
-        bucket_name = data.appId.lower()
+        bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
         objects = await s3_manager.list_objects(
             bucket_name=bucket_name, recursive=True
         )
@@ -272,6 +272,6 @@ async def get_function_requests_over_time(
         {"$sort": {"_id": 1}},
         {"$project": {"date": "$_id", "count": 1, "_id": 0}},
     ]
-    result = await FunctionMetric.aggregate(pipeline).to_list()
+    result = await aggregate_to_list(FunctionMetric, pipeline)
 
     return BaseResponse(code=0, msg="Success", data=result)

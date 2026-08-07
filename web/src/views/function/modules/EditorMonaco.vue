@@ -4,7 +4,7 @@ import '@/utils/monaco-worker';
 import * as monaco from 'monaco-editor';
 import { useApplicationStore } from '@/store/modules/application';
 import { ensureVscodeServicesInitialized } from '@/utils/vscode-init';
-import { connectLsp, disconnectLsp, requestLspCompletionItems } from '@/utils/lsp';
+import { connectLsp, disconnectLsp, requestLspCompletionItems, requestLspFormattingEdits } from '@/utils/lsp';
 import { convertDomain, getServiceBaseUrl } from '@/utils/common';
 import { localStg } from '@/utils/storage';
 
@@ -40,8 +40,9 @@ const hyacContextOptions = [
   { label: 'func_id', detail: 'str' },
   { label: 'logger', detail: 'loguru.Logger' },
   { label: 'pymongo_db', detail: 'pymongo.database.Database' },
-  { label: 'motor_db', detail: 'motor.AsyncIOMotorDatabase' },
-  { label: 'db', detail: 'motor.AsyncIOMotorDatabase' },
+  { label: 'async_db', detail: 'pymongo.asynchronous.database.AsyncDatabase' },
+  { label: 'db', detail: 'pymongo.asynchronous.database.AsyncDatabase' },
+  { label: 'motor_db', detail: 'deprecated alias for async_db' },
   { label: 'sync_db', detail: 'pymongo.database.Database' },
   { label: 'env', detail: 'EnvContext' },
   { label: 'common', detail: 'SimpleNamespace' },
@@ -76,6 +77,17 @@ function createPythonModel(value: string) {
   monaco.editor.getModel(uri)?.dispose();
   editorModel = monaco.editor.createModel(value, 'python', uri);
   return editorModel;
+}
+
+function syncEditorCode(value: string) {
+  if (!editorModel || editorModel.getValue() === value) return;
+  const position = editor?.getPosition();
+  editorModel.setValue(value);
+  if (position) {
+    const lineNumber = Math.min(position.lineNumber, editorModel.getLineCount());
+    const column = Math.min(position.column, editorModel.getLineMaxColumn(lineNumber));
+    editor?.setPosition({ lineNumber, column });
+  }
 }
 
 function registerPythonLanguage() {
@@ -189,6 +201,20 @@ function registerPythonLanguage() {
   } catch {
     // Monaco internal services may not be fully available; skip gracefully.
   }
+
+  try {
+    monaco.languages.registerDocumentFormattingEditProvider('python', {
+      provideDocumentFormattingEdits: async model => {
+        try {
+          return await requestLspFormattingEdits(model);
+        } catch {
+          return [];
+        }
+      }
+    });
+  } catch {
+    // Monaco internal services may not be fully available; skip gracefully.
+  }
 }
 
 onMounted(async () => {
@@ -205,7 +231,7 @@ onMounted(async () => {
     insertSpaces: true,
     minimap: { enabled: props.showMinimap },
     lineNumbers: props.showLineNumbers ? 'on' : 'off',
-    automaticLayout: true,
+    automaticLayout: false,
     scrollBeyondLastLine: false,
     wordWrap: 'on',
     fontFamily: "'Courier New', monospace",
@@ -227,7 +253,14 @@ onMounted(async () => {
     emit('update:code', editor?.getValue() || '');
   });
 
+  editor.layout();
   syncLspConnection();
+});
+
+defineExpose({
+  layout() {
+    editor?.layout();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -277,6 +310,12 @@ watch(
   () => [applicationStore.appId, applicationStore.appInfo.appId],
   () => {
     syncLspConnection();
+  }
+);
+watch(
+  () => props.code,
+  value => {
+    syncEditorCode(value ?? '');
   }
 );
 </script>

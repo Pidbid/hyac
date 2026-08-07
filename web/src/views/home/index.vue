@@ -390,7 +390,7 @@ const handleRestartApp = async (appId: string) => {
     <div v-if="!empty" class="home-content">
       <div class="home-table-section">
         <div class="home-table-header">
-          <h2 class="home-section-title">{{ $t('page.home.createApp') }}</h2>
+          <h2 class="home-section-title">{{ $t('page.home.applications') }}</h2>
           <NButton class="apple-btn" @click="createNewApp">
             <template #icon>
               <NIcon :component="AddCircleOutline" />

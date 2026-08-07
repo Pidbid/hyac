@@ -488,6 +488,7 @@ declare namespace App {
           appDesc: string;
           appStatus: string;
           appId: string;
+          applications: string;
           emptyApp: string;
           createApp: string;
           welcome: string;
@@ -577,7 +578,6 @@ declare namespace App {
           cancelEdit: string;
           refreshSuccess: string;
           document: string;
-          documentOperations: string;
           editContent: string;
           save: string;
           cancel: string;
@@ -589,6 +589,24 @@ declare namespace App {
           selectDocumentsToDelete: string;
           deleteSelectedConfirm: string;
           deleteSelected: string;
+          indexes: string;
+          noIndexes: string;
+          indexName: string;
+          indexFields: string;
+          indexFieldPlaceholder: string;
+          indexOptions: string;
+          addIndexField: string;
+          uniqueIndex: string;
+          sparseIndex: string;
+          ttlSeconds: string;
+          ttlPlaceholder: string;
+          createIndex: string;
+          updateIndex: string;
+          resetIndexForm: string;
+          indexFieldRequired: string;
+          ttlSingleFieldOnly: string;
+          indexSaveSuccess: string;
+          deleteIndexConfirm: string;
         };
         function: {
           tagsGroup: {
@@ -603,6 +621,8 @@ declare namespace App {
           functionType: string;
           apiFunction: string;
           commonFunction: string;
+          requiresAuth: string;
+          requiresAuthHelp: string;
           functionTemplate: string;
           functionTemplatePlaceholder: string;
           functionDescription: string;
@@ -671,6 +691,7 @@ declare namespace App {
           confirmDeleteEnv: string;
           deleteEnvConfirm: string;
           emptyDescription: string;
+          selectFunctionToEdit: string;
           functionEditor: string;
           publish: string;
           published: string;
@@ -684,6 +705,7 @@ declare namespace App {
           allLogs: string;
           functionLogs: string;
           systemLogs: string;
+          noLogs: string;
           functionTest: string;
           clickToSend: string;
           postFormatError: string;
@@ -769,6 +791,21 @@ declare namespace App {
           critical: string;
           logContent: string;
           source: string;
+          historyMode: string;
+          runtimeMode: string;
+          runtimeSearch: string;
+          runtimeConnecting: string;
+          runtimeConnected: string;
+          runtimeDisconnected: string;
+          runtimeReconnecting: string;
+          runtimeDescription: string;
+          runtimeStreamFailed: string;
+          runtimeEmpty: string;
+          pause: string;
+          resume: string;
+          clear: string;
+          reconnect: string;
+          entryCount: string;
         };
         storage: {
           root: string;
@@ -1039,6 +1076,7 @@ declare namespace App {
         fullscreenExit: string;
         reload: string;
         collapse: string;
+        collapseLog: string;
         expand: string;
         pin: string;
         unpin: string;

@@ -34,6 +34,8 @@ class AdvancedCalculator:
 
 # --- Template for default endpoint function ---
 endpoint_template_get = """async def handler(ctx, request):
+    logger = ctx.cloud.logger()
+    logger.info("Hello from Hyac cloud SDK.")
     return {"code": 0, "msg":"success", "data":"Hello, World!"}
 """
 
@@ -83,8 +85,13 @@ async def handler(
     #         "raw_payload": body_content
     #     }
 
-    # 3. Advanced: Using the Request object for full control
-    # This allows you to handle different content types, headers, etc.
+    # 3. Advanced: Using the isolated Request snapshot
+    # The handler runs in an isolated worker and receives a bounded snapshot:
+    # - available: method, url/path, query_params, headers, client, server,
+    #   path_params, and the bounded body via request.body() or request.json()
+    # - unavailable: request.app, request.state, request.url_for()/router,
+    #   request.session, request.auth, request.user, live request.stream(),
+    #   and real-time client-disconnect events
     try:
         # Manually parse JSON from the request object
         json_payload = await request.json()
@@ -132,12 +139,14 @@ async def handler(ctx, profile: UserProfile):
     \"\"\"
     An example demonstrating Pydantic-based request body validation.
     \"\"\"
+    logger = ctx.cloud.logger()
     # If the code reaches this point, the data in 'profile' is guaranteed to be valid.
     logger.info(f"Received valid user profile for: {profile.username}")
     
     # You can now work with the validated data object.
     # For example, save it to the database.
-    # await ctx.motor_db["users"].insert_one(profile.dict())
+    # db = ctx.cloud.database()
+    # await db["users"].insert_one(profile.dict())
     
     return {
         "status": "success",
@@ -162,18 +171,23 @@ def send_notification_email(email: str, message: str):
 
 async def handler(ctx, background_tasks: BackgroundTasks, email_to: str, content: str):
     \"\"\"
-    An example of scheduling a background task.
-    The response is returned to the client immediately, while the task runs in the background.
+    Schedule additional work within this isolated function invocation.
+
+    HYAC runs BackgroundTasks items in registration order before returning the result.
+    Task time counts against the function timeout; a timeout terminates the invocation
+    without returning the buffered result. The first task failure is written to the
+    function logs, skips remaining items, and does not replace a successful result
+    that has already been buffered.
     \"\"\"
     logger.info("Handler received request, scheduling email task.")
     
-    # Add the task to be executed after the response has been sent.
+    # The isolated worker runs this task before the invocation result is returned.
     background_tasks.add_task(send_notification_email, email_to, content)
     
-    # Return a response to the client immediately.
+    # This value is buffered first, then released only after the task finishes.
     return {
-        "status": "accepted",
-        "message": f"Email to {email_to} has been scheduled and will be sent in the background."
+        "status": "processed",
+        "message": f"Email task for {email_to} was processed inside this invocation."
     }
 """
 
@@ -226,17 +240,17 @@ from bson import ObjectId
 
 async def handler(ctx, request, name: str = "World", value: int = 0):
     # -----------------------------------------------------------------------------
-    # Example 1: Asynchronous Database Operations (Motor) - Recommended
+    # Example 1: Asynchronous Database Operations (PyMongo Async) - Recommended
     # - Use `async def` to define the function.
-    # - Get the asynchronous database instance via `ctx.motor_db`.
+    # - Get the asynchronous database instance via `ctx.cloud.database()`.
     # - Use the `await` keyword before all database operations to ensure non-blocking execution.
     # -----------------------------------------------------------------------------
     \"\"\"
-    A complete example of database operations using Motor (asynchronous).
+    A complete example of database operations using PyMongo Async.
     \"\"\"
     
     logger.info(f"[Async] Received parameters: name='{name}', value={value}")
-    db = ctx.motor_db  # Get the asynchronous Motor database client
+    db = ctx.cloud.database()  # Get the asynchronous PyMongo database client
     demo_collection = db["hyac_demo_async"]
     
     # CREATE
@@ -258,12 +272,12 @@ async def handler(ctx, request, name: str = "World", value: int = 0):
     await demo_collection.delete_one({"_id": inserted_id})
     logger.info(f"[Async] DELETE: Document cleaned up")
     
-    async_result = {"status": "ok", "driver": "motor (async)", "inserted_id": str(inserted_id)}
+    async_result = {"status": "ok", "driver": "pymongo async", "inserted_id": str(inserted_id)}
     
     # -----------------------------------------------------------------------------
     # Example 2: Synchronous Database Operations (Pymongo)
     # - Use `async def` to define the function.
-    # - Get the synchronous database instance via `ctx.pymongo_db`.
+    # - Get the synchronous database instance via `ctx.cloud.database(sync=True)`.
     # - This is a synchronous operation, but in FastAPI's async environment, it runs 
     #   in a separate thread pool to avoid blocking the event loop.
     # -----------------------------------------------------------------------------
@@ -271,7 +285,7 @@ async def handler(ctx, request, name: str = "World", value: int = 0):
     A complete example of database operations using PyMongo (synchronous).
     \"\"\"
     logger.info(f"[Sync] Received parameters: name='{name}', value={value}")
-    db = ctx.pymongo_db  # Get the synchronous PyMongo database client
+    db = ctx.cloud.database(sync=True)  # Get the synchronous PyMongo database client
     demo_collection = db["hyac_demo_sync"]
     
     # CREATE
@@ -305,17 +319,18 @@ async def handler(ctx, request, x: int = 10, y: int = 3):
     An example of an endpoint that calls a common function.
     This example assumes a common function with function_id 'math_utils' exists.
     \"\"\"
+    common = ctx.cloud.common()
     
     # 1. Call a simple function from the common module
     try:
-        simple_sum = ctx.common.math_utils.add(x, y)
+        simple_sum = common.math_utils.add(x, y)
         logger.info(f"Called 'math_utils.add', result: {simple_sum}")
     except AttributeError:
         simple_sum = "Error: 'math_utils.add' not available."
 
     # 2. Use a class from the common module
     try:
-        Calculator = ctx.common.math_utils.AdvancedCalculator
+        Calculator = common.math_utils.AdvancedCalculator
         calc_instance = Calculator(precision=4)
         product = calc_instance.multiply(x, y)
         quotient = calc_instance.divide(x, y)
@@ -337,8 +352,8 @@ async def handler(ctx, request, x: int = 10, y: int = 3):
 endpoint_template_storage = """from loguru import logger
 from fastapi.responses import StreamingResponse
 
-# Note: The 's3_open' function is injected into the execution namespace by the FaaS environment.
-# You don't need to import it directly from 'app.core.faas_s3'.
+# Prefer `ctx.cloud.storage()` for common object operations.
+# The 's3_open' function is also injected by the FaaS environment for buffered or streaming file-like access.
 
 async def handler(ctx, request, action: str = "read_write"):
     \"\"\"
@@ -348,25 +363,39 @@ async def handler(ctx, request, action: str = "read_write"):
     \"\""
     
     file_path = "demo/my_test_file.txt"
+    storage = ctx.cloud.storage()
     
     if action == "read_write":
         logger.info("--- S3 Read/Write Demo ---")
         
-        # 1. Write to a file (buffered)
+        # 1. Write to a file via the stable cloud SDK facade.
         content_to_write = "Hello from Hyac FaaS! This is a test."
         try:
-            with s3_open(file_path, "w", encoding="utf-8") as f:
-                f.write(content_to_write)
+            write_ok = await storage.put(file_path, content_to_write.encode("utf-8"))
+            if not write_ok:
+                logger.error(f"Failed to write to '{file_path}'")
+                return {
+                    "status": "error",
+                    "operation": "write",
+                    "details": "Object storage write failed."
+                }
             logger.info(f"Successfully wrote to '{file_path}'")
         except Exception as e:
             logger.error(f"Error writing to file: {e}")
             return {"status": "error", "operation": "write", "details": str(e)}
 
-        # 2. Read from the file (buffered)
+        # 2. Read from the file via the stable cloud SDK facade.
         read_content = ""
         try:
-            with s3_open(file_path, "r", encoding="utf-8") as f:
-                read_content = f.read()
+            data = await storage.get(file_path)
+            if data is None:
+                logger.error(f"Failed to read from '{file_path}'")
+                return {
+                    "status": "error",
+                    "operation": "read",
+                    "details": "Object storage read failed."
+                }
+            read_content = data.decode("utf-8")
             logger.info(f"Successfully read from '{file_path}'")
         except Exception as e:
             logger.error(f"Error reading file: {e}")
@@ -420,10 +449,12 @@ async def handler(ctx, action: str = "email"):
     - action='webhook': Sends a sample webhook notification.
     \"\"\"
     
+    notification = ctx.cloud.notification()
+    
     if action == "email":
         logger.info("--- Sending Email Demo ---")
         try:
-            await ctx.notification.send_email(
+            await notification.send_email(
                 to_address="recipient@example.com",
                 subject="Hello from Hyac FaaS!",
                 body="This is a test email sent from a FaaS function."
@@ -445,7 +476,7 @@ async def handler(ctx, action: str = "email"):
                     "color": "#7CD197"
                 }]
             }
-            await ctx.notification.send_webhook(payload=payload)
+            await notification.send_webhook(payload=payload)
             return {"status": "success", "message": "Webhook sent successfully."}
         except Exception as e:
             logger.error(f"Error sending webhook: {e}")

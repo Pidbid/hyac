@@ -2,7 +2,7 @@
 # This stage installs dependencies and builds the app
 FROM node:20-alpine AS builder
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.34.5
 WORKDIR /app
 
 # Copy all source code and project files

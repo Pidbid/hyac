@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Dict, Callable
 
-from fastapi import Request, Depends
+from fastapi import Request
 
 from core.exceptions import APIException
 

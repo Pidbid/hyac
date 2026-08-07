@@ -1,11 +1,9 @@
 # models/applications_model.py
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Optional, List
 from enum import Enum
 
-from beanie import Document
-from pydantic import Field, model_validator, BaseModel
-from pymongo import IndexModel
+from pydantic import Field, BaseModel, model_validator
 
 from core.utils import generate_short_id
 
@@ -26,9 +24,15 @@ class EnvironmentVariable(BaseModel):
 
 class CORSConfig(BaseModel):
     allow_origins: List[str] = Field(default_factory=list)
-    allow_credentials: bool = True
+    allow_credentials: bool = False
     allow_methods: List[str] = Field(default_factory=list)
     allow_headers: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_policy(self):
+        if self.allow_credentials and "*" in self.allow_origins:
+            raise ValueError("Wildcard CORS origins cannot allow credentials")
+        return self
 
 
 class EmailNotification(BaseModel):
@@ -80,7 +84,7 @@ class ApplicationStatus(str, Enum):
     ERROR = "error"
 
 
-class Application(Document):
+class Application(BaseModel):
     """
     Represents an application in the system.
     """
@@ -89,11 +93,11 @@ class Application(Document):
     app_name: str = Field(default=..., min_length=2)
     description: Optional[str] = None
     common_dependencies: List[Dependency] = Field(
-        default_factory=[],
+        default_factory=list,
         description="Common dependencies for the application.",
     )
     environment_variables: List[EnvironmentVariable] = Field(
-        default_factory=[],
+        default_factory=list,
         description="Environment variables for the application.",
     )
     users: list[str] = Field(
@@ -105,10 +109,11 @@ class Application(Document):
     db_password: str = Field(
         description="Password for the database associated with the application."
     )
-    s3_bucket: Optional[str] = Field(
-        default=None,
-        description="Name of the S3 bucket associated with the application.",
-    )
+    runtime_token_hash: Optional[str] = None
+    runtime_generation: int = 0
+    runtime_memory_mb: int = 512
+    runtime_cpus: float = 1.0
+    runtime_pids_limit: int = 128
     cors: CORSConfig = Field(default_factory=CORSConfig, description="cors config")
     notification: NotificationConfig = Field(
         default_factory=NotificationConfig, description="notification config"
@@ -120,26 +125,6 @@ class Application(Document):
         default=ApplicationStatus.STOPPED,
         description="Status of the application (e.g., running, stopped).",
     )
-
-    @model_validator(mode="after")
-    def set_s3_bucket(self) -> "Application":
-        """
-        Automatically sets the S3 bucket name based on the app_id.
-        """
-        if self.app_id:
-            self.s3_bucket = self.app_id.lower()
-        return self
-
-    class Settings:
-        """
-        Pydantic and Beanie settings for the Application model.
-        """
-
-        name = "applications"
-        indexes = [
-            IndexModel("app_id", unique=True),
-            IndexModel("app_name", unique=True),
-        ]
 
     def update_timestamp(self):
         """

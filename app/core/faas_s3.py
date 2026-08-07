@@ -229,14 +229,16 @@ def s3_open(
     bucket_name = bucket_name.lower()
     object_name = file_path.lstrip("/")
 
-    # Ensure bucket exists, create if not
+    # Buckets are provisioned by the control plane. Runtime code must not create
+    # buckets because it only has app-scoped object permissions.
     try:
         if not s3_manager.client.bucket_exists(bucket_name):
-            logger.info(f"Bucket '{bucket_name}' not found, creating now...")
-            s3_manager.client.make_bucket(bucket_name)
-            logger.info(f"Bucket '{bucket_name}' created successfully.")
+            raise IOError(
+                f"Storage bucket '{bucket_name}' is not ready. "
+                "Please restart the application or check storage provisioning."
+            )
     except S3Error as e:
-        raise IOError(f"Failed to ensure bucket '{bucket_name}' exists: {e}") from e
+        raise IOError(f"Failed to check bucket '{bucket_name}': {e}") from e
 
     modes = _parse_mode(mode)
 

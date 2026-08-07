@@ -3,8 +3,8 @@ from fastapi import APIRouter, Request, Response
 from loguru import logger
 
 from core.config import settings
-from core.docker_manager import start_app_container
-from models.applications_model import Application
+from core.docker_manager import _cleanup_runtime_generation, start_app_container
+from models.applications_model import Application, ApplicationStatus
 
 router = APIRouter()
 
@@ -40,13 +40,59 @@ async def reverse_proxy(request: Request, path: str):
     app = await Application.find_one(Application.app_id == app_id)
     if not app:
         return Response(status_code=404, content=f"Application '{app_id}' not found.")
+    if app.status not in {
+        ApplicationStatus.STARTING,
+        ApplicationStatus.RUNNING,
+    }:
+        return Response(
+            status_code=409,
+            content=(
+                f"Application '{app_id}' cannot start while status is "
+                f"'{app.status.value}'."
+            ),
+        )
 
     # Ensure the container for this app is running
-    container_info = await start_app_container(app)
+    lifecycle_revision = app.lifecycle_revision
+    runtime_state = {}
+    container_info = await start_app_container(
+        app,
+        runtime_state=runtime_state,
+        expected_status=app.status,
+        expected_lifecycle_revision=lifecycle_revision,
+    )
     if not container_info:
         return Response(
             status_code=502,
             content=f"Failed to start execution environment for app '{app_id}'.",
+        )
+
+    authority = await Application.find_one(
+        {
+            "app_id": app_id,
+            "runtime_generation": container_info["generation"],
+            "status": app.status,
+            "lifecycle_revision": lifecycle_revision,
+        }
+    )
+    if not authority:
+        try:
+            await _cleanup_runtime_generation(
+                app_id,
+                container_info["name"],
+                container_info["generation"],
+                container_info.get("id"),
+                runtime_state.get("runtime_token_hash"),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to clean stale proxy runtime for app '{}' generation {}",
+                app_id,
+                container_info["generation"],
+            )
+        return Response(
+            status_code=409,
+            content=f"Application '{app_id}' lifecycle changed during startup.",
         )
 
     # Proxy the current (first) request to the newly started app container

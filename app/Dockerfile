@@ -3,16 +3,26 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-# Install Node.js for pyright-langserver and uv via the official standalone installer.
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/dependencies/python
+ENV UV_CACHE_DIR=/tmp/uv-cache
+
+# Install Node.js for pyright-langserver.
 RUN apt-get update -qq \
-    && apt-get install -y -qq --no-install-recommends ca-certificates curl nodejs \
+    && apt-get install -y -qq --no-install-recommends ca-certificates nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -LsSf https://astral.sh/uv/0.8.2/install.sh | sh \
-    && cp /root/.local/bin/uv /root/.local/bin/uvx /bin/
+RUN pip install --no-cache-dir uv==0.8.2
 
-COPY requirements.txt ./
-RUN uv pip install --system --no-cache -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/requirements.lock \
+    && uv pip install --system --no-cache -r /tmp/requirements.lock \
+    && rm -f /tmp/requirements.lock
+
+RUN groupadd --system hyac \
+    && useradd --system --gid hyac --home-dir /home/hyac --create-home hyac \
+    && install -d -o hyac -g hyac /dependencies/python /tmp/uv-cache
 
 # Development stage
 FROM base AS development
@@ -26,8 +36,10 @@ FROM base AS production
 
 WORKDIR /app
 
-COPY . .
+COPY --chown=hyac:hyac . .
 
 EXPOSE 8001
+
+USER hyac
 
 CMD ["sh", "/app/start.sh"]

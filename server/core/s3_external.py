@@ -6,7 +6,6 @@ from urllib.parse import quote
 
 from loguru import logger
 from minio import Minio
-from minio.error import S3Error
 
 from core.config import settings
 

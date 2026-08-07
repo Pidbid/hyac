@@ -12,3 +12,4 @@ from .runtime import router as runtime_router
 from .proxy import router as proxy_router
 from .ai import router as ai_router
 from .scheduler_router import router as scheduler_router
+from .runtime_control import router as runtime_control_router

@@ -164,6 +164,24 @@ function mapCompletionItems(result: any, model: monaco.editor.ITextModel, positi
   });
 }
 
+function mapFormattingEdits(result: any) {
+  if (!Array.isArray(result)) {
+    return [];
+  }
+
+  return result
+    .map((item: any) => {
+      const range = lspRangeToMonaco(item?.range);
+      const text = item?.newText;
+      if (!range || typeof text !== 'string') {
+        return null;
+      }
+
+      return { range, text } satisfies monaco.languages.TextEdit;
+    })
+    .filter(Boolean) as monaco.languages.TextEdit[];
+}
+
 async function initializeSession() {
   lspStatus.value = 'initializing';
   await sendRequest('initialize', {
@@ -252,6 +270,29 @@ export async function requestLspCompletionItems(model: monaco.editor.ITextModel,
   });
 
   return mapCompletionItems(result, model, position);
+}
+
+export async function requestLspFormattingEdits(model: monaco.editor.ITextModel) {
+  if (!readyPromise) {
+    return [];
+  }
+
+  await readyPromise;
+  documentVersion += 1;
+  sendNotification('textDocument/didChange', {
+    textDocument: { uri: documentUri, version: documentVersion },
+    contentChanges: [{ text: model.getValue() }]
+  });
+
+  const result = await sendRequest('textDocument/formatting', {
+    textDocument: { uri: documentUri },
+    options: {
+      tabSize: model.getOptions().tabSize,
+      insertSpaces: model.getOptions().insertSpaces
+    }
+  });
+
+  return mapFormattingEdits(result);
 }
 
 export function disconnectLsp() {

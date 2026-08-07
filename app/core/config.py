@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -9,14 +9,16 @@ class Settings(BaseSettings):
     """
 
     APP_ID: Optional[str] = None
-    MONGODB_USERNAME: Optional[str] = None
-    MONGODB_PASSWORD: Optional[str] = None
+    APP_DB_USERNAME: Optional[str] = None
+    APP_DB_PASSWORD: Optional[str] = None
+    RUNTIME_TOKEN: Optional[str] = None
+    RUNTIME_GENERATION: int = 0
+    CONTROL_PLANE_URL: str = "http://hyac_server:8000/internal/runtime"
     S3_ACCESS_KEY: Optional[str] = None
     S3_SECRET_KEY: Optional[str] = None
     S3_INTERNAL_ENDPOINT: Optional[str] = "rustfs:9000"
     S3_SECURE_INTERNAL: Optional[bool] = False
     S3_REGION: Optional[str] = "us-east-1"
-    SECRET_KEY: Optional[str] = None
     DEV_MODE: Optional[bool] = False
     DEBUG: Optional[bool] = True
     LSP_MODE: str = "legacy"  # legacy | sidecar
@@ -24,13 +26,7 @@ class Settings(BaseSettings):
     LSP_SIDECAR_TIMEOUT_SECONDS: int = 10
     LSP_SIDECAR_FALLBACK_LEGACY: bool = True
 
-    class Config:
-        """
-        Pydantic model configuration.
-        """
-
-        env_file = None
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=None, case_sensitive=True)
 
     @property
     def object_storage_access_key(self) -> Optional[str]:

@@ -3,9 +3,12 @@ import math
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 
+from core.environment_contract import filter_user_environment_variables
+from core.database import mongodb_manager
 from core.jwt_auth import get_current_user
 from core.utils import generate_short_id
 from models.applications_model import (
@@ -16,10 +19,8 @@ from models.applications_model import (
     ApplicationStatus,
 )
 from models.common_model import BaseResponse
-from models.functions_model import Function, FunctionStatus
 from models.tasks_model import Task, TaskAction
 from loguru import logger
-from core.docker_manager import docker_manager, start_app_container, stop_app_container
 from typing import List
 
 router = APIRouter(
@@ -27,6 +28,27 @@ router = APIRouter(
     tags=["Applications Administration"],
     responses={404: {"description": "Application not found"}},
 )
+
+
+def serialize_application(application: Application) -> dict:
+    """Return console-safe application metadata without internal credentials."""
+    data = application.model_dump(mode="json", by_alias=True)
+    data.pop("db_password", None)
+    data.pop("runtime_token_hash", None)
+    data.pop("pending_traefik_cleanup_generation", None)
+    data.pop("runtime_cleanup_task_id", None)
+    data.pop("runtime_cleanup_lease_owner", None)
+    data.pop("runtime_cleanup_lease_expires_at", None)
+    data.pop("lifecycle_completed_task_id", None)
+    if isinstance(data.get("ai_config"), dict):
+        data["ai_config"].pop("api_key", None)
+    notification = data.get("notification")
+    if isinstance(notification, dict) and isinstance(notification.get("email"), dict):
+        notification["email"].pop("password", None)
+    data["environment_variables"] = filter_user_environment_variables(
+        data.get("environment_variables", [])
+    )
+    return data
 
 
 class CreateApplicationRequest(BaseModel):
@@ -75,6 +97,86 @@ class ApplicationInfoRequestModel(BaseModel):
     appId: str
 
 
+async def _transition_and_enqueue(
+    app: Application,
+    username: str,
+    *,
+    action: TaskAction,
+    status: ApplicationStatus,
+    set_fields: Optional[dict] = None,
+    reject_active_actions: Optional[set[TaskAction]] = None,
+) -> Task:
+    """Atomically claim a lifecycle revision and publish its durable task."""
+    expected_status = app.status
+    expected_revision = app.lifecycle_revision
+    next_revision = expected_revision + 1
+    updated_at = datetime.now()
+    task = Task(
+        app_id=app.app_id,
+        action=action,
+        payload={
+            "app_id": app.app_id,
+            "lifecycle_revision": next_revision,
+        },
+    )
+    update_fields = {
+        "status": status,
+        "lifecycle_completed_task_id": None,
+        "updated_at": updated_at,
+        **(set_fields or {}),
+    }
+
+    async def persist_transition(session):
+        if reject_active_actions:
+            active_task = await mongodb_manager.get_collection(Task).find_one(
+                {
+                    "app_id": app.app_id,
+                    "action": {"$in": list(reject_active_actions)},
+                    "status": {"$in": ["pending", "running"]},
+                },
+                session=session,
+            )
+            if active_task:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Application has an active lifecycle task; retry after "
+                        "it finishes."
+                    ),
+                )
+        result = await mongodb_manager.get_collection(Application).update_one(
+            {
+                "app_id": app.app_id,
+                "users": username,
+                "status": expected_status,
+                "lifecycle_revision": expected_revision,
+            },
+            {
+                "$set": update_fields,
+                "$inc": {"lifecycle_revision": 1},
+            },
+            session=session,
+        )
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Application lifecycle changed; retry the operation.",
+            )
+        await task.insert(session=session)
+
+    async with mongodb_manager.client.start_session() as session:
+        # The driver retries TransientTransactionError callbacks and resolves
+        # UnknownTransactionCommitResult by retrying only the commit. The task
+        # is constructed above so callback retries keep the same durable ID.
+        await session.with_transaction(persist_transition)
+
+    app.status = status
+    app.lifecycle_revision = next_revision
+    app.lifecycle_completed_task_id = None
+    app.updated_at = updated_at
+    return task
+
+
 @router.post("/create", response_model=BaseResponse)
 async def create_application(
     data: CreateApplicationRequest,
@@ -98,23 +200,41 @@ async def create_application(
         db_password=generate_short_id(16),
         cors=CORSConfig(
             allow_origins=["*"],
-            allow_credentials=True,
+            allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
         ),
         notification=NotificationConfig(),
         status=ApplicationStatus.STARTING,
+        lifecycle_revision=1,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    await new_app.insert()
-
-    # Create a task to start the container
     task = Task(
+        app_id=new_app.app_id,
         action=TaskAction.START_APP,
-        payload={"app_id": new_app.app_id},
+        payload={
+            "app_id": new_app.app_id,
+            "lifecycle_revision": new_app.lifecycle_revision,
+        },
     )
-    await task.insert()
+
+    async def persist_creation(session):
+        await new_app.insert(session=session)
+        await task.insert(session=session)
+
+    try:
+        async with mongodb_manager.client.start_session() as session:
+            # Keep both documents stable across callback retries so a transient
+            # transaction failure cannot publish a second task identity.
+            await session.with_transaction(persist_creation)
+    except DuplicateKeyError as exc:
+        # The initial name check is advisory; the unique index is the arbiter
+        # when concurrent requests both pass it.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Application with name '{app_name}' already exists",
+        ) from exc
 
     logger.info(
         f"App '{new_app.app_name}' creation request accepted. Task '{task.task_id}' created."
@@ -144,16 +264,22 @@ async def delete_application(
             status_code=404, detail="Application not found or you don't have permission"
         )
 
-    # Update status to prevent other operations
-    app.status = ApplicationStatus.DELETING
-    await app.save()
+    if app.status == ApplicationStatus.DELETING:
+        raise HTTPException(
+            status_code=409,
+            detail="Application deletion is already in progress.",
+        )
 
-    # Create a task to delete the application
-    task = Task(
+    task = await _transition_and_enqueue(
+        app,
+        current_user.username,
         action=TaskAction.DELETE_APP,
-        payload={"app_id": app.app_id},
+        status=ApplicationStatus.DELETING,
+        reject_active_actions={
+            TaskAction.START_APP,
+            TaskAction.RESTART_APP,
+        },
     )
-    await task.insert()
 
     logger.info(
         f"App '{app.app_name}' deletion request accepted. Task '{task.task_id}' created."
@@ -182,18 +308,21 @@ async def start_application(
             code=202, msg="Application not found or you don't have permission"
         )
 
-    if app.status == ApplicationStatus.RUNNING:
-        return BaseResponse(code=400, msg="Application is already running.")
+    if app.status not in {
+        ApplicationStatus.STOPPED,
+        ApplicationStatus.ERROR,
+    }:
+        return BaseResponse(
+            code=400,
+            msg=f"Application cannot start while status is '{app.status.value}'.",
+        )
 
-    app.status = ApplicationStatus.STARTING
-    await app.save()
-
-    # Create a task to start the application
-    task = Task(
+    task = await _transition_and_enqueue(
+        app,
+        current_user.username,
         action=TaskAction.START_APP,
-        payload={"app_id": app.app_id},
+        status=ApplicationStatus.STARTING,
     )
-    await task.insert()
 
     return BaseResponse(
         code=0,
@@ -221,15 +350,12 @@ async def stop_application(
     if app.status != ApplicationStatus.RUNNING:
         raise HTTPException(status_code=400, detail="Application is not running.")
 
-    app.status = ApplicationStatus.STOPPING
-    await app.save()
-
-    # Create a task to stop the application
-    task = Task(
+    task = await _transition_and_enqueue(
+        app,
+        current_user.username,
         action=TaskAction.STOP_APP,
-        payload={"app_id": app.app_id},
+        status=ApplicationStatus.STOPPING,
     )
-    await task.insert()
 
     return BaseResponse(
         code=0,
@@ -257,15 +383,12 @@ async def restart_application(
     if app.status != ApplicationStatus.RUNNING:
         raise HTTPException(status_code=400, detail="Application is not running.")
 
-    # Create a task to restart the application
-    task = Task(
+    task = await _transition_and_enqueue(
+        app,
+        current_user.username,
         action=TaskAction.RESTART_APP,
-        payload={"app_id": app.app_id},
+        status=ApplicationStatus.STARTING,
     )
-    await task.insert()
-    # Set Application status to STARTING
-    app.status = ApplicationStatus.STARTING
-    await app.save()
 
     return BaseResponse(
         code=0,
@@ -292,7 +415,20 @@ async def update_application_description(
 
     app.description = data.description
     app.update_timestamp()
-    await app.save()
+    result = await mongodb_manager.get_collection(Application).update_one(
+        {"app_id": app.app_id, "users": current_user.username},
+        {
+            "$set": {
+                "description": app.description,
+                "updated_at": app.updated_at,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Application changed before description update",
+        )
 
     return BaseResponse(
         code=0, msg="Application description updated successfully", data={}
@@ -314,17 +450,32 @@ async def update_application_dependencies(
         raise HTTPException(
             status_code=404, detail="Application not found or you don't have permission"
         )
+    if app.status in {
+        ApplicationStatus.STARTING,
+        ApplicationStatus.STOPPING,
+        ApplicationStatus.DELETING,
+    }:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Application dependencies cannot change during a lifecycle "
+                "transition."
+            ),
+        )
 
-    app.common_dependencies = data.dependencies
-    app.update_timestamp()
-    await app.save()
-
-    # Create a task to restart the application
-    task = Task(
+    task = await _transition_and_enqueue(
+        app,
+        current_user.username,
         action=TaskAction.RESTART_APP,
-        payload={"app_id": app.app_id},
+        status=ApplicationStatus.STARTING,
+        set_fields={
+            "common_dependencies": [
+                dependency.model_dump(mode="python", by_alias=True)
+                for dependency in data.dependencies
+            ]
+        },
     )
-    await task.insert()
+    app.common_dependencies = data.dependencies
 
     return BaseResponse(
         code=0,
@@ -346,7 +497,7 @@ async def get_application(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    return BaseResponse(code=0, msg="success", data=app)
+    return BaseResponse(code=0, msg="success", data=serialize_application(app))
 
 
 @router.post("/data", response_model=BaseResponse)
@@ -365,7 +516,7 @@ async def data_applications(data: GetApplicationsData, user=Depends(get_current_
         code=0,
         msg="success",
         data={
-            "data": data_list,
+            "data": [serialize_application(app) for app in data_list],
             "pageNum": page_num,
             "pageSize": data.length,
             "total": total_count,

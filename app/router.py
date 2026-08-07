@@ -1,25 +1,35 @@
 # app/router.py
 import inspect
-import io
 import json
 import time
-from contextlib import redirect_stderr, redirect_stdout
+import traceback
 from typing import Any, Dict, Tuple, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from bson import ObjectId
 from loguru import logger
 
 from code_loader import CodeLoader
 from context import EnvContext, FunctionContext
 from core.common_model import BaseResponse
 from core.config import settings
-from core.db_manager import db_manager
 from core.exceptions import APIException
 from core.faas_s3 import app_id_context
-from core.logger import LogType
+from core.function_executor import (
+    FunctionExecutionError,
+    INVOCATION_REQUEST_SNAPSHOT_KEY,
+    RequestBodyTooLarge,
+    execute_function,
+    snapshot_request,
+)
+from core.logger import LogType, prefix_runtime_lines
+from core.runtime_client import get_runtime_client
 from models.applications_model import Application
 from models.functions_model import Function
-from models.statistics_model import CallStatus, FunctionMetric
+from models.statistics_model import CallStatus
 
 router = APIRouter()
 code_loader = CodeLoader()
@@ -43,20 +53,6 @@ async def get_application(request: Request) -> Application:
     return request.app.state.application
 
 
-async def get_dynamic_clients(application: Application = Depends(get_application)):
-    """Dependency to get dynamic MongoDB clients from the connection manager."""
-    try:
-        pymongo_client, motor_client = await db_manager.get_clients(application)
-        yield pymongo_client, motor_client
-    except Exception as e:
-        logger.error(
-            f"Failed to get database clients for app {application.app_id}: {e}"
-        )
-        raise APIException(
-            code=500, msg=f"Database connection failed for app {application.app_id}"
-        )
-
-
 # --- Helper Functions for Refactoring ---
 
 
@@ -69,8 +65,7 @@ async def _load_function_details(
         logger.warning(f"Function not found: {app_id}/{func_id}")
         raise APIException(code=404, msg="Function not found")
 
-    func, func_doc, signature = loaded_data
-    handler_func = func.get("handler")
+    handler_func, func_doc, signature = loaded_data
 
     if not handler_func or not signature:
         raise APIException(
@@ -88,10 +83,16 @@ async def _prepare_arguments(
 ) -> Dict[str, Any]:
     """Prepares the arguments for the handler function based on its signature."""
     handler_args = {}
+    try:
+        request_snapshot = await snapshot_request(request)
+    except RequestBodyTooLarge as exc:
+        raise APIException(code=413, msg=str(exc)) from exc
+    handler_args[INVOCATION_REQUEST_SNAPSHOT_KEY] = request_snapshot
+
     if "ctx" in signature.parameters:
         handler_args["ctx"] = context
     if "request" in signature.parameters:
-        handler_args["request"] = request
+        handler_args["request"] = request_snapshot
     if "background_tasks" in signature.parameters:
         handler_args["background_tasks"] = background_tasks
 
@@ -108,9 +109,12 @@ async def _prepare_arguments(
             ):
                 body_params = await request.form()
             elif "body" in signature.parameters:  # For raw body
-                handler_args["body"] = await request.body()
+                handler_args["body"] = request_snapshot.body
         except json.JSONDecodeError:
             raise APIException(code=400, msg="Invalid JSON body")
+
+    if "body" in signature.parameters and "body" not in handler_args:
+        handler_args["body"] = request_snapshot.body
 
     # Combine query and body params, giving body params precedence
     request_params = {**dict(request.query_params), **body_params}
@@ -122,22 +126,64 @@ async def _prepare_arguments(
     return handler_args
 
 
-async def _execute_and_log(handler_func, handler_args: dict, log_func: logger) -> Any:
-    """Executes the handler, capturing and logging its stdout/stderr."""
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
-    result = None
-    try:
-        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-            result = await handler_func(**handler_args)
-    finally:
-        stdout = stdout_capture.getvalue().strip()
-        stderr = stderr_capture.getvalue().strip()
+async def _execute_and_log(
+    handler_func,
+    handler_args: dict,
+    log_func: logger,
+    timeout_seconds: int,
+    memory_limit_mb: int,
+    log_context: Optional[dict[str, object]] = None,
+) -> Any:
+    """Execute one handler inside a disposable, resource-limited process."""
+    def log_remote_exception(exc: BaseException) -> None:
+        stdout = getattr(exc, "remote_stdout", "").strip()
+        stderr = getattr(exc, "remote_stderr", "").strip()
+        traceback_text = getattr(exc, "remote_traceback", "")
         if stdout:
             log_func.info(stdout)
         if stderr:
             log_func.error(stderr)
-    return result
+        if traceback_text:
+            log_func.error(traceback_text.rstrip())
+
+    try:
+        execution = await execute_function(
+            handler_func,
+            handler_args,
+            timeout_seconds=timeout_seconds,
+            memory_limit_mb=memory_limit_mb,
+            log_context=log_context,
+        )
+    except FunctionExecutionError as exc:
+        stdout = exc.stdout.strip()
+        stderr = exc.stderr.strip()
+        if stdout:
+            log_func.info(stdout)
+        if stderr:
+            log_func.error(stderr)
+        if exc.traceback_text:
+            log_func.error(exc.traceback_text.rstrip())
+        raise
+    except (APIException, HTTPException) as exc:
+        log_remote_exception(exc)
+        raise
+
+    if execution.stdout.strip():
+        log_func.info(execution.stdout.strip())
+    if execution.stderr.strip():
+        log_func.error(execution.stderr.strip())
+    return execution.value
+
+
+def _serialize_handler_result(result: Any) -> Any:
+    """
+    Converts handler return values into JSON-compatible data.
+    """
+    if isinstance(result, Response):
+        return result
+    return JSONResponse(
+        content=jsonable_encoder(result, custom_encoder={ObjectId: str})
+    )
 
 
 async def _track_metric(
@@ -150,15 +196,15 @@ async def _track_metric(
 ):
     """Asynchronously inserts a function call metric into the database."""
     execution_time = time.time() - start_time
-    metric = FunctionMetric(
-        function_id=func_id,
-        app_id=app_id,
-        function_name=function_name,
-        status=status,
-        execution_time=execution_time,
-        extra=error_info,
+    await get_runtime_client().write_metric(
+        {
+            "function_id": func_id,
+            "function_name": function_name,
+            "status": status.value,
+            "execution_time": execution_time,
+            "extra": error_info,
+        }
     )
-    await metric.insert()
 
 
 # --- Main API Route ---
@@ -174,7 +220,6 @@ async def dynamic_handler(
     func_id: str,
     background_tasks: BackgroundTasks,
     application: Application = Depends(get_application),
-    clients: tuple = Depends(get_dynamic_clients),
 ):
     """Handles all dynamic function calls, routing them to the appropriate loaded code."""
     if func_id == "favicon.ico":
@@ -185,6 +230,13 @@ async def dynamic_handler(
     error_info = None
     app_id = application.app_id
     function_name = "Unknown"
+    function_log = logger.bind(
+        app_id=app_id,
+        function_id=func_id,
+        function_name=function_name,
+        logtype=LogType.FUNCTION,
+        runtime_label=f"[func:{func_id}] ",
+    )
 
     try:
         app_id_context.set(app_id)
@@ -195,13 +247,25 @@ async def dynamic_handler(
         )
         function_name = func_doc.function_name
 
+        try:
+            await get_runtime_client().authorize_function(
+                func_doc.function_id,
+                request.headers.get("authorization"),
+            )
+        except httpx.HTTPStatusError as exc:
+            detail = "Function authorization failed"
+            try:
+                detail = exc.response.json().get("detail", detail)
+            except ValueError:
+                pass
+            raise HTTPException(status_code=exc.response.status_code, detail=detail)
+
         # 2. Create context and loggers
-        pymongo_client, motor_client = clients
         context = FunctionContext(
             app_id=app_id,
             func_id=func_id,
-            pymongo_db=pymongo_client[app_id],
-            motor_db=motor_client[app_id],
+            pymongo_db=None,
+            async_db=None,
             code_loader=code_loader,
             env=EnvContext(),
             common=request.app.state.common_modules,
@@ -212,7 +276,16 @@ async def dynamic_handler(
             function_id=func_id,
             function_name=function_name,
             logtype=LogType.FUNCTION,
+            runtime_label=f"[func:{func_id}] ",
         )
+        function_log = log_func
+        log_context = {
+            "app_id": app_id,
+            "function_id": func_id,
+            "function_name": function_name,
+            "logtype": LogType.FUNCTION,
+            "runtime_label": f"[func:{func_id}] ",
+        }
 
         # 3. Prepare arguments for the handler
         handler_args = await _prepare_arguments(
@@ -220,17 +293,47 @@ async def dynamic_handler(
         )
 
         # 4. Execute the function and return its result
-        return await _execute_and_log(handler_func, handler_args, log_func)
+        result = await _execute_and_log(
+            handler_func,
+            handler_args,
+            log_func,
+            timeout_seconds=func_doc.timeout,
+            memory_limit_mb=func_doc.memory_limit,
+            log_context=log_context,
+        )
+        return _serialize_handler_result(result)
 
     except APIException as api_exc:
         status = CallStatus.ERROR
         error_info = {"type": "APIException", "detail": api_exc.msg}
+        function_log.warning("Function request failed: {}", api_exc.msg)
         raise api_exc
+    except HTTPException as http_exc:
+        status = CallStatus.ERROR
+        error_info = {"type": "HTTPException", "detail": str(http_exc.detail)}
+        raise
     except Exception as e:
         status = CallStatus.ERROR
-        error_info = {"type": "Exception", "detail": str(e)}
-        logger.error("Unhandled exception in dynamic_handler: {}", e, exc_info=True)
-        return BaseResponse(code=500, msg=str(e))
+        error_type = (
+            e.error_type if isinstance(e, FunctionExecutionError) else type(e).__name__
+        )
+        error_info = {"type": error_type, "detail": str(e)}
+        traceback_text = traceback.format_exc().strip()
+        runtime_traceback = prefix_runtime_lines(
+            traceback_text, f"[func:{func_id}] "
+        )
+        function_log.error(
+            "Unhandled exception in dynamic_handler\n{}", runtime_traceback
+        )
+        return BaseResponse(
+            code=500,
+            msg=str(e),
+            data={
+                "error_type": error_type,
+                "function_id": func_id,
+                "function_name": function_name,
+            },
+        )
     finally:
         # 5. Track the metric in the background
         background_tasks.add_task(

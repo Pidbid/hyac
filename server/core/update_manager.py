@@ -1,10 +1,6 @@
 import httpx
-import os
-import re
 from loguru import logger
-from dotenv import dotenv_values
 from core.config import settings
-from core.docker_manager import docker_manager
 
 
 class UpdateManager:

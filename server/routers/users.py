@@ -3,14 +3,14 @@ import base64
 import io
 import random
 import re
-import uuid
 from string import ascii_lowercase, ascii_uppercase, digits
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
+from pymongo.errors import DuplicateKeyError
 
 from core.database import mongodb_manager
 from core.rate_limiter import LoginRateLimiter, get_request_limiter
@@ -20,6 +20,7 @@ from core.jwt_auth import (
     create_access_token,
     create_refresh_token,
     get_current_user,
+    hash_refresh_token,
     verify_refresh_token_and_get_user,
 )
 from core.passwords import hash_password, password_needs_rehash, verify_password
@@ -32,38 +33,23 @@ router = APIRouter(
 )
 
 
-class CreateUserRequest(BaseModel):
-    """Request model for creating a user."""
-
-    username: str
-    password: str
-    nickname: Optional[str] = None
-    avatar_url: Optional[str] = None
-
-
-class UpdateUserRequest(BaseModel):
-    """Request model for updating a user."""
-
-    password: Optional[str] = None
-    nickname: Optional[str] = None
-    avatar_url: Optional[str] = None
-
-
 class UpdateMeRequest(BaseModel):
     """Request model for user to update their own info."""
 
     username: Optional[str] = None
     password: Optional[str] = None
 
-    @validator("username")
+    @field_validator("username")
+    @classmethod
     def validate_username(cls, v):
         if v and not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9_-]{4,16}$", v):
             raise ValueError("Username format is incorrect")
         return v
 
-    @validator("password")
+    @field_validator("password")
+    @classmethod
     def validate_password(cls, v):
-        if v and not re.match(r"^[\w@]{6,18}$", v):
+        if v is not None and not re.fullmatch(r"\S{8,128}", v):
             raise ValueError("Password format is incorrect")
         return v
 
@@ -136,21 +122,48 @@ async def login_for_access_token(data: LoginRequest, request: Request):
         )
 
     user = await User.find_one(User.username == data.username)
-    if not user or not verify_password(data.password, user.password):
+    if (
+        not user
+        or user.disabled
+        or "admin" not in user.roles
+        or not verify_password(data.password, user.password)
+    ):
         limiter.record_failed_attempt()
         return BaseResponse(code=107, msg="Incorrect username or password")
 
     # Create access and refresh tokens
-    limiter.reset_attempts()
-    if password_needs_rehash(user.password):
-        user.password = hash_password(data.password)
-    token_data = {"sub": user.username}
-    access_token = create_access_token(data=token_data)
+    expected_password = user.password
+    expected_token_version = user.token_version
+    token_data = {
+        "sub": user.username,
+        "token_version": expected_token_version,
+    }
     refresh_token = create_refresh_token(data=token_data)
+    session_fields = {
+        "refresh_token_hash": hash_refresh_token(refresh_token),
+        "updated_at": datetime.now(),
+    }
+    if password_needs_rehash(expected_password):
+        session_fields["password"] = hash_password(data.password)
+    result = await mongodb_manager.get_collection(User).update_one(
+        {
+            "_id": user.id,
+            "username": user.username,
+            "password": expected_password,
+            "token_version": expected_token_version,
+            "disabled": False,
+            "roles": "admin",
+        },
+        {"$set": session_fields},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Credentials changed during login",
+        )
 
-    # Save the refresh token to the user's record
-    user.refresh_token = refresh_token
-    await user.save()
+    limiter.reset_attempts()
+    access_token = create_access_token(data=token_data)
 
     return {
         "code": 0,
@@ -175,7 +188,7 @@ async def login_with_access_token(current_user: User = Depends(get_current_user)
             "nickname": current_user.nickname or current_user.username,
             "avatar": current_user.avatar_url or "",
             "username": current_user.username,
-            "roles": ["admin"],  # Placeholder roles
+            "roles": current_user.roles,
             "buttons": ["btn.add", "btn.delete", "btn.update"],  # Placeholder buttons
         },
     }
@@ -222,29 +235,6 @@ async def get_captcha():
         "data": "data:image/png;base64," + image_base64,
     }
 
-
-
-@router.post("/add", response_model=User)
-async def create_user(data: CreateUserRequest):
-    """
-    Creates a new user.
-    """
-    if await User.find_one(User.username == data.username):
-        raise HTTPException(
-            status_code=409, detail="User with this username already exists"
-        )
-
-    hashed_password = hash_password(data.password)
-    new_user = User(
-        username=data.username,
-        password=hashed_password,
-        nickname=data.nickname,
-        avatar_url=data.avatar_url,
-    )
-    await new_user.insert()
-    return new_user
-
-
 @router.post("/me", response_model=BaseResponse)
 async def update_me(
     data: UpdateMeRequest, current_user: User = Depends(get_current_user)
@@ -256,82 +246,106 @@ async def update_me(
         raise APIException(
             code=114, msg="Username and password cannot be updated in demo mode"
         )
-    update_data = data.dict(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         return BaseResponse(code=0, msg="No information provided to update.")
 
+    requested_username = update_data.get("username")
+    if (
+        requested_username
+        and current_user.username == settings.DEFAULT_ADMIN_USER
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="The configured administrator username cannot be changed",
+        )
+
+    user_id = current_user.id
     old_username = current_user.username
+    expected_token_version = current_user.token_version
+    expected_refresh_hash = current_user.refresh_token_hash
+    new_username = requested_username
+    new_password = update_data.get("password")
+    credential_change = bool(new_username or new_password)
 
-    async with await mongodb_manager.client.start_session() as s:
-        async with s.start_transaction():
-            if "username" in update_data and update_data["username"]:
-                new_username = update_data["username"]
-                # 检查新用户名是否存在
-                if await User.find_one(User.username == new_username, session=s):
-                    raise APIException(
-                        code=111, msg="User with this username already exists"
-                    )
+    user_query = {
+        "_id": user_id,
+        "username": old_username,
+        "token_version": expected_token_version,
+        "refresh_token_hash": expected_refresh_hash,
+    }
+    set_fields = {"updated_at": datetime.now()}
+    if new_username:
+        set_fields["username"] = new_username
+    if new_password:
+        set_fields["password"] = hash_password(new_password)
+    if credential_change:
+        set_fields["refresh_token_hash"] = None
 
-                # 更新关联的 Application
-                await Application.find(Application.users == old_username).update(
-                    {"$set": {"users.$": new_username}}, session=s
+    user_update = {"$set": set_fields}
+    if credential_change:
+        user_update["$inc"] = {"token_version": 1}
+
+    user_collection = mongodb_manager.get_collection(User)
+
+    async def update_user(*, session=None):
+        result = await user_collection.update_one(
+            user_query,
+            user_update,
+            session=session,
+        )
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=409,
+                detail="User or session changed during profile update",
+            )
+
+    if new_username:
+        application_collection = mongodb_manager.get_collection(Application)
+        history_collection = mongodb_manager.get_collection(FunctionsHistory)
+        function_collection = mongodb_manager.get_collection(Function)
+
+        async def rename_in_transaction(session):
+            duplicate = await user_collection.find_one(
+                {"username": new_username, "_id": {"$ne": user_id}},
+                projection={"_id": 1},
+                session=session,
+            )
+            if duplicate:
+                raise HTTPException(
+                    status_code=409,
+                    detail="User with this username already exists",
                 )
 
-                # 更新关联的 FunctionsHistory
-                await FunctionsHistory.find(
-                    FunctionsHistory.updated_by == old_username
-                ).update({"$set": {"updated_by": new_username}}, session=s)
+            await update_user(session=session)
+            await application_collection.update_many(
+                {"users": old_username},
+                {"$set": {"users.$": new_username}},
+                session=session,
+            )
+            await history_collection.update_many(
+                {"updated_by": old_username},
+                {"$set": {"updated_by": new_username}},
+                session=session,
+            )
+            await function_collection.update_many(
+                {"users": old_username},
+                {"$set": {"users.$": new_username}},
+                session=session,
+            )
 
-                # 更新关联的 Function 中的 users 数组
-                await Function.find(Function.users == old_username).update(
-                    {"$set": {"users.$": new_username}}, session=s
-                )
-
-                current_user.username = new_username
-
-            if "password" in update_data and update_data["password"]:
-                current_user.password = hash_password(update_data["password"])
-
-            current_user.update_timestamp()
-            await current_user.save(session=s)
+        try:
+            async with mongodb_manager.client.start_session() as session:
+                await session.with_transaction(rename_in_transaction)
+        except DuplicateKeyError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="User with this username already exists",
+            ) from exc
+    else:
+        await update_user()
 
     return BaseResponse(code=0, msg="User information updated successfully")
-
-
-@router.delete("/delete/{username}", response_model=BaseResponse)
-async def delete_user(username: str):
-    """
-    Deletes a user.
-    """
-    user = await User.find_one(User.username == username)
-    if not user:
-        return BaseResponse(code=110, msg="User not found")
-
-    await user.delete()
-    return BaseResponse(code=0, msg=f"User '{username}' deleted successfully")
-
-
-@router.get("/get/{username}", response_model=User)
-async def get_user(username: str):
-    """
-    Retrieves a single user by username.
-    """
-    user = await User.find_one(User.username == username)
-    if not user:
-        return BaseResponse(code=110, msg="User not found")
-    return user
-
-
-@router.get("/list", response_model=list[User])
-async def list_users(page: int = 1, size: int = 10):
-    """
-    Retrieves a paginated list of users.
-    """
-    skip = (page - 1) * size
-    query = User.find_all()
-    return await query.skip(skip).limit(size).to_list()
-
-
 @router.post("/refreshToken", response_model=LoginResponse)
 async def refresh_token(data: RefreshTokenRequest):
     """
@@ -339,14 +353,35 @@ async def refresh_token(data: RefreshTokenRequest):
     """
     user = await verify_refresh_token_and_get_user(data.refreshToken)
 
-    # Issue a new pair of tokens
-    token_data = {"sub": user.username}
-    new_access_token = create_access_token(data=token_data)
+    expected_token_version = user.token_version
+    expected_refresh_hash = user.refresh_token_hash
+    token_data = {
+        "sub": user.username,
+        "token_version": expected_token_version,
+    }
     new_refresh_token = create_refresh_token(data=token_data)
+    result = await mongodb_manager.get_collection(User).update_one(
+        {
+            "_id": user.id,
+            "username": user.username,
+            "token_version": expected_token_version,
+            "refresh_token_hash": expected_refresh_hash,
+            "disabled": False,
+        },
+        {
+            "$set": {
+                "refresh_token_hash": hash_refresh_token(new_refresh_token),
+                "updated_at": datetime.now(),
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Session changed during token refresh",
+        )
 
-    # Update the refresh token in the database
-    user.refresh_token = new_refresh_token
-    await user.save()
+    new_access_token = create_access_token(data=token_data)
 
     return {
         "code": 0,

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from core.jwt_auth import get_current_user
 from core.s3_manager import s3_manager
-from core.config import settings
+from core.app_storage import app_storage_service
 from core.s3_external import s3_external_manager
 from models.applications_model import Application
 from models.common_model import BaseResponse
@@ -67,7 +67,8 @@ async def create_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await s3_manager.create_folder(data.appId.lower(), data.folder_name)
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+    success = await s3_manager.create_folder(bucket_name, data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to create folder")
     return BaseResponse(
@@ -88,7 +89,8 @@ async def delete_file(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await s3_manager.delete_object(data.appId.lower(), data.object_name)
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+    success = await s3_manager.delete_object(bucket_name, data.object_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete file")
     return BaseResponse(code=0, msg=f"File '{data.object_name}' deleted successfully.")
@@ -107,8 +109,9 @@ async def delete_files(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
     deleted_count, errors = await s3_manager.delete_objects(
-        data.appId.lower(), data.object_names
+        bucket_name, data.object_names
     )
     if errors:
         # Even if some files failed to delete, we consider the operation partially successful
@@ -143,7 +146,8 @@ async def delete_folder(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    success = await s3_manager.delete_folder(data.appId.lower(), data.folder_name)
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+    success = await s3_manager.delete_folder(bucket_name, data.folder_name)
     if not success:
         return BaseResponse(code=500, msg="Failed to delete folder")
     return BaseResponse(
@@ -168,8 +172,9 @@ async def upload_file(
         return BaseResponse(code=404, msg="Application not found")
 
     try:
+        bucket_name = await app_storage_service.get_default_bucket_name(appId)
         success = await s3_manager.upload_file_stream(
-            bucket_name=appId.lower(), object_name=object_name, file_stream=file
+            bucket_name=bucket_name, object_name=object_name, file_stream=file
         )
         if not success:
             return BaseResponse(code=500, msg="File upload failed")
@@ -199,7 +204,8 @@ async def download_file(
 
     response = None
     try:
-        response = s3_manager.client.get_object(data.appId.lower(), data.object_name)
+        bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+        response = s3_manager.client.get_object(bucket_name, data.object_name)
         return StreamingResponse(
             response.stream(32 * 1024),
             headers={"Content-Disposition": f"attachment; filename={data.object_name}"},
@@ -227,9 +233,8 @@ async def get_download_url(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    url = await s3_external_manager.get_download_url(
-        data.appId.lower(), data.object_name
-    )
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+    url = await s3_external_manager.get_download_url(bucket_name, data.object_name)
     if not url:
         return BaseResponse(code=500, msg="Failed to generate download URL")
 
@@ -253,7 +258,8 @@ async def list_objects(
     if not app:
         return BaseResponse(code=404, msg="Application not found")
 
-    objects = await s3_manager.list_objects(data.appId.lower(), data.prefix)
+    bucket_name = await app_storage_service.get_default_bucket_name(data.appId)
+    objects = await s3_manager.list_objects(bucket_name, data.prefix)
     if objects is None:
         return BaseResponse(code=500, msg="Failed to list objects")
 

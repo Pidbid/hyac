@@ -2,9 +2,8 @@
 import random
 import string
 
-from typing import Optional
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from pymongo.errors import OperationFailure
 
 from core.config import settings
@@ -18,9 +17,9 @@ def generate_short_id(length: int = 8) -> str:
     return "".join(random.choice(letters) for _ in range(length))
 
 
-def motor_result_serializer(cursor):
+def mongodb_result_serializer(cursor):
     """
-    Serializes Motor query results by converting ObjectId instances to strings.
+    Serializes MongoDB query results by converting ObjectId instances to strings.
     """
     results = []
     for doc in cursor:
@@ -56,7 +55,7 @@ async def create_mongodb_user(username: str, password: str, target_db: str) -> b
     """
     # Connect to the 'admin' database using root credentials from .env
     # The user in .env must have the userAdminAnyDatabase or root role.
-    client = AsyncIOMotorClient(
+    client = AsyncMongoClient(
         host="mongodb",
         port=27017,
         username=settings.MONGODB_USERNAME,
@@ -90,4 +89,4 @@ async def create_mongodb_user(username: str, password: str, target_db: str) -> b
         return False
     finally:
         # Close the client connection
-        client.close()
+        await client.close()

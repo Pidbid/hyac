@@ -3,7 +3,9 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import which
 
+from lsp_sidecar.runtime_requirements import PYRIGHT_LANGSERVER_COMMAND
 
 CONTENT_LENGTH_PATTERN = re.compile(rb"Content-Length: (\d+)\r\n")
 
@@ -25,6 +27,12 @@ class LspProcess:
 
 
 async def spawn_pyright(workspace: str) -> LspProcess:
+    if which(PYRIGHT_LANGSERVER_COMMAND) is None:
+        raise FileNotFoundError(
+            f"{PYRIGHT_LANGSERVER_COMMAND} is not installed in the LSP sidecar image. "
+            "Rebuild the lsp-sidecar service from app/pyproject.toml and app/uv.lock."
+        )
+
     workspace_path = Path(workspace).resolve()
     workspace_path.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -33,7 +41,7 @@ async def spawn_pyright(workspace: str) -> LspProcess:
         f"{workspace_path}:{python_path}" if python_path else str(workspace_path)
     )
     process = await asyncio.create_subprocess_exec(
-        "pyright-langserver",
+        PYRIGHT_LANGSERVER_COMMAND,
         "--stdio",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,

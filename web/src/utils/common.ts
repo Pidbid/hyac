@@ -82,8 +82,10 @@ export function convertDomain(originalDomain: string, protocol: string, prefix: 
   const host = parsed.hostname;
   const port = parsed.port ? `:${parsed.port}` : '';
 
-  // Local development: server.localhost -> {app}.localhost
-  if (host === 'localhost' || host.endsWith('.localhost')) {
+  // Legacy single-label local development: server.localhost -> {app}.localhost.
+  // Multi-label development domains such as server.hyac.localhost continue
+  // through the normal base-domain conversion so *.hyac.localhost TLS works.
+  if (host === 'localhost' || host === 'server.localhost') {
     return `${protocol}://${prefix}.localhost${port}`;
   }
 

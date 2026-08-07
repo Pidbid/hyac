@@ -46,7 +46,7 @@ watch(
 <template>
   <div class="apps-page">
     <!-- Row 1: Insight and Summary -->
-    <div class="apps-row apps-row-2col">
+    <div class="apps-row apps-row-2col apps-row-monitor">
       <FunctionStatusCard :loading="loading" :summary="summaryData" />
       <UnknownRequestCard :loading="loading" :summary="summaryData" />
     </div>
@@ -85,6 +85,11 @@ watch(
   min-width: 0;
 }
 
+.apps-row-monitor {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr);
+}
+
 @media (max-width: 768px) {
   .apps-page {
     padding: 16px;
@@ -92,6 +97,10 @@ watch(
 
   .apps-row-2col {
     flex-direction: column;
+  }
+
+  .apps-row-monitor {
+    display: flex;
   }
 }
 </style>

@@ -6,6 +6,7 @@ from beanie.odm.operators.update.general import Set
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from core.access_control import require_app_member
 from core.jwt_auth import get_current_user
 from models.common_model import BaseResponse
 from models.function_template_model import FunctionTemplate, TemplateType
@@ -68,6 +69,7 @@ async def get_function_templates(
     """
     Retrieves a paginated list of function templates.
     """
+    await require_app_member(data.appId, current_user)
     skip = (data.page - 1) * data.length
     query = FunctionTemplate.find(FunctionTemplate.app_id == data.appId)
 
@@ -99,7 +101,13 @@ async def create_function_template(
     """
     Creates a new function template.
     """
-    if await FunctionTemplate.find_one(FunctionTemplate.name == data.name):
+    await require_app_member(data.appId, current_user)
+    if data.type == TemplateType.SYSTEM:
+        raise HTTPException(status_code=403, detail="System templates are read-only")
+    if await FunctionTemplate.find_one(
+        FunctionTemplate.name == data.name,
+        FunctionTemplate.app_id == data.appId,
+    ):
         raise HTTPException(
             status_code=409, detail="Function template with this name already exists"
         )
@@ -131,6 +139,9 @@ async def delete_function_template(
     template = await FunctionTemplate.get(data.id)
     if not template:
         raise HTTPException(status_code=404, detail="Function template not found")
+    await require_app_member(template.app_id, current_user)
+    if template.type == TemplateType.SYSTEM:
+        raise HTTPException(status_code=403, detail="System templates are read-only")
 
     await template.delete()
 
@@ -147,10 +158,15 @@ async def update_function_template(
     template = await FunctionTemplate.get(data.id)
     if not template:
         raise HTTPException(status_code=404, detail="Function template not found")
+    await require_app_member(template.app_id, current_user)
+    if template.type == TemplateType.SYSTEM:
+        raise HTTPException(status_code=403, detail="System templates are read-only")
 
     update_data = data.model_dump(exclude_unset=True, exclude={"id"})
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if update_data.get("type") == TemplateType.SYSTEM:
+        raise HTTPException(status_code=403, detail="System templates are read-only")
 
     await template.update(Set(update_data))
 
@@ -167,5 +183,6 @@ async def get_function_template(
     template = await FunctionTemplate.get(data.id)
     if not template:
         raise HTTPException(status_code=404, detail="Function template not found")
+    await require_app_member(template.app_id, current_user)
 
     return BaseResponse(code=0, msg="success", data=template)

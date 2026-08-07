@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.0.13] - 2026-08-07
+
+### Added
+- Added a unified `ctx.cloud` resource facade for application databases, object storage, and common function calls.
+- Added runtime log streaming, function exception capture, and real-time console log rendering.
+- Added database collection index management and complete storage/database operation interfaces.
+- Added a production GitHub Actions release pipeline that builds and pushes `linux/amd64` and `linux/arm64` images and runs a real Chrome smoke test before release.
+
+### Fixed
+- Fixed editor drafts, layout persistence, Python formatting, and Monaco localization asset loading.
+- Fixed application runtime lifecycle, task recovery, container observation, and deletion retry reliability.
+- Fixed local HTTPS development login, database index listing, and LSP dependency health checks.
+- Hardened user sessions, function authorization, runtime credential isolation, dynamic CORS, and object-storage permission boundaries.
+
+### Refactored
+- Migrated the server database driver from Motor to PyMongo Async and added Beanie 2 compatibility.
+- Refactored the function executor, task worker, runtime control plane, and application storage management.
+- Completed the Pydantic V2 settings migration and unified frozen Python dependency sources for production images.
+- Refactored cloud resource, database, function, log, and application page interactions and layouts.
+
+### Documentation
+- Added bilingual documentation sites, deployment and development guides, and user documentation.
+- Expanded production deployment, version release, Docker Hub, and LSP sidecar image reuse guidance.
+
 ## [v0.0.12] - 2026-05-10
 
 ### Added

@@ -1,15 +1,17 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from shutil import which
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from starlette.websockets import WebSocketState
 
 from lsp_sidecar.formatter import run_formatter
 from lsp_sidecar.lsp_process import LspProcess, read_lsp_payload, write_lsp_payload
 from lsp_sidecar.pool import LspProcessPool
+from lsp_sidecar.runtime_requirements import REQUIRED_COMMANDS
 
 
 @asynccontextmanager
@@ -24,6 +26,20 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 async def health():
+    missing = [
+        command
+        for command in REQUIRED_COMMANDS
+        if which(command) is None
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unhealthy",
+                "missing": missing,
+                "hint": "Rebuild the lsp-sidecar image.",
+            },
+        )
     return {"status": "ok"}
 
 
@@ -114,7 +130,7 @@ def _track_document(docs: dict[str, str], payload: str) -> None:
 
 
 def _handle_formatting(payload: str, docs: dict[str, str]) -> str | None:
-    """Intercept textDocument/formatting and run ruff format. Returns response or None."""
+    """Intercept textDocument/formatting and run autopep8."""
     try:
         msg = json.loads(payload)
     except json.JSONDecodeError:

@@ -1,18 +1,17 @@
 # app/context.py
 import os
-import asyncio
-from typing import Any
+from typing import Any, Optional
 from types import SimpleNamespace
 from loguru import logger
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
-from pymongo import MongoClient
 
 from core.s3_context import S3Context
 from code_loader import CodeLoader
 from core.env_manager import set_dynamic_env
 from core.notification_manager import NotificationManager
 from models.applications_model import NotificationConfig
+from cloud import CloudFacade
 
 
 class EnvContext:
@@ -52,8 +51,8 @@ class FunctionContext:
         self,
         app_id: str,
         func_id: str,
-        pymongo_db: Database,
-        motor_db: AsyncIOMotorDatabase,
+        pymongo_db: Optional[Database],
+        async_db: Optional[AsyncDatabase],
         code_loader: CodeLoader,
         env: EnvContext,
         common: SimpleNamespace,
@@ -66,7 +65,7 @@ class FunctionContext:
             app_id: The ID of the application.
             func_id: The ID of the function.
             pymongo_db: The synchronous PyMongo database client.
-            motor_db: The asynchronous Motor database client.
+            async_db: The asynchronous PyMongo database client.
             code_loader: An instance of CodeLoader, kept for potential future use.
             env: An instance of EnvContext for environment variable management.
             common: A namespace object containing all pre-loaded common functions for the app.
@@ -77,19 +76,31 @@ class FunctionContext:
         self.func_id = func_id
         self.logger = logger  # Injects the global logger instance.
         self.pymongo_db = pymongo_db
-        self.motor_db = motor_db
+        self.async_db = async_db
         self.code_loader = code_loader
         self.env = env
         self.common = common
         self.notification = NotificationManager(notification_config)
         self.s3 = S3Context(bucket_name=app_id)
+        self.cloud = CloudFacade(self)
 
     @property
-    def db(self) -> AsyncIOMotorDatabase:
-        """Provides convenient access to the asynchronous Motor database client."""
-        return self.motor_db
+    def db(self) -> AsyncDatabase:
+        """Provides convenient access to the asynchronous PyMongo database client."""
+        if self.async_db is None:
+            raise RuntimeError("Function database context is not initialized")
+        return self.async_db
+
+    @property
+    def motor_db(self) -> AsyncDatabase:
+        """Backward-compatible alias for async_db."""
+        if self.async_db is None:
+            raise RuntimeError("Function database context is not initialized")
+        return self.async_db
 
     @property
     def sync_db(self) -> Database:
         """Provides convenient access to the synchronous PyMongo database client."""
+        if self.pymongo_db is None:
+            raise RuntimeError("Function database context is not initialized")
         return self.pymongo_db

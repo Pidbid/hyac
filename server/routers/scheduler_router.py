@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from typing import Optional
 from pydantic import BaseModel
 import asyncio
@@ -8,7 +8,6 @@ from models.common_model import BaseResponse
 from core.scheduler_manager import scheduler_manager
 from models.users_model import User
 from core.jwt_auth import get_current_user
-from models.applications_model import Application
 from models.functions_model import Function, FunctionType
 from core.scheduled_runner import run_function
 from core.exceptions import APIException

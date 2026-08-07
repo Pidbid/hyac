@@ -10,6 +10,10 @@ from loguru import logger
 from models.applications_model import Application, Dependency
 
 
+DEPENDENCY_PATH = "/dependencies/python"
+UV_CACHE_DIR = "/tmp/uv-cache"
+
+
 class DependencyLoader:
     """
     Manages the dynamic installation of dependencies for applications.
@@ -40,11 +44,14 @@ class DependencyLoader:
                     f"{package}=={version}" if version != "latest" else package
                 )
                 # Using uv for installation
+                os.makedirs(DEPENDENCY_PATH, exist_ok=True)
+                os.makedirs(UV_CACHE_DIR, exist_ok=True)
                 install_command = [
                     "uv",
                     "pip",
                     "install",
-                    "--system",
+                    "--target",
+                    DEPENDENCY_PATH,
                     package_and_version,
                 ]
                 logger.info(f"Installing dependency: {' '.join(install_command)}")
@@ -53,8 +60,9 @@ class DependencyLoader:
                     *install_command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env={**os.environ, "UV_CACHE_DIR": UV_CACHE_DIR},
                 )
-                stdout, stderr = await process.communicate()
+                _stdout, stderr = await process.communicate()
 
                 if process.returncode != 0:
                     error_message = stderr.decode().strip()
@@ -65,39 +73,38 @@ class DependencyLoader:
                 else:
                     logger.info(f"Successfully installed {package_and_version}")
                     # Invalidate caches and try to import the newly installed package.
+                    if DEPENDENCY_PATH not in sys.path:
+                        sys.path.insert(0, DEPENDENCY_PATH)
                     importlib.invalidate_caches()
             except Exception as e:
                 logger.error(f"Error installing or importing {package}: {e}")
                 raise
 
 
-async def install_app_dependencies():
+async def install_app_dependencies(application: Application):
     """
     Installs common dependencies for the current application instance.
     The APP_ID should be provided as an environment variable.
     """
-    app_id = os.getenv("APP_ID")
-    if not app_id:
-        logger.warning(
-            "APP_ID environment variable not set. Skipping dependency installation."
-        )
-        return
-
-    logger.info(f"Fetching dependencies for app: {app_id}")
-    # It's important to handle the case where the application might not be found
+    app_id = application.app_id
+    logger.info(f"Installing scoped dependencies for app: {app_id}")
     try:
-        app = await Application.find_one(Application.app_id == app_id)
-        if app and app.common_dependencies:
-            logger.info(f"Installing dependencies for application '{app.app_name}'...")
-            await DependencyLoader.install_dependencies(app.common_dependencies)
-            logger.info(f"Dependencies for application '{app.app_name}' installed.")
-        elif app:
+        if application.common_dependencies:
             logger.info(
-                f"No common dependencies found for application '{app.app_name}'."
+                f"Installing dependencies for application '{application.app_name}'..."
+            )
+            await DependencyLoader.install_dependencies(
+                application.common_dependencies
+            )
+            logger.info(
+                f"Dependencies for application '{application.app_name}' installed."
             )
         else:
-            logger.warning(f"Application with ID '{app_id}' not found in the database.")
+            logger.info(
+                f"No common dependencies found for application '{application.app_name}'."
+            )
     except Exception as e:
         logger.error(
             f"An error occurred while fetching or installing dependencies for app '{app_id}': {e}"
         )
+        raise

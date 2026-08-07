@@ -84,7 +84,12 @@ export default defineConfig(configEnv => {
       }
     },
     optimizeDeps: {
-      force: true
+      force: true,
+      exclude: [
+        '@codingame/monaco-vscode-language-pack-zh-hans',
+        '@codingame/monaco-vscode-python-default-extension',
+        '@codingame/monaco-vscode-theme-defaults-default-extension'
+      ]
     }
   };
 });

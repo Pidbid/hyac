@@ -20,6 +20,10 @@ web/src/typings/components.d.ts
 
 # IDEs and Editors
 .github
+!.github/
+!.github/workflows/
+!.github/workflows/docs-pages.yml
+!.github/workflows/ci.yml
 .vscode
 .idea
 .clinerules
@@ -38,6 +42,7 @@ traefik/dynamic-dev/*
 !traefik/dynamic-dev/tls.yml
 
 /app/logs
+/mongo-keyfile
 
 # Helloagents
 .helloagents
@@ -46,3 +51,5 @@ traefik/dynamic-dev/*
 .mcp.json
 # Nested git metadata
 web/.git_disabled/
+
+AGENTS.md

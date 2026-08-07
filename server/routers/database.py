@@ -1,14 +1,16 @@
 # routers/services/database.py
 import math
 from datetime import datetime
-from typing import List
+from typing import Literal, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo import ASCENDING, DESCENDING, TEXT
+from pymongo.errors import PyMongoError
 
 from core.database_dynamic import dynamic_db
 from core.jwt_auth import get_current_user
-from core.utils import motor_result_serializer
+from core.utils import mongodb_result_serializer
 from models.applications_model import Application
 from models.common_model import BaseResponse
 from core.exceptions import APIException
@@ -89,6 +91,184 @@ class UpdateDocumentByIdRequest(BaseModel):
     docData: dict
 
 
+class IndexField(BaseModel):
+    """Request model for one index field."""
+
+    field: str
+    direction: Literal["asc", "desc", "text"]
+
+
+class GetCollectionIndexesRequest(BaseModel):
+    """Request model for getting indexes from a collection."""
+
+    appId: str
+    colName: str
+
+
+class CreateIndexRequest(BaseModel):
+    """Request model for creating an index."""
+
+    appId: str
+    colName: str
+    keys: List[IndexField]
+    unique: bool = False
+    sparse: bool = False
+    expireAfterSeconds: int | None = None
+
+
+class DropIndexRequest(BaseModel):
+    """Request model for dropping an index."""
+
+    appId: str
+    colName: str
+    indexName: str
+
+
+class UpdateIndexRequest(CreateIndexRequest):
+    """Request model for replacing an index."""
+
+    oldIndexName: str
+
+
+INDEX_DIRECTION_MAP = {
+    "asc": ASCENDING,
+    "desc": DESCENDING,
+    "text": TEXT,
+}
+
+
+async def validate_database_access(app_id: str, username: str):
+    """Validate that the current user can manage the app database."""
+    app = await Application.find_one(
+        Application.app_id == app_id, Application.users == username
+    )
+    if not app:
+        raise HTTPException(
+            status_code=404, detail="Application not found or permission denied"
+        )
+    return app
+
+
+async def validate_collection_exists(app_id: str, col_name: str):
+    """Validate that a collection exists in the app database."""
+    collections = await dynamic_db.app_collections(app_id)
+    if col_name not in collections:
+        raise APIException(code=404, msg="Collection not found")
+
+
+def build_index_keys(keys: List[IndexField]):
+    """Convert frontend index fields into a PyMongo index key specification."""
+    if not keys:
+        raise APIException(code=400, msg="Index keys cannot be empty")
+
+    index_keys = []
+    for item in keys:
+        field = item.field.strip()
+        if not field:
+            raise APIException(code=400, msg="Index field cannot be empty")
+        if field.startswith("$") or "\x00" in field:
+            raise APIException(code=400, msg="Invalid index field name")
+        index_keys.append((field, INDEX_DIRECTION_MAP[item.direction]))
+
+    return index_keys
+
+
+def build_index_options(data: CreateIndexRequest):
+    """Build safe PyMongo index options from request data."""
+    options = {}
+    if data.unique:
+        options["unique"] = True
+    if data.sparse:
+        options["sparse"] = True
+    if data.expireAfterSeconds is not None:
+        if data.expireAfterSeconds < 0:
+            raise APIException(code=400, msg="TTL seconds must be greater than or equal to 0")
+        if len(data.keys) != 1:
+            raise APIException(code=400, msg="TTL indexes only support a single field")
+        options["expireAfterSeconds"] = data.expireAfterSeconds
+
+    return options
+
+
+def normalize_index_keys(index: dict):
+    """Return user-facing index keys from MongoDB index metadata."""
+    keys = []
+    weights = index.get("weights", {})
+
+    for field, direction in index.get("key", {}).items():
+        if field == "_fts":
+            keys.extend((weighted_field, TEXT) for weighted_field in weights)
+            continue
+        if field == "_ftsx":
+            continue
+        keys.append((field, direction))
+
+    return keys
+
+
+def serialize_index_key_direction(direction):
+    """Serialize a PyMongo index direction for the frontend."""
+    if direction == ASCENDING:
+        return "asc"
+    if direction == DESCENDING:
+        return "desc"
+    if direction == TEXT:
+        return "text"
+    return str(direction)
+
+
+def serialize_index(index: dict):
+    """Serialize MongoDB index metadata for the frontend."""
+    keys = [
+        {"field": field, "direction": serialize_index_key_direction(direction)}
+        for field, direction in normalize_index_keys(index)
+    ]
+
+    return {
+        "name": index.get("name", ""),
+        "keys": keys,
+        "unique": bool(index.get("unique", False)),
+        "sparse": bool(index.get("sparse", False)),
+        "expireAfterSeconds": index.get("expireAfterSeconds"),
+        "isDefault": index.get("name") == "_id_",
+    }
+
+
+def build_index_restore_args(index: dict):
+    """Build PyMongo create_index args from an existing MongoDB index document."""
+    keys = normalize_index_keys(index)
+
+    options = {}
+    for option_key in [
+        "name",
+        "unique",
+        "sparse",
+        "expireAfterSeconds",
+        "partialFilterExpression",
+        "collation",
+        "weights",
+        "default_language",
+        "language_override",
+        "textIndexVersion",
+        "2dsphereIndexVersion",
+        "bits",
+        "min",
+        "max",
+        "bucketSize",
+        "wildcardProjection",
+        "hidden",
+    ]:
+        if option_key in index:
+            options[option_key] = index[option_key]
+
+    return keys, options
+
+
+def find_index_by_name(indexes: list[dict], index_name: str):
+    """Find an index document by name."""
+    return next((index for index in indexes if index.get("name") == index_name), None)
+
+
 @router.post("/collections", response_model=BaseResponse)
 async def get_collections(
     data: GetCollectionRequest, current_user=Depends(get_current_user)
@@ -166,11 +346,121 @@ async def get_collection_documents(
         code=0,
         msg="Documents retrieved successfully",
         data={
-            "data": motor_result_serializer(documents),
+            "data": mongodb_result_serializer(documents),
             "pageNum": page_num,
             "pageSize": data.length,
             "total": total_count,
         },
+    )
+
+
+@router.post("/indexes", response_model=BaseResponse)
+async def get_collection_indexes(
+    data: GetCollectionIndexesRequest, current_user=Depends(get_current_user)
+):
+    """
+    Retrieves indexes from a specific collection.
+    """
+    await validate_database_access(data.appId, current_user.username)
+    await validate_collection_exists(data.appId, data.colName)
+
+    indexes = await dynamic_db.app_collection_indexes(data.appId, data.colName)
+    return BaseResponse(
+        code=0,
+        msg="Indexes retrieved successfully",
+        data={"data": [serialize_index(index) for index in indexes]},
+    )
+
+
+@router.post("/create_index", response_model=BaseResponse)
+async def create_index(data: CreateIndexRequest, current_user=Depends(get_current_user)):
+    """
+    Creates an index on a specific collection.
+    """
+    await validate_database_access(data.appId, current_user.username)
+    await validate_collection_exists(data.appId, data.colName)
+
+    index_keys = build_index_keys(data.keys)
+    index_options = build_index_options(data)
+    try:
+        index_name = await dynamic_db.app_create_collection_index(
+            data.appId, data.colName, index_keys, **index_options
+        )
+    except PyMongoError as e:
+        raise APIException(code=400, msg=str(e))
+
+    return BaseResponse(
+        code=0,
+        msg="Index created successfully",
+        data={"indexName": index_name},
+    )
+
+
+@router.post("/drop_index", response_model=BaseResponse)
+async def drop_index(data: DropIndexRequest, current_user=Depends(get_current_user)):
+    """
+    Drops an index from a specific collection.
+    """
+    await validate_database_access(data.appId, current_user.username)
+    await validate_collection_exists(data.appId, data.colName)
+    if data.indexName == "_id_":
+        raise APIException(code=400, msg="Cannot drop the default _id_ index")
+
+    try:
+        await dynamic_db.app_drop_collection_index(
+            data.appId, data.colName, data.indexName
+        )
+    except PyMongoError as e:
+        raise APIException(code=400, msg=str(e))
+
+    return BaseResponse(code=0, msg="Index dropped successfully", data={})
+
+
+@router.post("/update_index", response_model=BaseResponse)
+async def update_index(data: UpdateIndexRequest, current_user=Depends(get_current_user)):
+    """
+    Replaces an index by dropping the old index and creating a new one.
+    """
+    await validate_database_access(data.appId, current_user.username)
+    await validate_collection_exists(data.appId, data.colName)
+    if data.oldIndexName == "_id_":
+        raise APIException(code=400, msg="Cannot modify the default _id_ index")
+
+    index_keys = build_index_keys(data.keys)
+    index_options = build_index_options(data)
+    indexes = await dynamic_db.app_collection_indexes(data.appId, data.colName)
+    old_index = find_index_by_name(indexes, data.oldIndexName)
+    if not old_index:
+        raise APIException(code=404, msg="Index not found")
+
+    restore_keys, restore_options = build_index_restore_args(old_index)
+    old_index_dropped = False
+    try:
+        await dynamic_db.app_drop_collection_index(
+            data.appId, data.colName, data.oldIndexName
+        )
+        old_index_dropped = True
+        index_name = await dynamic_db.app_create_collection_index(
+            data.appId, data.colName, index_keys, **index_options
+        )
+    except PyMongoError as e:
+        if old_index_dropped:
+            try:
+                await dynamic_db.app_create_collection_index(
+                    data.appId, data.colName, restore_keys, **restore_options
+                )
+            except PyMongoError as restore_error:
+                raise APIException(
+                    code=500,
+                    msg=f"Index update failed and original index restore failed: {restore_error}",
+                )
+            raise APIException(code=400, msg=f"{e}; original index restored")
+        raise APIException(code=400, msg=str(e))
+
+    return BaseResponse(
+        code=0,
+        msg="Index updated successfully",
+        data={"indexName": index_name},
     )
 
 

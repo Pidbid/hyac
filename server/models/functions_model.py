@@ -4,8 +4,7 @@ from enum import Enum
 from typing import Optional
 
 from beanie import Document
-from pydantic import Field, model_validator
-from pymongo import IndexModel
+from pydantic import Field
 
 from core.utils import generate_short_id
 
@@ -40,27 +39,13 @@ class Function(Document):
     code: str = Field(..., min_length=10)
     status: FunctionStatus = Field(default=FunctionStatus.UNPUBLISHED)
     function_type: FunctionType = Field(default=FunctionType.ENDPOINT)
-    memory_limit: int = 128  # Memory limit in MB
-    timeout: int = 5  # Timeout in seconds
-    requires_auth: bool = True  # Whether authentication is required
+    memory_limit: int = Field(default=128, ge=128, le=4096)
+    timeout: int = Field(default=5, ge=1, le=300)
+    requires_auth: bool = False  # Whether authentication is required
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     users: list[str] = Field(default_factory=list)  # List of associated users
     description: Optional[str] = Field(default="", max_length=500)
-    s3_bucket: Optional[str] = Field(
-        default=None,
-        description="Name of the S3 bucket associated with the function.",
-    )
-
-    @model_validator(mode="after")
-    def set_s3_bucket(self) -> "Function":
-        """
-        Automatically sets the S3 bucket name based on the app_id.
-        """
-        if self.app_id:
-            self.s3_bucket = self.app_id.lower()
-        return self
-
     class Settings:
         """
         Pydantic and Beanie settings for the Function model.

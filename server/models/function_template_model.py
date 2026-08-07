@@ -1,7 +1,6 @@
 # models/function_template_model.py
 from datetime import datetime
 from enum import Enum
-from typing import List
 
 from beanie import Document
 from pydantic import Field

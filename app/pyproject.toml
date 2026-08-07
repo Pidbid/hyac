@@ -4,4 +4,26 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "autopep8==2.0.4",
+  "apscheduler==3.10.4",
+  "fastapi==0.115.12",
+  "httpx==0.28.1",
+  "loguru==0.7.3",
+  "minio==7.2.15",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+  "pymongo==4.13.1",
+  "pyright==1.1.409",
+  "pyyaml==6.0.2",
+  "ujson==5.10.0",
+  "uvicorn==0.34.3",
+  "watchfiles==1.0.5",
+  "websockets==15.0.1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+]

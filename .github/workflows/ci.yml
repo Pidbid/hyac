@@ -1,0 +1,230 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      DEV_MODE: "true"
+      SECRET_KEY: test-secret-key-with-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --project server --frozen
+      - run: uv sync --project app --frozen
+      - run: PYTHONPATH=server server/.venv/bin/python -m unittest discover -s test -p 'test_*.py' -v
+      - run: PYTHONPATH=server server/.venv/bin/python -m unittest discover -s server/tests -p 'test_*.py' -v
+      - run: PYTHONPATH=app app/.venv/bin/pytest -q app/tests
+      - run: python3 -m compileall -q server app test scripts
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:password-contract
+      - run: pnpm typecheck
+      - run: pnpm exec eslint .
+      - run: pnpm build
+
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN_NAME: example.com
+      EMAIL_ADDRESS: ci@example.com
+      MONGODB_USERNAME: hyac-root
+      MONGODB_PASSWORD: ci-mongodb-password
+      S3_ACCESS_KEY: ci-s3-access-key
+      S3_SECRET_KEY: ci-s3-secret-key
+      SECRET_KEY: ci-secret-key-with-at-least-32-characters
+      DEFAULT_ADMIN_USER: admin
+      DEFAULT_ADMIN_PASSWORD: ci-admin-password
+      SERVER_IMAGE_TAG: ci-compose-release
+      WEB_IMAGE_TAG: ci-compose-release
+      APP_IMAGE_TAG: ci-compose-release
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.dev.yml --env-file .env.example config --quiet
+
+  release-gate:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [python, frontend, compose]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate annotated stable tag on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$(git cat-file -t "${GITHUB_REF}")" = tag
+          git fetch origin main --no-tags
+          tagged_commit="$(git rev-list -n 1 "${GITHUB_REF}")"
+          git merge-base --is-ancestor "${tagged_commit}" origin/main
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release ${GITHUB_REF_NAME} already exists; refusing to republish." >&2
+            exit 1
+          fi
+      - name: Extract bilingual release notes
+        run: |
+          python3 scripts/extract-release-notes.py \
+            --tag "${GITHUB_REF_NAME}" \
+            --zh changelog/CHANGELOG.zh-CN.md \
+            --en changelog/CHANGELOG.md \
+            --output "${RUNNER_TEMP}/release-notes.md"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release-notes.md
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-images:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release-gate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            image: wicos/hyac_server
+            context: ./server
+          - name: web
+            image: wicos/hyac_web
+            context: ./web
+          - name: app
+            image: wicos/hyac_app
+            context: ./app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          username: wicos
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push ${{ matrix.name }}
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ matrix.image }}:${{ github.ref_name }}
+            ${{ matrix.image }}:sha-${{ github.sha }}
+          provenance: true
+          sbom: true
+      - name: Verify multi-architecture manifest
+        env:
+          IMAGE: ${{ matrix.image }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:${RELEASE_TAG}" --raw \
+            > "${RUNNER_TEMP}/manifest-${{ matrix.name }}.json"
+          python3 scripts/verify-image-manifest.py \
+            "${RUNNER_TEMP}/manifest-${{ matrix.name }}.json"
+      - name: Record image digest
+        env:
+          IMAGE: ${{ matrix.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: printf '%s=%s\n' "${IMAGE}" "${DIGEST}" > "${RUNNER_TEMP}/digest-${{ matrix.name }}.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: digest-${{ matrix.name }}
+          path: ${{ runner.temp }}/digest-${{ matrix.name }}.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  release-smoke:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: publish-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --dir web --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - name: Verify pushed image set
+        run: test "$(find "${RUNNER_TEMP}/digests" -name 'digest-*.txt' -type f | wc -l)" -eq 3
+      - name: Run production Compose and real Chrome smoke
+        env:
+          CI_SMOKE_IMAGE_TAG: ${{ github.ref_name }}
+        run: ./scripts/release-smoke.sh
+
+  create-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - name: Assemble release body with image digests
+        run: |
+          cp "${RUNNER_TEMP}/release/release-notes.md" "${RUNNER_TEMP}/release-body.md"
+          {
+            printf '\n## Docker 镜像 / Docker images\n\n'
+            printf '| Image | Digest |\n| --- | --- |\n'
+            sort "${RUNNER_TEMP}"/digests/digest-*.txt | while IFS='=' read -r image digest; do
+              printf '| `%s:%s` | `%s` |\n' "${image}" "${GITHUB_REF_NAME}" "${digest}"
+            done
+          } >> "${RUNNER_TEMP}/release-body.md"
+      - name: Create GitHub Release
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --title "Hyac ${GITHUB_REF_NAME}" \
+            --notes-file "${RUNNER_TEMP}/release-body.md" \
+            --draft=false \
+            --prerelease=false

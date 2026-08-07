@@ -16,17 +16,23 @@ const props = withDefaults(defineProps<Props>(), {
   tabSize: 2
 });
 
-const emit = defineEmits(['update:modelValue']); // 移除 update:height 事件
+const emit = defineEmits<{
+  'update:modelValue': [value: string];
+}>();
 
 const editorRef = ref<HTMLElement | null>(null);
 let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null;
+type JsonEditorOptions = monaco.editor.IStandaloneEditorConstructionOptions & {
+  experimentalEditContextEnabled: boolean;
+};
 
 const initMonaco = () => {
   if (editorRef.value) {
-    editorInstance = monaco.editor.create(editorRef.value, {
+    const editorOptions: JsonEditorOptions = {
       value: props.modelValue,
       language: 'json',
       readOnly: props.readOnly,
+      experimentalEditContextEnabled: false,
       minimap: { enabled: false },
       fontSize: props.fontSize,
       tabSize: props.tabSize,
@@ -36,7 +42,8 @@ const initMonaco = () => {
       lineNumbers: 'off',
       automaticLayout: true,
       fontFamily: 'Courier New, monospace'
-    });
+    };
+    editorInstance = monaco.editor.create(editorRef.value, editorOptions);
 
     editorInstance.onDidChangeModelContent(() => {
       emit('update:modelValue', editorInstance?.getValue() || '');

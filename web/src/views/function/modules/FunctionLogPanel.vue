@@ -1,89 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { NButton, NButtonGroup, NCard, NFlex, NIcon, NScrollbar, NTooltip } from 'naive-ui';
-import { EaselOutline, ReaderOutline, TerminalOutline } from '@vicons/ionicons5';
-import { $t } from '@/locales';
+import RuntimeLogPanel from '@/views/log/modules/RuntimeLogPanel.vue';
 
-const props = defineProps<{
-  logs: readonly Api.Function.FunctionLogsInfo[];
+defineProps<{
+  appId?: string | null;
+  funcId?: string | null;
+  compact?: boolean;
 }>();
 
-const logFilter = ref<Api.Function.LogType | 'all'>('all');
-
-const filteredLogs = computed(() => {
-  // This computed property will need to be in the parent component (index.vue)
-  // as it depends on the logStore. For now, we just filter the passed logs prop.
-  return props.logs.filter((log: Api.Function.FunctionLogsInfo) => {
-    if (logFilter.value === 'all') return true;
-    return log.logtype === logFilter.value;
-  });
-});
+const emit = defineEmits<{
+  collapse: [];
+  expand: [];
+}>();
 </script>
 
 <template>
-  <NCard
+  <RuntimeLogPanel
+    :key="funcId || 'runtime-log-panel'"
+    :app-id="appId"
+    :func-id="funcId"
+    :tail="0"
+    :compact="compact"
     :title="$t('page.function.log')"
-    :bordered="false"
-    size="small"
-    class="h-full"
-    :content-style="{ padding: '0px', height: 'calc(100% - 40px)' }"
-  >
-    <template #header-extra>
-      <NButtonGroup>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton circle size="small" :type="logFilter === 'all' ? 'primary' : 'default'" @click="logFilter = 'all'">
-              <template #icon>
-                <NIcon :component="TerminalOutline" />
-              </template>
-            </NButton>
-          </template>
-          {{ $t('page.function.allLogs') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              circle
-              size="small"
-              :type="logFilter === 'function' ? 'primary' : 'default'"
-              @click="logFilter = 'function'"
-            >
-              <template #icon>
-                <NIcon :component="EaselOutline" />
-              </template>
-            </NButton>
-          </template>
-          {{ $t('page.function.functionLogs') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              circle
-              size="small"
-              :type="logFilter === 'system' ? 'primary' : 'default'"
-              @click="logFilter = 'system'"
-            >
-              <template #icon>
-                <NIcon :component="ReaderOutline" />
-              </template>
-            </NButton>
-          </template>
-          {{ $t('page.function.systemLogs') }}
-        </NTooltip>
-      </NButtonGroup>
-    </template>
-    <NScrollbar class="h-full">
-      <NFlex v-for="log in filteredLogs" :key="log._id">
-        <div class="color-info">{{ log.timestamp }}</div>
-        <div v-if="log.logtype === 'function'" :class="`color-${log.level}`">{{ log.level }}</div>
-        <div v-if="log.logtype === 'system'" :class="`color-${log.level}`">{{ log.level }}(system)</div>
-        <div v-if="log.logtype === 'function'" class="color-blue">{{ log.message }}</div>
-        <div v-if="log.logtype === 'system'" class="color-black">{{ log.message }}</div>
-      </NFlex>
-    </NScrollbar>
-  </NCard>
+    @collapse="emit('collapse')"
+    @expand="emit('expand')"
+  />
 </template>
-
-<style scoped>
-/* Add any specific styles for the log panel here */
-</style>

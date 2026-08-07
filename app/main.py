@@ -5,21 +5,19 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Response, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from core.exceptions import APIException
 
-# Assuming a shared database manager and logger configuration
-from core.database import MongoDBManager
 from core.logger import configure_logging
 from router import router as dynamic_router
-from core.db_manager import db_manager
 from core.dependency_loader import install_app_dependencies
 from core.cache_watcher import watch_function_changes
 from core.env_manager import get_dynamic_envs, watch_for_env_changes
+from core.runtime_client import get_runtime_client
+from core.dynamic_cors import DynamicCORSMiddleware, watch_runtime_config
 from lsp.router_lsp import router as lsp_router
 from code_loader import CodeLoader
 
@@ -42,7 +40,6 @@ class HealthCheckFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
-mongodb_manager = MongoDBManager()
 cors_config = CORSConfig()
 app_ready = False
 
@@ -54,24 +51,12 @@ async def lifespan(app: FastAPI):
     Asynchronous context manager to handle application startup and shutdown events
     for the execution environment.
     """
-    # Initialize the database connection.
-    await mongodb_manager.init_beanie()
-    logger.info("Executor database initialized.")
-
-    # Load CORS configuration
-    application = await Application.find_one(
-        Application.app_id == os.environ.get("APP_ID")
-    )
-    cors_config = application.cors or None
+    runtime_client = get_runtime_client()
+    bootstrap = await runtime_client.bootstrap()
+    application = Application.model_validate(bootstrap["application"])
+    cors_config = application.cors or CORSConfig()
     app.state.application = application
-    if not cors_config:
-        logger.error("Failed to load CORS configuration.")
-        cors_config = CORSConfig(
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    app.state.cors_config = cors_config
 
     # Pre-load common functions
     code_loader = CodeLoader()
@@ -80,30 +65,33 @@ async def lifespan(app: FastAPI):
     logger.info(f"Successfully pre-loaded common functions.")
 
     # Install dependencies for the specific application.
-    await install_app_dependencies()
+    await install_app_dependencies(application)
 
     # Configure the logging system.
     configure_logging()
     logger.info("Executor application starting up...")
 
     # Load initial environment variables into the process.
-    initial_envs = await get_dynamic_envs()
+    initial_envs = await get_dynamic_envs(application)
     os.environ.update(initial_envs)
     logger.info(
         f"Loaded {len(initial_envs)} dynamic environment variables into process."
     )
 
     # Start the function code cache watcher.
-    asyncio.create_task(watch_function_changes(app))
+    background_tasks = [asyncio.create_task(watch_function_changes(app))]
     # Start the environment variable watcher.
-    asyncio.create_task(watch_for_env_changes())
+    background_tasks.append(asyncio.create_task(watch_for_env_changes()))
+    background_tasks.append(asyncio.create_task(watch_runtime_config(app)))
     app_ready = True
     logger.info("Executor is now ready to accept requests.")
 
     yield
 
-    # Close all database connections managed by the connection pool.
-    db_manager.close_all()
+    for task in background_tasks:
+        task.cancel()
+    await asyncio.gather(*background_tasks, return_exceptions=True)
+    await runtime_client.close()
     logger.info("Executor application shutting down.")
 
 
@@ -118,18 +106,22 @@ async def api_exception_handler(request: Request, exc: APIException):
     """
     return JSONResponse(
         status_code=200,
-        content={"code": exc.code, "msg": exc.msg},
+        content={"code": exc.code, "msg": exc.msg, "data": None},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Return runtime HTTP failures using the public API response contract."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.status_code, "msg": str(exc.detail), "data": None},
+        headers=exc.headers,
     )
 
 
 # Add CORS middleware to allow cross-origin requests.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_config.allow_origins,
-    allow_credentials=cors_config.allow_credentials,
-    allow_methods=cors_config.allow_methods,
-    allow_headers=cors_config.allow_headers,
-)
+app.add_middleware(DynamicCORSMiddleware)
 
 
 @app.get("/")

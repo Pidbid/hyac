@@ -94,7 +94,7 @@ graph TD
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Beanie (Motor), Loguru
+- **Backend**: Python 3.10+, FastAPI, Beanie, PyMongo Async, Loguru
 - **Frontend**: Vue.js 3, Vite, Naive UI, Pinia, UnoCSS, TypeScript
 - **Database & Storage**: MongoDB, RustFS(S3-compatible)
 - **Containerization**: Docker, Docker Compose
@@ -114,21 +114,91 @@ graph TD
     cd hyac
     ```
 
-2.  Configure environment variables:
-    Copy the `.env.example` file and rename it to `.env`, then modify the configurations according to your environment.
+2.  Configure production environment variables:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Replace every placeholder in `.env` before startup. Required values are:
+
+    - `DOMAIN_NAME` and `EMAIL_ADDRESS`
+    - `MONGODB_USERNAME` and `MONGODB_PASSWORD`
+    - `S3_ACCESS_KEY` and `S3_SECRET_KEY`
+    - `SECRET_KEY` (at least 32 characters)
+    - `DEFAULT_ADMIN_USER` and `DEFAULT_ADMIN_PASSWORD`
+    - `GLOBAL_TAG` (a stable release tag such as `v1.2.3`, never `latest`; it is shared by server, web, app, and the LSP sidecar)
+
+    `openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` placeholder from `.env.example` in production.
+
+3.  Generate the MongoDB cluster authentication keyfile:
+
+    ```bash
+    ./scripts/01-create-mongo-keyfile.sh
+    ```
+
+    Continue only after the script confirms mode `0400` and ownership by the MongoDB container user.
 
 ### ▶️ Starting the Services
 
-Execute the following command to build and start all services:
+Pull the three multi-architecture images for the selected release and start all services:
 
 ```bash
-docker-compose up -d
+docker compose pull
+docker compose up -d --no-build
 ```
+
+Pushing an annotated stable `vX.Y.Z` tag starts the release workflow. It publishes `wicos/hyac_server`, `wicos/hyac_web`, and `wicos/hyac_app`. The LSP sidecar deliberately reuses the `hyac_app` image with a different startup command.
+
+### 📦 Creating a Release
+
+The workflow fixes the Docker Hub username to `wicos`. Configure only this GitHub Actions secret in the repository:
+
+- `DOCKERHUB_TOKEN`: a Docker Hub access token with push permission.
+
+Do not enable Docker Hub immutable tags, because a failed workflow must be rerunnable for the same tag. Before release, add a non-empty section for the exact same version to both `changelog/CHANGELOG.zh-CN.md` and `changelog/CHANGELOG.md`, and make sure the release commit is already on `main`. Then create and push an annotated stable tag manually:
+
+```bash
+git tag -a v1.2.3 -m "Hyac v1.2.3"
+git push origin v1.2.3
+```
+
+The workflow runs the base CI, builds and pushes all three images for `linux/amd64` and `linux/arm64`, runs the production Compose/Chrome smoke test, and finally creates the bilingual GitHub Release. A smoke failure never creates the Release.
 
 ### 🌐 Access Points
 
-- **Frontend Application**: `http://localhost:80`
-- **RustFS Console**: `http://localhost:9001` (uses the configured S3/RustFS access key and secret)
+- **Frontend Application**: `https://console.<DOMAIN_NAME>`
+
+### 🔐 Local development with trusted HTTPS
+
+Use a separate `.env.dev` with `DOMAIN_NAME=hyac.localhost` and set
+`APP_CODE_PATH_ON_HOST` to the canonical output of `realpath app`. Install
+`mkcert`, initialize its local CA, and create the certificate used by Traefik:
+
+```bash
+mkcert -install
+mkdir -p traefik/certs
+mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem \
+  localhost traefik.localhost "*.hyac.localhost"
+```
+
+Run the preflight before starting the development stack:
+
+```bash
+./scripts/dev-up.sh --check
+./scripts/dev-up.sh
+```
+
+The preflight validates Docker, development settings, the canonical source
+path, and the certificate trust chain. `*.hyac.localhost` covers static and
+dynamic application subdomains; the Traefik dashboard retains the explicit
+`traefik.localhost` alias. The preflight never modifies the system trust store
+automatically. Local endpoints are:
+
+- `https://console.hyac.localhost`
+- `https://server.hyac.localhost/docs`
+- `https://oss.hyac.localhost`
+- `https://traefik.localhost`
 
 ## 📁 Major Project Structure
 

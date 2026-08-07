@@ -158,7 +158,6 @@ def handler(ctx):
         # shim adds ~8 lines, so user code starts around line 8
         # ctx.get is on the first line of user code handler
         shim_lines = shim_header.count("\n") + 1  # +1 for the blank line
-        handler_line = shim_lines + 2  # def handler line
         ctx_get_line = shim_lines + 3  # name = ctx.get line
 
         completion_req = {

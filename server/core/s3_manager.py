@@ -2,6 +2,7 @@
 import asyncio
 import io
 import json
+import os
 import tempfile
 from datetime import timedelta
 from typing import Dict, List, Optional
@@ -126,6 +127,16 @@ class S3Manager:
                     exc_info=True,
                 )
             return None
+
+    async def delete_bucket_policy(self, bucket_name: str):
+        """
+        Deletes a bucket policy if the backend supports the operation.
+        """
+        if not self._check_client():
+            logger.error("S3 client is not initialized. Cannot delete bucket policy.")
+            return
+        assert self.client is not None
+        await asyncio.to_thread(self.client.delete_bucket_policy, bucket_name)
 
     async def set_bucket_to_public_read(self, bucket_name: str):
         """
@@ -413,27 +424,18 @@ class S3Manager:
             logger.error(f"Failed to remove bucket '{bucket_name}': {e}")
             return False
 
-    async def add_user(self, access_key: str, secret_key: str) -> bool:
-        """
-        Adds a new S3-compatible storage user using the 'mc' client.
-        """
-        if not self._check_client():
-            return False
+    def _mc_target(self) -> str:
+        return "hyac-rustfs"
 
-        logger.warning(
-            "The 'mc admin user add' workflow is S3-specific and must be "
-            "verified before it is used with RustFS in production."
-        )
-        mc_alias = "myrustfs"
-        command = [
-            "mc",
-            "admin",
-            "user",
-            "add",
-            mc_alias,
-            access_key,
-            secret_key,
-        ]
+    def _mc_endpoint_url(self) -> str:
+        endpoint = settings.object_storage_internal_endpoint
+        if endpoint.startswith(("http://", "https://")):
+            return endpoint
+        scheme = "https" if settings.S3_SECURE_INTERNAL else "http"
+        return f"{scheme}://{endpoint}"
+
+    async def _run_mc(self, *args: str) -> tuple[bool, str]:
+        command = ["mc", *args]
         try:
             process = await asyncio.create_subprocess_exec(
                 *command,
@@ -441,111 +443,153 @@ class S3Manager:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await process.communicate()
-
-            if process.returncode == 0:
-                logger.info(
-                    f"User '{access_key}' created successfully: {stdout.decode()}"
-                )
-                return True
-            else:
-                logger.error(f"Failed to create user '{access_key}': {stderr.decode()}")
-                return False
         except FileNotFoundError:
-            logger.error(
-                "The 'mc' command was not found. Ensure the S3 Client (mc) is installed and in the system's PATH."
-            )
-            return False
+            return False, "The 'mc' command was not found in PATH."
 
-    async def set_user_policy_for_bucket(
-        self, policy_name: str, bucket_name: str, permission: str, access_key: str
-    ) -> bool:
-        """
-        Sets a policy for a user on a specific bucket.
-        """
-        if not self._check_client():
-            return False
+        output = "\n".join(
+            part.decode("utf-8", errors="replace").strip()
+            for part in (stdout, stderr)
+            if part
+        ).strip()
+        return process.returncode == 0, output
 
-        logger.warning(
-            "The 'mc admin policy' workflow is S3-specific and must be "
-            "verified before it is used with RustFS in production."
+    async def _ensure_mc_alias(self) -> tuple[bool, str]:
+        access_key = settings.object_storage_access_key
+        secret_key = settings.object_storage_secret_key
+        if not access_key or not secret_key:
+            return False, "S3 admin credentials are not configured."
+
+        return await self._run_mc(
+            "alias",
+            "set",
+            self._mc_target(),
+            self._mc_endpoint_url(),
+            access_key,
+            secret_key,
         )
-        if permission == "readonly":
-            actions = ["s3:GetObject"]
-        elif permission == "readwrite":
-            actions = [
-                "s3:GetObject",
-                "s3:PutObject",
-                "s3:DeleteObject",
-                "s3:ListBucket",
-            ]
-        else:
-            logger.error(f"Invalid permission type: {permission}")
-            return False
 
+    async def ensure_user(self, access_key: str, secret_key: str) -> tuple[bool, str]:
+        """
+        Ensures an object-storage user exists.
+
+        This uses the MinIO-compatible `mc admin` workflow supported by RustFS-like
+        deployments. Callers should treat failure as a provisioning failure rather
+        than falling back to root credentials.
+        """
+        ok, output = await self._ensure_mc_alias()
+        if not ok:
+            return False, output
+
+        ok, output = await self._run_mc(
+            "admin", "user", "info", self._mc_target(), access_key
+        )
+        if ok:
+            return True, output
+
+        ok, output = await self._run_mc(
+            "admin", "user", "add", self._mc_target(), access_key, secret_key
+        )
+        return ok, output
+
+    async def remove_user(self, access_key: str) -> tuple[bool, str]:
+        """Removes an object-storage user if it exists."""
+        ok, output = await self._ensure_mc_alias()
+        if not ok:
+            return False, output
+
+        ok, info_output = await self._run_mc(
+            "admin", "user", "info", self._mc_target(), access_key
+        )
+        if not ok:
+            normalized_output = info_output.casefold()
+            explicitly_missing = any(
+                marker in normalized_output
+                for marker in (
+                    "specified user does not exist",
+                    "user does not exist",
+                    "user not found",
+                    "no such user",
+                )
+            )
+            if explicitly_missing:
+                return True, info_output
+            return False, info_output
+
+        return await self._run_mc(
+            "admin", "user", "remove", self._mc_target(), access_key
+        )
+
+    async def attach_bucket_policy_to_user(
+        self, access_key: str, policy_name: str, bucket_names: list[str]
+    ) -> tuple[bool, str]:
+        """Ensures a least-privilege bucket policy exists and attaches it."""
+        ok, output = await self._ensure_mc_alias()
+        if not ok:
+            return False, output
+
+        bucket_resources = [f"arn:aws:s3:::{name}" for name in bucket_names]
+        object_resources = [f"arn:aws:s3:::{name}/*" for name in bucket_names]
         policy = {
             "Version": "2012-10-17",
             "Statement": [
                 {
                     "Effect": "Allow",
-                    "Action": actions,
-                    "Resource": [f"arn:aws:s3:::{bucket_name}/*"],
-                }
+                    "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+                    "Resource": bucket_resources,
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:GetObject",
+                        "s3:PutObject",
+                        "s3:DeleteObject",
+                        "s3:AbortMultipartUpload",
+                        "s3:ListMultipartUploadParts",
+                    ],
+                    "Resource": object_resources,
+                },
             ],
         }
-
-        mc_alias = "myrustfs"
 
         with tempfile.NamedTemporaryFile(
             mode="w+", delete=False, suffix=".json", encoding="utf-8"
         ) as tmp:
-            json.dump(policy, tmp, indent=4)
+            json.dump(policy, tmp, indent=2)
             tmp_policy_path = tmp.name
 
         try:
-            create_policy_command = [
-                "mc",
+            ok, output = await self._run_mc(
                 "admin",
                 "policy",
-                "add",
-                mc_alias,
+                "create",
+                self._mc_target(),
                 policy_name,
                 tmp_policy_path,
-            ]
-            process = await asyncio.create_subprocess_exec(*create_policy_command)
-            await process.wait()
-            if process.returncode != 0:
-                raise Exception(f"Failed to create policy '{policy_name}'.")
+            )
+            if not ok:
+                policy_exists, info_output = await self._run_mc(
+                    "admin",
+                    "policy",
+                    "info",
+                    self._mc_target(),
+                    policy_name,
+                )
+                if policy_exists:
+                    ok, output = True, info_output
+            if not ok:
+                return False, output
 
-            logger.info(f"Policy '{policy_name}' created or updated successfully.")
-
-            attach_policy_command = [
-                "mc",
+            ok, output = await self._run_mc(
                 "admin",
                 "policy",
                 "attach",
-                mc_alias,
+                self._mc_target(),
                 policy_name,
                 "--user",
                 access_key,
-            ]
-            process = await asyncio.create_subprocess_exec(*attach_policy_command)
-            await process.wait()
-            if process.returncode != 0:
-                raise Exception(f"Failed to attach policy to user '{access_key}'.")
-
-            logger.info(
-                f"Policy '{policy_name}' successfully attached to user '{access_key}'."
             )
-            return True
-        except Exception as e:
-            logger.error(f"Failed to set policy: {e}")
-            cleanup_command = ["mc", "admin", "policy", "remove", mc_alias, policy_name]
-            await asyncio.create_subprocess_exec(*cleanup_command)
-            logger.info(f"Attempted to clean up policy '{policy_name}'.")
-            return False
+            return ok, output
         finally:
-            import os
-
             os.unlink(tmp_policy_path)
 
 
