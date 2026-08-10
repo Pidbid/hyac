@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.0.14] - 2026-08-10
+
+### Added
+- Switched production ACME validation to DNS-01 with a configurable DNS provider and one shared `*.DOMAIN_NAME` wildcard certificate for fixed routes and dynamic applications.
+
+### Changed
+- Moved DNS provider credentials to an external environment file and read-only secret directory, with separate ACME staging CA and certificate storage support.
+- Expanded CI configuration gates and bilingual deployment documentation for NameSilo, wildcard FRP routing, and first-time certificate issuance.
+
+### Tests
+- Added regression coverage for production Compose, required DNS-01 settings, fixed routers, and dynamic runtime wildcard certificates.
+
 ## [v0.0.13] - 2026-08-07
 
 ### Added
