@@ -72,12 +72,15 @@ services:
       - "traefik.http.routers.hyac-rustfs.rule=Host(`oss.${DOMAIN_NAME:?set DOMAIN_NAME}`)"
       - "traefik.http.routers.hyac-rustfs.entrypoints=websecure"
       - "traefik.http.routers.hyac-rustfs.tls.certresolver=myresolver"
+      - "traefik.http.routers.hyac-rustfs.tls.domains[0].main=*.${DOMAIN_NAME:?set DOMAIN_NAME}"
       - "traefik.http.services.hyac-rustfs.loadbalancer.server.port=9000"
       - "traefik.http.services.hyac-rustfs.loadbalancer.passhostheader=true"
   traefik:
     image: "traefik:v3.6.1"
     container_name: "hyac_traefik"
     restart: unless-stopped
+    env_file:
+      - ${ACME_DNS_CREDENTIALS_FILE:?set ACME_DNS_CREDENTIALS_FILE to a provider environment file}
     command:
       - "--api.dashboard=true"
       - "--entrypoints.web.address=:80"
@@ -87,8 +90,9 @@ services:
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
       - "--certificatesresolvers.myresolver.acme.email=${EMAIL_ADDRESS:?set EMAIL_ADDRESS}"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.storage=${ACME_STORAGE_FILE:-/letsencrypt/acme.json}"
+      - "--certificatesresolvers.myresolver.acme.caserver=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=${ACME_DNS_PROVIDER:?set ACME_DNS_PROVIDER to a Traefik-supported DNS provider}"
     ports:
       - "80:80"
       - "443:443"
@@ -96,6 +100,7 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik/letsencrypt:/letsencrypt"
       - "./traefik/dynamic:/etc/traefik/dynamic"
+      - "${ACME_DNS_SECRETS_DIR:-/etc/hyac/acme-dns}:/run/secrets/acme-dns:ro"
     networks:
       - hyac_network
   server:
@@ -151,6 +156,7 @@ services:
       - "traefik.http.routers.hyac-server.rule=Host(`server.${DOMAIN_NAME:?set DOMAIN_NAME}`) && !PathPrefix(`/internal`)"
       - "traefik.http.routers.hyac-server.entrypoints=websecure"
       - "traefik.http.routers.hyac-server.tls.certresolver=myresolver"
+      - "traefik.http.routers.hyac-server.tls.domains[0].main=*.${DOMAIN_NAME:?set DOMAIN_NAME}"
       - "traefik.http.services.hyac-server.loadbalancer.server.port=8000"
   web:
     image: wicos/hyac_web:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to an immutable release tag}
@@ -165,6 +171,7 @@ services:
       - "traefik.http.routers.hyac-web.rule=Host(`console.${DOMAIN_NAME:?set DOMAIN_NAME}`)"
       - "traefik.http.routers.hyac-web.entrypoints=websecure"
       - "traefik.http.routers.hyac-web.tls.certresolver=myresolver"
+      - "traefik.http.routers.hyac-web.tls.domains[0].main=*.${DOMAIN_NAME:?set DOMAIN_NAME}"
       - "traefik.http.services.hyac-web.loadbalancer.server.port=80"
       - "traefik.http.services.hyac-web.loadbalancer.passhostheader=true"
   app:

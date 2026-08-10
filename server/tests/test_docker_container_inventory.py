@@ -141,14 +141,56 @@ class RuntimeTlsRoutingTests(unittest.TestCase):
             DEV_MODE=False,
             CI_SMOKE_MODE=False,
             RUNTIME_INGRESS_TLS=True,
+            DOMAIN_NAME="example.com",
         )
 
         with patch.object(docker_manager_module, "settings", production_settings):
             self.assertTrue(docker_manager_module._use_acme_certresolver())
-            self.assertIn(
-                'certResolver: "myresolver"',
-                docker_manager_module._router_tls_yaml_block(),
+            tls_block = docker_manager_module._router_tls_yaml_block()
+
+        self.assertIn('certResolver: "myresolver"', tls_block)
+        self.assertIn('main: "*.example.com"', tls_block)
+
+    def test_production_runtime_uses_the_shared_wildcard_certificate(self):
+        production_settings = SimpleNamespace(
+            DEV_MODE=False,
+            CI_SMOKE_MODE=False,
+            RUNTIME_INGRESS_TLS=True,
+            RUNTIME_INGRESS_ENTRYPOINT="websecure",
+        )
+
+        with patch.object(docker_manager_module, "settings", production_settings):
+            labels = docker_manager_module._runtime_traefik_labels(
+                container_name="hyac-app-runtime-app12345",
+                app_id="App12345",
+                domain_name="example.com",
             )
+
+        router = "traefik.http.routers.hyac-app-runtime-app12345"
+        self.assertEqual("myresolver", labels[f"{router}.tls.certresolver"])
+        self.assertEqual("*.example.com", labels[f"{router}.tls.domains[0].main"])
+        self.assertEqual(
+            "Host(`app12345.example.com`)",
+            labels[f"{router}.rule"],
+        )
+
+    def test_ci_runtime_does_not_reference_acme_or_wildcard_domains(self):
+        smoke_settings = SimpleNamespace(
+            DEV_MODE=False,
+            CI_SMOKE_MODE=True,
+            RUNTIME_INGRESS_TLS=True,
+            RUNTIME_INGRESS_ENTRYPOINT="ci",
+        )
+
+        with patch.object(docker_manager_module, "settings", smoke_settings):
+            labels = docker_manager_module._runtime_traefik_labels(
+                container_name="hyac-app-runtime-app12345",
+                app_id="App12345",
+                domain_name="ci.example.com",
+            )
+
+        self.assertFalse(any("certresolver" in key for key in labels))
+        self.assertFalse(any("tls.domains" in key for key in labels))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.0.14] - 2026-08-10
+
+### 新增
+- 生产环境改用可配置 DNS Provider 的 ACME DNS-01 验证，为固定入口和动态 APP 统一申请 `*.DOMAIN_NAME` 通配符证书。
+
+### 改进
+- 将 DNS Provider 凭据移至仓库外环境文件和只读密钥目录，并支持独立的 ACME staging CA 与证书存储。
+- 完善 CI 配置门禁及中英文部署文档，补充 NameSilo、FRP 通配路由和首次证书签发流程。
+
+### 测试
+- 新增生产 Compose、DNS-01 必填配置、固定路由及动态运行时通配证书回归测试。
+
 ## [v0.0.13] - 2026-08-07
 
 ### 新增
