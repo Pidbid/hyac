@@ -629,6 +629,14 @@ def _use_acme_certresolver() -> bool:
     )
 
 
+def _acme_wildcard_domain(domain_name: Optional[str] = None) -> str:
+    """Return the single-level wildcard shared by all production routers."""
+    resolved_domain = domain_name or settings.DOMAIN_NAME
+    if not resolved_domain:
+        raise ValueError("DOMAIN_NAME is required for the production ACME resolver")
+    return f"*.{resolved_domain}"
+
+
 def _router_tls_yaml_block(indent: str = "      ") -> str:
     """
     Build router tls config block for Traefik dynamic file provider.
@@ -636,11 +644,41 @@ def _router_tls_yaml_block(indent: str = "      ") -> str:
     if not settings.RUNTIME_INGRESS_TLS:
         return ""
     if _use_acme_certresolver():
+        wildcard_domain = _acme_wildcard_domain()
         return (
             f"{indent}tls:\n"
-            f'{indent}  certResolver: "myresolver"'
+            f'{indent}  certResolver: "myresolver"\n'
+            f"{indent}  domains:\n"
+            f'{indent}    - main: "{wildcard_domain}"'
         )
     return f"{indent}tls: {{}}"
+
+
+def _runtime_traefik_labels(
+    *,
+    container_name: str,
+    app_id: str,
+    domain_name: str,
+) -> Dict[str, str]:
+    """Build runtime ingress labels without deriving per-app certificates."""
+    router_prefix = f"traefik.http.routers.{container_name}"
+    labels = {
+        "traefik.enable": "true",
+        f"{router_prefix}.rule": f"Host(`{app_id.lower()}.{domain_name}`)",
+        f"{router_prefix}.entrypoints": settings.RUNTIME_INGRESS_ENTRYPOINT,
+        f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
+    }
+
+    if settings.RUNTIME_INGRESS_TLS:
+        labels[f"{router_prefix}.tls"] = "true"
+
+    if _use_acme_certresolver():
+        labels[f"{router_prefix}.tls.certresolver"] = "myresolver"
+        labels[f"{router_prefix}.tls.domains[0].main"] = (
+            _acme_wildcard_domain(domain_name)
+        )
+
+    return labels
 
 
 # In-memory store for running app containers. A more robust solution might use Redis.
@@ -1694,22 +1732,11 @@ async def start_app_container(
             raise
 
         # --- Traefik Labels for the runtime container ---
-        traefik_labels = {
-            "traefik.enable": "true",
-            f"traefik.http.routers.{container_name}.rule": f"Host(`{app.app_id.lower()}.{domain_name}`)",
-            f"traefik.http.routers.{container_name}.entrypoints": settings.RUNTIME_INGRESS_ENTRYPOINT,
-            f"traefik.http.services.{container_name}.loadbalancer.server.port": "8001",
-        }
-
-        if settings.RUNTIME_INGRESS_TLS:
-            traefik_labels[
-                f"traefik.http.routers.{container_name}.tls"
-            ] = "true"
-
-        if _use_acme_certresolver():
-            traefik_labels[
-                f"traefik.http.routers.{container_name}.tls.certresolver"
-            ] = "myresolver"
+        traefik_labels = _runtime_traefik_labels(
+            container_name=container_name,
+            app_id=app.app_id,
+            domain_name=domain_name,
+        )
 
         # Merge compose labels with traefik labels
         all_labels = {**compose_labels, **traefik_labels}

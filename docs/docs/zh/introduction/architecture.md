@@ -30,7 +30,7 @@ Traefik 是外部流量入口。
 - `https://oss.<DOMAIN_NAME>` 访问 RustFS/S3 兼容对象存储。
 - `https://<app_id>.<DOMAIN_NAME>/<function_id>` 调用应用函数。
 
-生产环境使用 `docker-compose.yml` 和 ACME 自动证书。开发环境使用 `docker-compose.dev.yml`、`.env.dev` 和本地 TLS 证书。
+生产环境使用 `docker-compose.yml`，通过可配置 DNS provider 的 ACME DNS-01 自动签发一张 `*.DOMAIN_NAME` 通配符证书，供固定入口和动态应用共享。开发环境使用 `docker-compose.dev.yml`、`.env.dev` 和本地 TLS 证书。
 
 ## Web 控制台
 

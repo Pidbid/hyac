@@ -123,6 +123,7 @@ graph TD
     Replace every placeholder in `.env` before startup. Required values are:
 
     - `DOMAIN_NAME` and `EMAIL_ADDRESS`
+    - `ACME_DNS_PROVIDER` and `ACME_DNS_CREDENTIALS_FILE`
     - `MONGODB_USERNAME` and `MONGODB_PASSWORD`
     - `S3_ACCESS_KEY` and `S3_SECRET_KEY`
     - `SECRET_KEY` (at least 32 characters)
@@ -130,6 +131,15 @@ graph TD
     - `GLOBAL_TAG` (a stable release tag such as `v1.2.3`, never `latest`; it is shared by server, web, app, and the LSP sidecar)
 
     `openssl rand -hex 32` generates a 64-character hexadecimal value that is supported by the administrator password fields. Generate a different value for every password or secret. Do not leave any `<...>` placeholder from `.env.example` in production.
+
+    Production TLS uses DNS-01 exclusively to obtain one `*.DOMAIN_NAME` wildcard certificate. `ACME_DNS_PROVIDER` must name a [provider supported by Traefik/lego](https://go-acme.github.io/lego/dns/), while provider-specific variables belong in the external `ACME_DNS_CREDENTIALS_FILE`. Prefer `_FILE` variables that reference read-only files under `ACME_DNS_SECRETS_DIR`; never put a DNS API key in `.env` or Git. For example, a NameSilo provider environment file can contain:
+
+    ```dotenv
+    NAMESILO_API_KEY_FILE=/run/secrets/acme-dns/namesilo-api-key
+    NAMESILO_PROPAGATION_TIMEOUT=1800
+    ```
+
+    `*.DOMAIN_NAME` covers console, server, object storage, dynamic applications, and `web-<app_id>`, but not the apex or a second-level subdomain. Configure wildcard DNS for `*.DOMAIN_NAME`. When FRP is used, forward wildcard HTTP Host and HTTPS SNI traffic to local Traefik ports 80 and 443 respectively.
 
 3.  Generate the MongoDB cluster authentication keyfile:
 

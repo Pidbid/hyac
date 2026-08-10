@@ -195,38 +195,44 @@ class DeploymentReviewContractTests(unittest.TestCase):
 
     def test_production_compose_resolves_one_non_latest_runtime_image_tag(self):
         release_tag = "v1.2.3"
-        environment = {
-            **os.environ,
-            "DOMAIN_NAME": "example.com",
-            "EMAIL_ADDRESS": "ops@example.com",
-            "MONGODB_USERNAME": "root",
-            "MONGODB_PASSWORD": "mongo-production-password",
-            "S3_ACCESS_KEY": "production-access-key",
-            "S3_SECRET_KEY": "production-secret-key",
-            "SECRET_KEY": "production-secret-key-with-at-least-32-characters",
-            "DEFAULT_ADMIN_USER": "admin",
-            "DEFAULT_ADMIN_PASSWORD": "production-admin-password",
-            "SERVER_IMAGE_TAG": release_tag,
-            "WEB_IMAGE_TAG": release_tag,
-            "APP_IMAGE_TAG": release_tag,
-            "DEMO_MODE": "false",
-        }
-        result = subprocess.run(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(REPO_ROOT / "docker-compose.yml"),
-                "config",
-                "--format",
-                "json",
-            ],
-            cwd=REPO_ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            credentials_file = Path(tmp) / "provider.env"
+            credentials_file.write_text("", encoding="utf-8")
+            environment = {
+                **os.environ,
+                "DOMAIN_NAME": "example.com",
+                "EMAIL_ADDRESS": "ops@example.com",
+                "ACME_DNS_PROVIDER": "namesilo",
+                "ACME_DNS_CREDENTIALS_FILE": str(credentials_file),
+                "ACME_DNS_SECRETS_DIR": tmp,
+                "MONGODB_USERNAME": "root",
+                "MONGODB_PASSWORD": "mongo-production-password",
+                "S3_ACCESS_KEY": "production-access-key",
+                "S3_SECRET_KEY": "production-secret-key",
+                "SECRET_KEY": "production-secret-key-with-at-least-32-characters",
+                "DEFAULT_ADMIN_USER": "admin",
+                "DEFAULT_ADMIN_PASSWORD": "production-admin-password",
+                "SERVER_IMAGE_TAG": release_tag,
+                "WEB_IMAGE_TAG": release_tag,
+                "APP_IMAGE_TAG": release_tag,
+                "DEMO_MODE": "false",
+            }
+            result = subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(REPO_ROOT / "docker-compose.yml"),
+                    "config",
+                    "--format",
+                    "json",
+                ],
+                cwd=REPO_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
         self.assertEqual(result.returncode, 0, result.stderr)
         compose = json.loads(result.stdout)
@@ -237,11 +243,68 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertEqual(services["web"]["image"], f"wicos/hyac_web:{release_tag}")
         self.assertEqual(services["app"]["image"], f"wicos/hyac_app:{release_tag}")
         self.assertEqual(services["lsp-sidecar"]["image"], services["app"]["image"])
+        traefik = services["traefik"]
+        self.assertIn(
+            "--certificatesresolvers.myresolver.acme.dnschallenge.provider=namesilo",
+            traefik["command"],
+        )
+        self.assertFalse(
+            any("httpchallenge" in item.lower() for item in traefik["command"])
+        )
+        for service, router in (
+            ("rustfs", "hyac-rustfs"),
+            ("server", "hyac-server"),
+            ("web", "hyac-web"),
+        ):
+            with self.subTest(service=service):
+                self.assertEqual(
+                    "*.example.com",
+                    services[service]["labels"][
+                        f"traefik.http.routers.{router}.tls.domains[0].main"
+                    ],
+                )
         self.assertEqual(services["server"]["environment"]["SERVER_IMAGE_TAG"], release_tag)
         self.assertEqual(services["server"]["environment"]["WEB_IMAGE_TAG"], release_tag)
         self.assertEqual(services["server"]["environment"]["APP_IMAGE_TAG"], release_tag)
         self.assertEqual(services["server"]["environment"]["LSP_MODE"], "sidecar")
         self.assertIn("healthcheck", services["lsp-sidecar"])
+
+    def test_production_compose_requires_dns01_provider_configuration(self):
+        base_environment = {
+            **os.environ,
+            "DOMAIN_NAME": "example.com",
+            "EMAIL_ADDRESS": "ops@example.com",
+            "ACME_DNS_PROVIDER": "namesilo",
+            "ACME_DNS_CREDENTIALS_FILE": "/dev/null",
+            "ACME_DNS_SECRETS_DIR": "/tmp",
+            "MONGODB_USERNAME": "root",
+            "MONGODB_PASSWORD": "mongo-production-password",
+            "S3_ACCESS_KEY": "production-access-key",
+            "S3_SECRET_KEY": "production-secret-key",
+            "SECRET_KEY": "production-secret-key-with-at-least-32-characters",
+            "DEFAULT_ADMIN_USER": "admin",
+            "DEFAULT_ADMIN_PASSWORD": "production-admin-password",
+            "SERVER_IMAGE_TAG": "v1.2.3",
+            "WEB_IMAGE_TAG": "v1.2.3",
+            "APP_IMAGE_TAG": "v1.2.3",
+            "DEMO_MODE": "false",
+        }
+
+        for missing in ("ACME_DNS_PROVIDER", "ACME_DNS_CREDENTIALS_FILE"):
+            with self.subTest(missing=missing):
+                environment = dict(base_environment)
+                environment.pop(missing, None)
+                result = subprocess.run(
+                    ["docker", "compose", "config", "--quiet"],
+                    cwd=REPO_ROOT,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(missing, result.stderr)
 
     def test_mongo_keyfile_generator_refuses_symlinks_without_touching_target(self):
         script = REPO_ROOT / "scripts/01-create-mongo-keyfile.sh"
@@ -287,6 +350,8 @@ class DeploymentReviewContractTests(unittest.TestCase):
         for key in (
             "DOMAIN_NAME",
             "EMAIL_ADDRESS",
+            "ACME_DNS_PROVIDER",
+            "ACME_DNS_CREDENTIALS_FILE",
             "MONGODB_PASSWORD",
             "S3_ACCESS_KEY",
             "S3_SECRET_KEY",
@@ -301,6 +366,8 @@ class DeploymentReviewContractTests(unittest.TestCase):
         for key in (
             "DOMAIN_NAME",
             "EMAIL_ADDRESS",
+            "ACME_DNS_PROVIDER",
+            "ACME_DNS_CREDENTIALS_FILE",
             "MONGODB_PASSWORD",
             "S3_ACCESS_KEY",
             "S3_SECRET_KEY",
@@ -323,6 +390,27 @@ class DeploymentReviewContractTests(unittest.TestCase):
         self.assertNotIn("uv pip install", server_entrypoint)
         self.assertNotIn("--reload", server_entrypoint)
         self.assertIn("exec uvicorn", server_entrypoint)
+
+    def test_production_compose_uses_provider_agnostic_dns01_wildcard(self):
+        source = read("docker-compose.yml")
+
+        self.assertIn(
+            "--certificatesresolvers.myresolver.acme.dnschallenge.provider=${ACME_DNS_PROVIDER",
+            source,
+        )
+        self.assertNotIn("httpchallenge", source.lower())
+        self.assertIn("${ACME_DNS_CREDENTIALS_FILE", source)
+        self.assertIn(
+            "${ACME_DNS_SECRETS_DIR:-/etc/hyac/acme-dns}:/run/secrets/acme-dns:ro",
+            source,
+        )
+        for router in ("hyac-rustfs", "hyac-server", "hyac-web"):
+            with self.subTest(router=router):
+                self.assertIn(
+                    f"traefik.http.routers.{router}.tls.domains[0].main=*.${{DOMAIN_NAME",
+                    source,
+                )
+
 
         web_dockerfile = read("web/Dockerfile")
         self.assertIn(

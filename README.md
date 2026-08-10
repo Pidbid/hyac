@@ -123,6 +123,7 @@ graph TD
     启动前必须替换 `.env` 中的全部占位值。必填项包括：
 
     - `DOMAIN_NAME`、`EMAIL_ADDRESS`
+    - `ACME_DNS_PROVIDER`、`ACME_DNS_CREDENTIALS_FILE`
     - `MONGODB_USERNAME`、`MONGODB_PASSWORD`
     - `S3_ACCESS_KEY`、`S3_SECRET_KEY`
     - `SECRET_KEY`（至少 32 个字符）
@@ -130,6 +131,15 @@ graph TD
     - `GLOBAL_TAG`（稳定发布标签，例如 `v1.2.3`，禁止使用 `latest`；该标签同时用于 server、web、app 和 LSP sidecar）
 
     `openssl rand -hex 32` 会生成前后端管理员密码字段均支持的 64 位十六进制值。数据库密码、S3 密钥、JWT 密钥和管理员密码应分别生成不同的随机值。不要保留 `.env.example` 中的 `<...>` 占位符。
+
+    生产 TLS 仅使用 DNS-01 申请一张 `*.DOMAIN_NAME` 通配符证书。`ACME_DNS_PROVIDER` 必须是 [Traefik/lego 支持的 provider](https://go-acme.github.io/lego/dns/)，provider 特有变量写入仓库外的 `ACME_DNS_CREDENTIALS_FILE`。推荐使用 `_FILE` 变量引用 `ACME_DNS_SECRETS_DIR` 中的只读密钥文件，不要把 DNS API 密钥写入 `.env` 或提交到 Git。例如 NameSilo 的 provider 环境文件可包含：
+
+    ```dotenv
+    NAMESILO_API_KEY_FILE=/run/secrets/acme-dns/namesilo-api-key
+    NAMESILO_PROPAGATION_TIMEOUT=1800
+    ```
+
+    `*.DOMAIN_NAME` 覆盖 console、server、oss、动态 App 和 `web-<app_id>`，但不覆盖根域或二级子域。域名必须配置 `*.DOMAIN_NAME` 泛解析；使用 FRP 时，HTTP Host 和 HTTPS SNI 的通配流量必须分别转发到本机 Traefik 的 80 和 443 端口。
 
 3.  生成 MongoDB 集群认证 keyfile：
 
@@ -215,7 +225,7 @@ mkcert -cert-file traefik/certs/dev-cert.pem -key-file traefik/certs/dev-key.pem
 
 说明：
 - 开发环境 Traefik 默认读取 `traefik/dynamic-dev/tls.yml`，使用 `traefik/certs/dev-cert.pem` 与 `dev-key.pem` 作为开发证书。
-- 生产环境 (`docker-compose.yml`) 继续使用 `.env` 中真实域名与 ACME 自动证书签发策略，不应设置为 `localhost`。
+- 生产环境 (`docker-compose.yml`) 使用 `.env` 中真实域名与 DNS-01 通配符证书，不应设置为 `localhost`。
 
 ### 🧪 测试环境调试方式
 

@@ -30,7 +30,7 @@ Traefik is the external traffic entry point.
 - `https://oss.<DOMAIN_NAME>` reaches RustFS/S3-compatible object storage.
 - `https://<app_id>.<DOMAIN_NAME>/<function_id>` invokes an application function.
 
-Production uses `docker-compose.yml` and ACME certificates. Development uses `docker-compose.dev.yml`, `.env.dev`, and local TLS certificates.
+Production uses `docker-compose.yml` and ACME DNS-01 with a configurable DNS provider to obtain one shared `*.DOMAIN_NAME` wildcard certificate for fixed and dynamic routes. Development uses `docker-compose.dev.yml`, `.env.dev`, and local TLS certificates.
 
 ## Web Console
 
